@@ -95,6 +95,12 @@ Create a digital party/card game where players spin a wheel to receive and follo
 - [13. Analytics and Feedback Collection](plan13-analytics_and_feedback_collection.md) (6 points)
 - [14. Community Features and Moderation](plan14-community_features_and_moderation.md) (11 points)
 
+**Phase 6: User-Generated Content & Expansion - Feature Plans**
+- [15. User-Generated Cards](plan15-user_generated_cards.md) (15 points)
+
+**Phase 6: User-Generated Content & Expansion - Feature Plans**
+- [15. User-Generated Cards](plan15-user_generated_cards.md) (15 points)
+
 ---
 
 #### Game Flow Diagram

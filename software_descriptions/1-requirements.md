@@ -335,3 +335,15 @@ Roles and responsibilities:
 [ ] 14.4 Community Guidelines and Support (2 Points)
 [ ] 14.4.1 Display clear community guidelines within the app (1 Point)
 [ ] 14.4.2 Provide support channels for reporting issues or seeking help (1 Point)
+
+## Phase 6: User-Generated Content & Expansion
+[ ] 15. User-Generated Cards (15 Points)
+[ ] 15.1 Custom Card Editor (UI) (6 Points)
+[ ] 15.1.1 Develop a user-friendly interface for players to create custom rule, modifier, and prompt cards. (3 Points)
+[ ] 15.1.2 Allow input fields for card name, type (rule, modifier, prompt), description, special conditions, and any other relevant metadata. (3 Points)
+[ ] 15.2 Card Data Structure and Storage (5 Points)
+[ ] 15.2.1 Define a data structure to store user-generated card specifications, ensuring compatibility with existing card logic. (2 Points)
+[ ] 15.2.2 Implement secure storage for user-generated cards (e.g., Firebase Firestore collection). (3 Points)
+[ ] 15.3 Card Validation and Moderation (4 Points)
+[ ] 15.3.1 Implement basic validation for user-generated card content to prevent malicious or non-sensical inputs. (2 Points)
+[ ] 15.3.2 Consider a moderation system for user-generated content (e.g., reporting, review before public use). (2 Points)
