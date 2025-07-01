@@ -1,11 +1,33 @@
 # Requirements
 
+## Glossary
+
+- **Session:** A unique game instance where players interact. Identified by a session ID, persists state, and can be rejoined if disconnected.
+- **Host:** The player who creates the session and has special controls (e.g., starting the game, kicking players, ending session).
+- **Referee Card:** A special rule card randomly assigned at game start. The holder acts as referee, adjudicating callouts. The card can be swapped or transferred.
+- **Referee:** The player currently holding the referee card. Responsible for resolving callouts and certain game decisions.
+- **End Condition:** After all players have had 10 turns.
+- **Rule Modifier:** A card that changes the effect or parameters of an existing rule.
+- **Flip Card:** A card that allows a player to flip one of their existing cards to its alternate rule or alternate modifier on the back of the card.
+- **Swap Card:** A card that allows two players to exchange cards or roles (including referee).
+- **Clone Card:** A card that duplicates the effect of another card or rule.
+- **Prompt Card:** A card that requires a player to perform a specific action or answer a prompt.
+- **Lobby:** The pre-game area where players join, see each other, and ready up before the game starts.
+- **Ready State:** Indicates whether a player is ready to begin. All players must be ready to start.
+- **Session Persistence:** The ability for a session to survive disconnects and allow players to rejoin with state intact.
+- **Card Transfer:** The act of moving a card from one player to another, triggered by referee decisions, card effects, or specific rules.
+
+Roles and responsibilities:
+- The **host** manages session controls.
+- The **referee** (holder of the referee card) adjudicates callouts and can change during the game.
+- **End conditions** must be checked after every point or card change.
+
+
 ## Phase 1: Foundational Setup
-[ ] 1. Game Setup and Initialization (21 Points)
-[ ] 1.1 Game Session Creation (5 Points)
+[ ] 1. Game Setup and Initialization (11 Points)
+[ ] 1.1 Game Session Creation (3 Points)
 [ ] 1.1.1 Implement logic for creating a new game session (unique session ID, host assignment) (2 Points)
-[ ] 1.1.2 Allow players to join an existing session via code or link (2 Points)
-[ ] 1.1.3 Store session state (lobby, in-progress, completed) (1 Point)
+[ ] 1.1.2 Reference: All session joining, lobby, ready, and persistence requirements are consolidated in Phase 3.
 [ ] 1.2 Player Initialization (4 Points)
 [ ] 1.2.1 Assign each player a unique identifier and display name (1 Point)
 [ ] 1.2.2 Initialize each player with 20 points (1 Point)
@@ -13,16 +35,8 @@
 [ ] 1.3 Referee Card Assignment (3 Points)
 [ ] 1.3.1 Randomly assign the referee card to one player at the start of the game (2 Points)
 [ ] 1.3.2 Ensure the referee card is treated as a rule card and can be swapped later (1 Point)
-[ ] 1.4 Lobby and Ready System (4 Points)
-[ ] 1.4.1 Display a lobby where players can see who has joined (1 Point)
-[ ] 1.4.2 Implement a "ready" button for each player (1 Point)
-[ ] 1.4.3 Only allow the game to start when all players are ready (2 Points)
-[ ] 1.5 Game Start and State Transition (3 Points)
-[ ] 1.5.1 Transition from lobby to active game state when all players are ready (2 Points)
-[ ] 1.5.2 Broadcast game start event to all players (1 Point)
-[ ] 1.6 Session Persistence and Rejoin (2 Points)
-[ ] 1.6.1 Allow players to rejoin a session if disconnected (1 Point)
-[ ] 1.6.2 Persist session and player state in backend or local storage (1 Point)
+[ ] 1.4 Game Start and State Transition (1 Point)
+[ ] 1.4.1 Reference: Game start, lobby, and ready logic are defined in Phase 3.
 
 ## Phase 2: Core Game Mechanics
 [ ] 2. Wheel Spin and Card Draw Logic (18 Points)
@@ -41,13 +55,18 @@
 [ ] 2.4.1 Enforce turn order and prevent out-of-turn actions (2 Points)
 [ ] 2.4.2 Indicate whose turn it is in the UI (1 Point)
 [ ] 2.5 Edge Cases and Error Handling (3 Points)
-[ ] 2.5.1 Handle cases where a deck is empty or a card cannot be drawn (2 Points)
+[ ] 2.5.1 Handle the following edge cases:
+    - Deck is empty
+    - Card cannot be drawn due to rule restrictions
+    - Player attempts to act out of turn
+    - Player disconnects during their turn
+    - Invalid or duplicate player actions
 [ ] 2.5.2 Provide user feedback for invalid actions (1 Point)
 
 [ ] 3. Card Types and Rule System (20 Points)
-[ ] 3.1 Card Type Definitions (4 Points)
-[ ] 3.1.1 Define all card types: new rule, rule modifier, flip, swap, clone, prompt (2 Points)
-[ ] 3.1.2 Specify data structure and properties for each card type (2 Points)
+[x] 3.1 Card Type Definitions (4 Points)
+[x] 3.1.1 Define all card types: new rule, rule modifier, flip, swap, clone, prompt (2 Points)
+[x] 3.1.2 Specify data structure and properties for each card type (2 Points)
 [ ] 3.2 Rule Engine Architecture (5 Points)
 [ ] 3.2.1 Implement a rule engine to manage active rules, their triggers, and durations (3 Points)
 [ ] 3.2.2 Support stacking and persistence of rules across turns (2 Points)
@@ -58,7 +77,10 @@
 [ ] 3.4.1 Display all active rules and their owners in the UI (2 Points)
 [ ] 3.4.2 Indicate which rules are persistent, temporary, or transferable (1 Point)
 [ ] 3.5 Edge Cases and Rule Conflicts (2 Points)
-[ ] 3.5.1 Handle conflicting or mutually exclusive rules (1 Point)
+[ ] 3.5.1 Handle the following rule conflicts:
+    - Conflicting or mutually exclusive rules
+    - Stacking rules that exceed allowed limits
+    - Rules that would cause a player to have negative points
 [ ] 3.5.2 Provide clear feedback when a rule cannot be applied (1 Point)
 [ ] 3.6 Extensibility for Future Cards (2 Points)
 [ ] 3.6.1 Design the system to allow easy addition of new card types and rule logic (2 Points)
@@ -73,12 +95,21 @@
 [ ] 4.3 Point and Card Transfer Logic (3 Points)
 [ ] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller (2 Points)
 [ ] 4.3.2 Allow the caller to transfer one of their cards to the failed player (1 Point)
+[ ] 4.3.3 Card transfer scenarios include:
+    - Referee awards card transfer after a callout
+    - Swap card is played (roles or cards exchanged)
+    - Clone or flip card is played (card duplicated or reversed)
+    - Prompt card requires a transfer as part of its effect
+    - Rule modifier triggers a transfer
 [ ] 4.4 Referee Card Swapping (2 Points)
 [ ] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
 [ ] 4.4.2 Update referee status and notify all players (1 Point)
 [ ] 4.5 Edge Cases and Abuse Prevention (2 Points)
 [ ] 4.5.1 Prevent spamming of callouts or referee decisions (1 Point)
-[ ] 4.5.2 Handle cases where the referee is the accused or caller (1 Point)
+[ ] 4.5.2 Handle the following scenarios:
+    - Referee is the accused or caller
+    - Multiple callouts in rapid succession
+    - Players attempting to bypass referee decisions
 
 [ ] 5. Points and Card Transfer System (10 Points)
 [ ] 5.1 Points Tracking (3 Points)
@@ -86,12 +117,22 @@
 [ ] 5.1.2 Update points in real time as game events occur (2 Points)
 [ ] 5.2 Card Ownership and Transfer (3 Points)
 [ ] 5.2.1 Track which cards are held by each player (1 Point)
-[ ] 5.2.2 Implement logic for transferring cards between players (2 Points)
+[ ] 5.2.2 Implement logic for transferring cards between players, including the following scenarios:
+    - Referee decisions after a valid callout
+    - Card effects (swap, clone, flip, prompt)
+    - Rule modifiers that trigger transfers
+    - End-of-turn or end-of-game effects
+    - Voluntary trades (if allowed by rules)
+    - Ensure all transfers update UI and game state consistently
 [ ] 5.3 UI Updates for Points and Cards (2 Points)
 [ ] 5.3.1 Display current points and held cards for all players in the UI (1 Point)
 [ ] 5.3.2 Provide clear feedback when points or cards change (1 Point)
 [ ] 5.4 End Condition Detection (2 Points)
-[ ] 5.4.1 Detect when a player reaches 0 points or another end condition is met (1 Point)
+[ ] 5.4.1 Detect the following end conditions:
+    - A player reaches 0 points (primary)
+    - All but one player reaches 0 points (secondary)
+    - A custom rule or card triggers game end
+    - All players leave the session
 [ ] 5.4.2 Trigger end-of-game flow and display results (1 Point)
 
 ## Phase 3: Multiplayer and Lobby System
@@ -102,6 +143,10 @@
 [ ] 6.2 Player Management (4 Points)
 [ ] 6.2.1 Track all players in a session, including their status (active, disconnected, left) (2 Points)
 [ ] 6.2.2 Handle player disconnects and reconnections gracefully (2 Points)
+    - If a player disconnects, mark them as disconnected but retain their state
+    - If a player rejoins, restore their state and role (including referee if applicable)
+    - If the host disconnects, assign a new host or pause the session until rejoin
+    - If the referee disconnects, assign referee card to another player or pause adjudication
 [ ] 6.3 Session State Management (3 Points)
 [ ] 6.3.1 Maintain and synchronize session state (lobby, in-game, completed) across all clients (2 Points)
 [ ] 6.3.2 Ensure session state persists if the host disconnects (1 Point)
@@ -110,7 +155,11 @@
 [ ] 6.4.2 Clean up session data to prevent orphaned sessions (1 Point)
 [ ] 6.5 Security and Access Control (2 Points)
 [ ] 6.5.1 Prevent unauthorized access to sessions (1 Point)
-[ ] 6.5.2 Handle edge cases such as duplicate player names or session hijacking (1 Point)
+[ ] 6.5.2 Handle edge cases such as:
+    - Duplicate player names
+    - Session hijacking attempts
+    - Players attempting to join a full session
+    - Host disconnects and session persistence
 
 [ ] 7. Lobby and Player Join/Leave (12 Points)
 [ ] 7.1 Lobby UI and Player List (3 Points)
@@ -118,7 +167,10 @@
 [ ] 7.1.2 Update the player list in real time as players join or leave (1 Point)
 [ ] 7.2 Join/Leave Logic (3 Points)
 [ ] 7.2.1 Allow players to join or leave the lobby at any time before the game starts (2 Points)
-[ ] 7.2.2 Handle edge cases such as duplicate names or reconnecting players (1 Point)
+[ ] 7.2.2 Handle edge cases such as:
+    - Duplicate player names
+    - Players disconnecting and reconnecting
+    - Players leaving and rejoining before game start
 [ ] 7.3 Ready System (2 Points)
 [ ] 7.3.1 Implement a "ready" button for each player (1 Point)
 [ ] 7.3.2 Indicate which players are ready and which are not (1 Point)
@@ -132,10 +184,13 @@
 [ ] 8. Real-Time Synchronization (14 Points)
 [ ] 8.1 State Sync Architecture (4 Points)
 [ ] 8.1.1 Design a system for broadcasting game state changes to all connected clients (2 Points)
-[ ] 8.1.2 Choose appropriate technology (e.g., WebSockets, Firebase Realtime Database) (2 Points)
+[ ] 8.1.2 Choose and document the technology for real-time state synchronization (Firebase Realtime Database is the preferred choice; if not finalized, mark as TBD and update all related plans for consistency) (2 Points)
 [ ] 8.2 Action Propagation (3 Points)
 [ ] 8.2.1 Ensure all player actions are propagated in real time (2 Points)
-[ ] 8.2.2 Handle out-of-order or conflicting actions gracefully (1 Point)
+[ ] 8.2.2 Handle out-of-order or conflicting actions gracefully, including:
+    - Simultaneous actions from multiple players
+    - Network latency causing delayed actions
+    - Conflicting state updates from different clients
 [ ] 8.3 Latency and Consistency Handling (3 Points)
 [ ] 8.3.1 Minimize latency for all real-time updates (2 Points)
 [ ] 8.3.2 Implement conflict resolution and state reconciliation as needed (1 Point)
@@ -160,9 +215,8 @@
 [ ] 9.4 Responsive and Accessible Design (3 Points)
 [ ] 9.4.1 Ensure UI works well on various screen sizes and devices (2 Points)
 [ ] 9.4.2 Implement accessibility best practices (1 Point)
-[ ] 9.5 User Feedback and Notifications (3 Points)
-[ ] 9.5.1 Provide clear feedback for all player actions and game events (2 Points)
-[ ] 9.5.2 Implement notification system for important events (1 Point)
+[ ] 9.5 User Feedback and Notifications (Reference)
+[ ] 9.5.1 All requirements for user feedback and in-game notifications are consolidated in Plan 13.5: Unified Feedback and Notification System.
 
 [ ] 10. Card/Rule Expansion Packs (8 Points)
 [ ] 10.1 Expansion Pack Architecture (3 Points)
@@ -196,7 +250,7 @@
 [ ] 12.1.1 Configure automated build and deployment scripts (2 Points)
 [ ] 12.1.2 Ensure builds are tested and validated before deployment (1 Point)
 [ ] 12.2 Hosting Configuration (2 Points)
-[ ] 12.2.1 Set up hosting on Firebase or another suitable platform (1 Point)
+[ ] 12.2.1 Set up hosting on Firebase (preferred) or another suitable platform (if not finalized, mark as TBD and ensure all references are consistent) (1 Point)
 [ ] 12.2.2 Configure domains, SSL, and CDN as needed (1 Point)
 [ ] 12.3 Environment Management (1 Point)
 [ ] 12.3.1 Manage environment variables and secrets securely (1 Point)
@@ -208,13 +262,19 @@
 [ ] 13.1 Analytics Integration (2 Points)
 [ ] 13.1.1 Integrate analytics tools to track key metrics (1 Point)
 [ ] 13.1.2 Define and monitor events such as game starts, spins, callouts, and session completions (1 Point)
-[ ] 13.2 Feedback Collection UI (2 Points)
-[ ] 13.2.1 Provide in-game UI for players to submit feedback, bug reports, or suggestions (1 Point)
-[ ] 13.2.2 Store and organize feedback for review by maintainers (1 Point)
+[ ] 13.2 Feedback Collection UI (Reference)
+[ ] 13.2.1 All requirements for feedback collection UI are consolidated in Plan 13.5: Unified Feedback and Notification System.
 [ ] 13.3 Data Privacy and Compliance (1 Point)
 [ ] 13.3.1 Ensure analytics and feedback collection comply with privacy regulations (1 Point)
 [ ] 13.4 Reporting and Insights (1 Point)
 [ ] 13.4.1 Generate reports and dashboards for maintainers to review analytics and feedback (1 Point)
+
+[ ] 13.5 Unified Feedback and Notification System (5 Points)
+[ ] 13.5.1 Provide in-game UI for players to submit feedback, bug reports, or suggestions (1 Point)
+[ ] 13.5.2 Store and organize feedback for review by maintainers (1 Point)
+[ ] 13.5.3 Provide clear feedback for all player actions and game events (1 Point)
+[ ] 13.5.4 Implement notification system for important events, warnings, and errors (1 Point)
+[ ] 13.5.5 Ensure consistency in terminology and user experience for all feedback and notifications (1 Point)
 
 [ ] 14. Community Features and Moderation (11 Points)
 [ ] 14.1 Community Features (4 Points)
