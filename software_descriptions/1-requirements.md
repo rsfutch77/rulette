@@ -27,7 +27,6 @@ Roles and responsibilities:
 [x] 1. Game Setup and Initialization (11 Points)
 [x] 1.1 Game Session Creation (3 Points)
 [x] 1.1.1 Implement logic for creating a new game session (unique session ID, host assignment) (2 Points)
-[ ] 1.1.2 Reference: All session joining, lobby, ready, and persistence requirements are consolidated in Phase 3.
 [x] 1.2 Player Initialization (4 Points)
 [x] 1.2.1 Assign each player a unique identifier and display name (1 Point)
 [x] 1.2.2 Initialize each player with 20 points (1 Point)
@@ -35,8 +34,6 @@ Roles and responsibilities:
 [x] 1.3 Referee Card Assignment (3 Points)
 [x] 1.3.1 Randomly assign the referee card to one player at the start of the game (2 Points)
 [x] 1.3.2 Ensure the referee card is treated as a rule card and can be swapped later (1 Point)
-[ ] 1.4 Game Start and State Transition (1 Point)
-[ ] 1.4.1 Reference: Game start, lobby, and ready logic are defined in Phase 3.
 
 ## Phase 2: Core Game Mechanics
 [ ] 2. Wheel Spin and Card Draw Logic (18 Points)
