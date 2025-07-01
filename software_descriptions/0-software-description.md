@@ -75,6 +75,8 @@ Create a digital party/card game where players spin a wheel to receive and follo
 - [2. Wheel Spin and Card Draw Logic](plan2-wheel_spin_and_card_draw_logic.md) (18 points)
 - [3. Card Types and Rule System](plan3-card_types_and_rule_system.md) (16 points)
 - [3.a. Flip Card Mechanic](plan3.a-flip_card_mechanic.md) (7 points)
+- [3.b. Clone Card Mechanic](plan3.b-clone_card_mechanic.md) (9 points)
+- [3.c. Prompt Card Mechanic](plan3.c-prompt_card_mechanic.md) (16 points)
 - [4. Referee and Callout Mechanic](plan4-referee_and_callout_mechanic.md) (15 points)
 - [5. Points and Card Transfer System](plan5-points_and_card_transfer_system.md) (10 points)
 
