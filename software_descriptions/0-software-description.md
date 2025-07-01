@@ -44,11 +44,12 @@ Create a digital party/card game where players spin a wheel to receive and follo
     - If the call is valid, the failed player loses a point, the caller gains a point, and may transfer one of their cards to the failed player.
     - If not, no penalty is applied.
 8. The referee card itself can be swapped if a swap card is drawn.
-9. Play continues until a win or end condition is met (to be defined).
+9. A player may use a flip card to change the active rule or effect of a card they hold.
+10. Play continues until a win or end condition is met (to be defined).
 
 ### General Features
 - Wheel spin mechanic to determine card type
-- Multiple card types: new rule, rule modifier, flip, swap, clone, prompt
+- Multiple card types: new rule, rule modifier, swap, clone, prompt, flip
 - Persistent and stackable rules for ongoing gameplay variety
 - Referee system for social enforcement and judgment
 - Points system with card transfer on successful callouts
@@ -72,7 +73,8 @@ Create a digital party/card game where players spin a wheel to receive and follo
 
 **Phase 2: Core Game Mechanics - Feature Plans**
 - [2. Wheel Spin and Card Draw Logic](plan2-wheel_spin_and_card_draw_logic.md) (18 points)
-- [3. Card Types and Rule System](plan3-card_types_and_rule_system.md) (20 points)
+- [3. Card Types and Rule System](plan3-card_types_and_rule_system.md) (16 points)
+- [3.a. Flip Card Mechanic](plan3.a-flip_card_mechanic.md) (7 points)
 - [4. Referee and Callout Mechanic](plan4-referee_and_callout_mechanic.md) (15 points)
 - [5. Points and Card Transfer System](plan5-points_and_card_transfer_system.md) (10 points)
 

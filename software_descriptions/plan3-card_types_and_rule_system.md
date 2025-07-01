@@ -1,7 +1,7 @@
 # Plan 3: Card Types and Rule System
 
 **Phase:** 2 — Core Game Mechanics  
-**Story Points:** 20
+**Story Points:** 16
 
 ---
 
@@ -14,7 +14,7 @@ Design and implement the various card types and the underlying rule system that 
 ## Tasks
 
 ### 3.1 Card Type Definitions (4 points)
-- Define all card types: new rule, rule modifier, flip, swap, clone, prompt.
+- Define all primary card types: new rule, rule modifier, swap, clone, prompt.
 - Specify data structure and properties for each card type.
 
 ### 3.2 Rule Engine Architecture (5 points)
@@ -23,7 +23,7 @@ Design and implement the various card types and the underlying rule system that 
 
 ### 3.3 Card Effect Resolution (4 points)
 - Implement logic for applying card effects to players or the game state.
-- Handle special actions (swap, clone, flip, etc.) and their interactions.
+- Handle special actions (swap, clone, etc.) and their interactions.
 
 ### 3.4 Rule Display and Tracking (3 points)
 - Display all active rules and their owners in the UI.
