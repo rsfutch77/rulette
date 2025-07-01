@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>[Game Title] - Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .container { background: #fff; padding: 2rem 3rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; }
+    h1 { margin-bottom: 1.5rem; }
+    #login-btn, #logout-btn { padding: 0.7rem 1.5rem; font-size: 1rem; border: none; border-radius: 5px; background: #4285F4; color: #fff; cursor: pointer; margin-top: 1rem; }
+    #logout-btn { background: #d9534f; }
+    #user-info { margin-top: 1.5rem; }
+    .turn-indicator {
+      font-size: 1.5rem;
+      color: #222;
+      margin-bottom: 0.2em;
+      text-align: center;
+      line-height: 1;
+      filter: drop-shadow(0 1px 2px #fff8);
+    }
+    .player-token {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-block;
+      border: 2.5px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      position: absolute;
+      top: 8px;
+      /* left is set dynamically for each token */
+      transition: box-shadow 0.2s;
+    }
+    .progress-dots {
+      display: flex;
+      gap: 4px;
+      margin-top: 5px;
+    }
+    .progress-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: #ccc; /* Default color for uncompleted progress */
+      border: 1px solid #999;
+    }
+    .progress-dot.completed {
+      background-color: #4CAF50; /* Color for completed progress */
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to [Game Title]</h1>
+    <p style="font-size: 1.1rem; color: #333; margin-bottom: 1.5rem; font-style: italic; line-height: 1.4; max-width: 600px; text-align: center;">
+      [Description Text Here]
+    </p>
+    <div id="game-code-header" style="font-weight:bold; color:#4285F4; margin-bottom:1rem; display:none;"></div>
+    <button id="login-btn">Login</button>
+    <div id="user-info" style="display:none;">
+      <p id="user-name"></p>
+      <button id="logout-btn">Logout</button>
+      <button id="create-game-btn" style="display:none; margin-top:1rem;">Create New Game</button>
+      <button id="join-game-btn" style="display:none; margin-top:1rem;">Join Existing Game</button>
+      <div id="join-game-form" style="display:none; margin-top:1rem;">
+        <input type="text" id="join-game-code" placeholder="Enter game code" maxlength="10" style="margin-right:0.5rem;">
+        <button id="submit-join-game-btn">Join</button>
+        <span id="join-game-error" style="color:red; margin-left:0.5rem;"></span>
+      </div>
+    </div>
+  </div>
+  <!-- Game Page Section (initially hidden) -->
+  <div id="game-page" style="display:none; margin-top:2rem;">
+    <div id="game-header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+      <div id="game-join-code" style="font-size:1.2rem; font-weight:bold; color:#4285F4;"></div>
+      <div id="players-scores" style="display:flex; gap:2rem;"></div>
+      <button id="game-logout-btn" style="background:#d9534f; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer;">Logout</button>
+    </div>
+    <!-- Dev Turn Order Override (only visible for dev/test users) -->
+    <div id="dev-turn-order-controls" style="display:none; margin-top:1rem; padding:1rem; background:#d1ecf1; border:2px solid #bee5eb; border-radius:8px; text-align:center;">
+      <div style="font-weight:bold; color:#0c5460; margin-bottom:0.5rem;">🛠️ DEV MODE: Turn Order Override</div>
+      <div style="margin-bottom:0.5rem;">
+        <label for="dev-turn-roll1" style="margin-right:0.5rem;">Host Roll Die 1 (1-6):</label>
+        <input type="number" id="dev-turn-roll1" min="1" max="6" style="width:50px; padding:0.2rem; margin-right:1rem;">
+        <label for="dev-turn-roll2" style="margin-right:0.5rem;">Host Roll Die 2 (1-6):</label>
+        <input type="number" id="dev-turn-roll2" min="1" max="6" style="width:50px; padding:0.2rem;">
+      </div>
+      <div style="font-size:0.9rem; color:#0c5460;">Leave empty for random rolls. Only affects host's turn order roll.</div>
+    </div>
+    <button id="start-game-btn" style="display:none; background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer;">Start Game</button>
+    <div id="turn-order" style="margin-top:1rem; font-weight:bold;"></div>
+    <!-- Dev Dice Roll Override (only visible for dev/test users) -->
+    <div id="dev-dice-controls" style="display:none; margin-top:1rem; padding:1rem; background:#fff3cd; border:2px solid #ffeaa7; border-radius:8px; text-align:center;">
+      <div style="font-weight:bold; color:#856404; margin-bottom:0.5rem;">🛠️ DEV MODE: Dice Roll Override</div>
+      <div style="margin-bottom:0.5rem;">
+        <label for="dev-roll1" style="margin-right:0.5rem;">Die 1 (1-6):</label>
+        <input type="number" id="dev-roll1" min="1" max="6" style="width:50px; padding:0.2rem; margin-right:1rem;">
+        <label for="dev-roll2" style="margin-right:0.5rem;">Die 2 (1-6):</label>
+        <input type="number" id="dev-roll2" min="1" max="6" style="width:50px; padding:0.2rem;">
+      </div>
+      <div style="font-size:0.9rem; color:#856404;">Leave empty for random rolls</div>
+    </div>
+    <button id="roll-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; font-size:1.1rem; cursor:pointer; margin-top:1.5rem;" disabled>Roll</button>
+    <span id="roll-result" style="margin-left:1rem; font-weight:bold; font-size:1.1rem;"></span>
+  </div>
+  <script type="module" src="./firebase-init.js"></script>
+  <script type="module" src="./main.js"></script>
+  <!-- Game Card Popup Modal -->
+  <div id="game-card-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:2rem; border-radius:1rem; max-width:400px; margin:auto; box-shadow:0 2px 16px rgba(0,0,0,0.3); position:relative;">
+      <h3 id="game-card-title" style="margin-top:0;"></h3>
+      <h2 id="game-card-question"></h2>
+      <div id="game-card-choices"></div>
+      <div id="game-card-result" style="margin-top:1rem; font-weight:bold;"></div>
+    </div>
+  </div>
+  <!-- Notification Modal -->
+  <div id="notification-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:2rem; border-radius:1rem; max-width:400px; margin:auto; box-shadow:0 2px 16px rgba(0,0,0,0.3); position:relative;">
+      <h2 id="notification-title">Notification</h2>
+      <p id="notification-message"></p>
+      <button id="notification-close-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer; margin-top:1rem;">OK</button>
+    </div>
+  </div>
+</body>
+</html>

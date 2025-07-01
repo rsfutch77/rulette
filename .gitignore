@@ -1,0 +1,10 @@
+﻿mockups
+node_modules
+.firebase
+firebase-init.js
+public/static/js/bundle.js
+public
+.roomodes
+coverage/
+__pycache__
+task_completion_chart.png
