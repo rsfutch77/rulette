@@ -13,19 +13,19 @@ Establish the foundational systems for Rulette, enabling players to create or jo
 
 ## Tasks
 
-### 1.1 Game Session Creation (5 points)
-- Implement logic for creating a new game session (unique session ID, host assignment).
+### 1.1 Game Session Creation (5 points) [x]
+- Implement logic for creating a new game session (unique session ID, host assignment). [x]
 - Allow players to join an existing session via code or link.
 - Store session state (lobby, in-progress, completed).
 
-### 1.2 Player Initialization (4 points)
-- Assign each player a unique identifier and display name.
-- Initialize each player with 20 points.
-- Track player status (active, disconnected, etc.).
+### 1.2 Player Initialization (4 points) [x]
+- Assign each player a unique identifier and display name. [x]
+- Initialize each player with 20 points. [x]
+- Track player status (active, disconnected, etc.). [x]
 
-### 1.3 Referee Card Assignment (3 points)
-- Randomly assign the referee card to one player at the start of the game.
-- Ensure the referee card is treated as a rule card and can be swapped later.
+### 1.3 Referee Card Assignment (3 points) [x]
+- Randomly assign the referee card to one player at the start of the game. [x]
+- Ensure the referee card is treated as a rule card and can be swapped later. [x]
 
 ### 1.4 Lobby and Ready System (4 points)
 - Display a lobby where players can see who has joined.
