@@ -68,6 +68,10 @@ Create a digital party/card game where players spin a wheel to receive and follo
 - Phase 4: Deployment and community feedback
 
 ### Plans
+## Design Outputs
+- [2. Design Outputs](2-outputs.md)
+
+### Plans
 **Phase 1: Foundational Setup - Feature Plans**
 - [1. Game Setup and Initialization](plan1-game_setup_and_initialization.md) (21 points)
 
