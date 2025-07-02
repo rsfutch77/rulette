@@ -412,6 +412,145 @@ class GameManager {
         return false;
     }
 
+    /**
+     * Flip a card in a player's hand or on the board
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID attempting to flip the card
+     * @param {string|Object} cardIdentifier - Card ID string or card object
+     * @returns {object} - {success: boolean, card?: Object, error?: string, errorCode?: string}
+     */
+    flipCard(sessionId, playerId, cardIdentifier) {
+        console.log(`[GAME_MANAGER] Attempting to flip card for player ${playerId} in session ${sessionId}`);
+        
+        // Validate session and player
+        const validation = this.validatePlayerAction(sessionId, playerId, 'flip');
+        if (!validation.valid) {
+            return {
+                success: false,
+                error: validation.error,
+                errorCode: validation.errorCode
+            };
+        }
+
+        try {
+            let card = null;
+            let cardLocation = null;
+
+            // Handle different card identifier types
+            if (typeof cardIdentifier === 'string') {
+                // Find card by ID in player's hand
+                const player = this.players[playerId];
+                card = player.hand.find(c => c.id === cardIdentifier);
+                if (card) {
+                    cardLocation = 'hand';
+                } else {
+                    // TODO: Check for card on the board/active rules when that system is implemented
+                    return {
+                        success: false,
+                        error: 'Card not found in player\'s hand',
+                        errorCode: 'CARD_NOT_FOUND'
+                    };
+                }
+            } else if (cardIdentifier && typeof cardIdentifier === 'object' && cardIdentifier.id) {
+                // Card object provided directly
+                card = cardIdentifier;
+                cardLocation = 'provided';
+            } else {
+                return {
+                    success: false,
+                    error: 'Invalid card identifier provided',
+                    errorCode: 'INVALID_CARD_IDENTIFIER'
+                };
+            }
+
+            // Validate card can be flipped
+            if (!card) {
+                return {
+                    success: false,
+                    error: 'Card not found',
+                    errorCode: 'CARD_NOT_FOUND'
+                };
+            }
+
+            // Check if card type supports flipping
+            if (card.type === 'prompt') {
+                return {
+                    success: false,
+                    error: 'Prompt cards cannot be flipped',
+                    errorCode: 'CARD_NOT_FLIPPABLE'
+                };
+            }
+
+            // Check if card has a back rule
+            if (!card.backRule && !card.sideB) {
+                return {
+                    success: false,
+                    error: 'Card has no alternate side to flip to',
+                    errorCode: 'NO_BACK_RULE'
+                };
+            }
+
+            // Attempt to flip the card
+            const flipResult = card.flip();
+            if (!flipResult) {
+                return {
+                    success: false,
+                    error: 'Failed to flip card',
+                    errorCode: 'FLIP_FAILED'
+                };
+            }
+
+            console.log(`[GAME_MANAGER] Successfully flipped card ${card.id} to ${card.currentSide} side`);
+            console.log(`[GAME_MANAGER] New rule text: ${card.getCurrentRule()}`);
+
+            // Update game state if card is in player's hand
+            if (cardLocation === 'hand') {
+                // The card object is already updated by reference, but we could
+                // trigger a Firebase sync here if needed
+                // TODO: Sync updated card state to Firebase
+            }
+
+            return {
+                success: true,
+                card: card,
+                newRule: card.getCurrentRule(),
+                newSide: card.currentSide,
+                isFlipped: card.isFlipped
+            };
+
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error flipping card:`, error);
+            return {
+                success: false,
+                error: 'An unexpected error occurred while flipping the card',
+                errorCode: 'FLIP_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Get user-friendly error message for card flip failures
+     * @param {string} errorCode - The error code from flipCard()
+     * @returns {string} - User-friendly error message
+     */
+    getFlipCardErrorMessage(errorCode) {
+        const errorMessages = {
+            'SESSION_NOT_FOUND': 'Game session not found. Please refresh and try again.',
+            'PLAYER_NOT_FOUND': 'Player not found. Please refresh and try again.',
+            'PLAYER_INACTIVE': 'You cannot flip cards while disconnected.',
+            'TURN_NOT_INITIALIZED': 'Game turn system not ready. Please wait.',
+            'NOT_PLAYER_TURN': 'You can only flip cards during your turn.',
+            'CARD_NOT_FOUND': 'Card not found. It may have been moved or removed.',
+            'INVALID_CARD_IDENTIFIER': 'Invalid card specified. Please try again.',
+            'CARD_NOT_FLIPPABLE': 'This type of card cannot be flipped.',
+            'NO_BACK_RULE': 'This card has no alternate side to flip to.',
+            'FLIP_FAILED': 'Failed to flip the card. Please try again.',
+            'FLIP_ERROR': 'An unexpected error occurred. Please try again.'
+        };
+
+        return errorMessages[errorCode] || 'An unknown error occurred while flipping the card.';
+    }
+
     // #TODO Implement logic to assign player to a session
     // #TODO Implement lobby and ready system
     // #TODO Implement game start and state transition

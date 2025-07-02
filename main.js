@@ -750,9 +750,9 @@ function displayDrawnCard(card, cardType) {
             
         } else if (card.type === 'rule' || card.type === 'modifier') {
             // Rule and modifier cards can be flipped if they have a side B
-            if (card.sideB) {
+            if (card.backRule || card.sideB) {
                 const flipButton = document.createElement('button');
-                flipButton.textContent = `Flip to Side ${card.currentSide === 'A' ? 'B' : 'A'}`;
+                flipButton.textContent = `Flip to ${card.currentSide === 'front' ? 'Back' : 'Front'}`;
                 flipButton.style.cssText = `
                     display: block;
                     width: 100%;
@@ -768,10 +768,7 @@ function displayDrawnCard(card, cardType) {
                 `;
                 
                 flipButton.addEventListener('click', () => {
-                    card.flip();
-                    question.textContent = card.getCurrentText();
-                    flipButton.textContent = `Flip to Side ${card.currentSide === 'A' ? 'B' : 'A'}`;
-                    console.log('[CARD_DRAW] Card flipped to side', card.currentSide);
+                    flipCardInUI(card, question, flipButton);
                 });
                 
                 choices.appendChild(flipButton);
@@ -829,12 +826,170 @@ function closeCardModal() {
     // For now, we just close the modal
 }
 
+/**
+ * Flip a card in the UI using GameManager validation
+ * @param {Object} card - The card object to flip
+ * @param {HTMLElement} questionElement - The element displaying the card text
+ * @param {HTMLElement} flipButton - The flip button element
+ */
+function flipCardInUI(card, questionElement, flipButton) {
+    console.log('[CARD_FLIP] Attempting to flip card in UI:', card.id);
+    
+    try {
+        // Get current user and session for validation
+        const currentUser = getCurrentUser();
+        const sessionId = window.currentSessionId;
+        
+        if (!currentUser || !sessionId) {
+            console.warn('[CARD_FLIP] No current user or session for validation, using direct flip');
+            // Fallback to direct card flip for testing/offline mode
+            const flipResult = card.flip();
+            if (flipResult) {
+                updateCardDisplayAfterFlip(card, questionElement, flipButton);
+            } else {
+                showNotification('Failed to flip card', 'Error');
+            }
+            return;
+        }
+        
+        // Use GameManager for validated flip
+        if (!gameManager) {
+            console.warn('[CARD_FLIP] Game manager not available, using direct flip');
+            const flipResult = card.flip();
+            if (flipResult) {
+                updateCardDisplayAfterFlip(card, questionElement, flipButton);
+            } else {
+                showNotification('Failed to flip card', 'Error');
+            }
+            return;
+        }
+        
+        // Attempt flip through GameManager
+        const flipResult = gameManager.flipCard(sessionId, currentUser.uid, card);
+        
+        if (flipResult.success) {
+            console.log('[CARD_FLIP] Card flipped successfully via GameManager');
+            updateCardDisplayAfterFlip(flipResult.card, questionElement, flipButton);
+            
+            // Show notification about the flip
+            showNotification(
+                `Card flipped to ${flipResult.newSide} side`,
+                'Card Flipped'
+            );
+        } else {
+            console.error('[CARD_FLIP] GameManager flip failed:', flipResult.error);
+            const errorMessage = gameManager.getFlipCardErrorMessage(flipResult.errorCode);
+            showNotification(errorMessage, 'Cannot Flip Card');
+        }
+        
+    } catch (error) {
+        console.error('[CARD_FLIP] Error in flipCardInUI:', error);
+        showNotification('An error occurred while flipping the card', 'Error');
+    }
+}
+
+/**
+ * Update the card display after a successful flip
+ * @param {Object} card - The flipped card object
+ * @param {HTMLElement} questionElement - The element displaying the card text
+ * @param {HTMLElement} flipButton - The flip button element
+ */
+function updateCardDisplayAfterFlip(card, questionElement, flipButton) {
+    // Update the displayed text
+    questionElement.textContent = card.getCurrentRule();
+    
+    // Update the flip button text
+    flipButton.textContent = `Flip to ${card.currentSide === 'front' ? 'Back' : 'Front'}`;
+    
+    // Add visual feedback for the flip
+    questionElement.style.transition = 'opacity 0.3s ease';
+    questionElement.style.opacity = '0.7';
+    setTimeout(() => {
+        questionElement.style.opacity = '1';
+    }, 150);
+    
+    console.log('[CARD_FLIP] UI updated after flip - new side:', card.currentSide);
+}
+
+/**
+ * Flip a card by ID for external calls (e.g., from player hand UI)
+ * @param {string} cardId - The ID of the card to flip
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player ID
+ * @returns {object} - {success: boolean, card?: Object, error?: string}
+ */
+function flipCardById(cardId, sessionId, playerId) {
+    console.log('[CARD_FLIP] Attempting to flip card by ID:', cardId);
+    
+    if (!gameManager) {
+        return {
+            success: false,
+            error: 'Game manager not available'
+        };
+    }
+    
+    const flipResult = gameManager.flipCard(sessionId, playerId, cardId);
+    
+    if (flipResult.success) {
+        console.log('[CARD_FLIP] Card flipped successfully by ID');
+        
+        // Trigger UI updates if the card is currently displayed
+        updateCardDisplaysAfterFlip(flipResult.card);
+        
+        // Show notification
+        showNotification(
+            `Card flipped to ${flipResult.newSide} side: ${flipResult.newRule}`,
+            'Card Flipped'
+        );
+    } else {
+        console.error('[CARD_FLIP] Failed to flip card by ID:', flipResult.error);
+        const errorMessage = gameManager.getFlipCardErrorMessage(flipResult.errorCode);
+        showNotification(errorMessage, 'Cannot Flip Card');
+    }
+    
+    return flipResult;
+}
+
+/**
+ * Update any UI displays that might be showing the flipped card
+ * @param {Object} card - The flipped card object
+ */
+function updateCardDisplaysAfterFlip(card) {
+    // Update card modal if it's showing this card
+    const modal = document.getElementById('game-card-modal');
+    const question = document.getElementById('game-card-question');
+    
+    if (modal && modal.style.display !== 'none' && question) {
+        // Check if the modal is showing this card (basic check)
+        if (question.textContent === card.getFrontRule() || question.textContent === card.getBackRule()) {
+            question.textContent = card.getCurrentRule();
+            
+            // Update flip button if present
+            const flipButtons = modal.querySelectorAll('button');
+            flipButtons.forEach(button => {
+                if (button.textContent.includes('Flip to')) {
+                    button.textContent = `Flip to ${card.currentSide === 'front' ? 'Back' : 'Front'}`;
+                }
+            });
+        }
+    }
+    
+    // TODO: Update player hand displays, active rules displays, etc.
+    console.log('[CARD_FLIP] UI displays updated for card:', card.id);
+}
+
 // Expose card draw functions for testing and game integration
 window.initializeCardDrawMechanism = initializeCardDrawMechanism;
 window.handleCardDraw = handleCardDraw;
 window.drawCardFromDeck = drawCardFromDeck;
 window.displayDrawnCard = displayDrawnCard;
 window.closeCardModal = closeCardModal;
+
+// Expose card flipping functions for game integration
+window.flipCardInUI = flipCardInUI;
+window.flipCardById = flipCardById;
+window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
+window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
 
 // Test function for card draw mechanism
 window.testCardDraw = function(cardTypeName = 'Rule') {
@@ -857,6 +1012,65 @@ window.testCardDraw = function(cardTypeName = 'Rule') {
         handleCardDraw(cardType);
     }).catch(error => {
         console.error('Failed to initialize card draw for test:', error);
+    });
+};
+
+// Test function for card flipping mechanism
+window.testCardFlip = function(cardTypeName = 'Rule') {
+    console.log('DEBUG: Testing card flip mechanism for type:', cardTypeName);
+    
+    if (!window.wheelComponent) {
+        console.error('Wheel component not available');
+        return;
+    }
+    
+    const cardType = window.wheelComponent.getCardTypeByName(cardTypeName);
+    if (!cardType) {
+        console.error('Card type not found:', cardTypeName);
+        return;
+    }
+    
+    // Initialize card draw mechanism if needed
+    initializeCardDrawMechanism().then(() => {
+        // Draw a card first
+        const drawnCard = drawCardFromDeck(cardType.deckKey);
+        
+        if (!drawnCard) {
+            console.error('Failed to draw card for flip test');
+            return;
+        }
+        
+        console.log('Card drawn for flip test:', drawnCard.getCurrentRule());
+        console.log('Card has back rule:', !!drawnCard.backRule);
+        
+        if (!drawnCard.backRule && !drawnCard.sideB) {
+            console.warn('Card has no back rule to flip to');
+            return;
+        }
+        
+        // Test direct flip
+        console.log('Testing direct card flip...');
+        const flipResult = drawnCard.flip();
+        console.log('Direct flip result:', flipResult);
+        console.log('New rule after flip:', drawnCard.getCurrentRule());
+        console.log('Current side:', drawnCard.currentSide);
+        console.log('Is flipped:', drawnCard.isFlipped);
+        
+        // Test GameManager flip if available
+        if (gameManager && window.currentSessionId) {
+            const currentUser = getCurrentUser();
+            if (currentUser) {
+                console.log('Testing GameManager flip...');
+                const gmFlipResult = gameManager.flipCard(window.currentSessionId, currentUser.uid, drawnCard);
+                console.log('GameManager flip result:', gmFlipResult);
+            }
+        }
+        
+        // Display the card to show flip functionality in UI
+        displayDrawnCard(drawnCard, cardType);
+        
+    }).catch(error => {
+        console.error('Failed to initialize card system for flip test:', error);
     });
 };
 

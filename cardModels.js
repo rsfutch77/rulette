@@ -2,20 +2,27 @@
 // Loads card lists for each deck type from cards.csv via HTTP fetch (browser-compatible)
 
 /**
- * GameCard represents a rule, prompt, or modifier card.
+ * GameCard represents a rule, prompt, or modifier card with support for flipped states.
  * - type: The card type (rule, prompt, modifier)
- * - sideA: The text for side A of the card
- * - sideB: The text for side B of the card (for rule and modifier cards)
- * - currentSide: Which side is currently active ('A' or 'B')
- * - isFlipped: Boolean indicating if the card has been flipped
+ * - frontRule: The default/front rule or effect text
+ * - backRule: The alternate/flipped rule or effect text (null for prompt cards)
+ * - currentSide: Which side is currently active ('front' or 'back')
+ * - isFlipped: Boolean indicating if the card has been flipped from its default state
  */
 class GameCard {
     constructor({ type, sideA, sideB = null }) {
         this.type = type; // 'rule', 'prompt', 'modifier'
+        
+        // Front/Back rule properties for clear distinction
+        this.frontRule = sideA; // string - default/front rule or effect
+        this.backRule = sideB; // string or null - alternate/flipped rule or effect
+        
+        // Legacy properties maintained for backward compatibility
         this.sideA = sideA; // string
         this.sideB = sideB; // string or null (for prompt cards)
-        this.currentSide = 'A'; // 'A' or 'B'
-        this.isFlipped = false; // boolean
+        
+        this.currentSide = 'front'; // 'front' or 'back' (maps to 'A' or 'B' internally)
+        this.isFlipped = false; // boolean - true when showing back rule
         this.id = this.generateId(); // unique identifier
     }
 
@@ -27,10 +34,31 @@ class GameCard {
     }
 
     /**
-     * Get the current active text based on which side is showing
+     * Get the current active rule/effect text based on which side is showing
      */
     getCurrentText() {
-        return this.currentSide === 'A' ? this.sideA : this.sideB;
+        return this.currentSide === 'front' ? this.frontRule : this.backRule;
+    }
+    
+    /**
+     * Get the currently active rule (alias for getCurrentText for clarity)
+     */
+    getCurrentRule() {
+        return this.getCurrentText();
+    }
+    
+    /**
+     * Get the front (default) rule text
+     */
+    getFrontRule() {
+        return this.frontRule;
+    }
+    
+    /**
+     * Get the back (flipped) rule text
+     */
+    getBackRule() {
+        return this.backRule;
     }
 
     /**
@@ -38,17 +66,18 @@ class GameCard {
      */
     flip() {
         if (this.type === 'prompt') {
-            console.warn('Cannot flip prompt cards');
+            console.warn('Cannot flip prompt cards - they only have front rules');
             return false;
         }
         
-        if (!this.sideB) {
-            console.warn('Cannot flip card with no side B');
+        if (!this.backRule) {
+            console.warn('Cannot flip card with no back rule defined');
             return false;
         }
         
-        this.currentSide = this.currentSide === 'A' ? 'B' : 'A';
+        this.currentSide = this.currentSide === 'front' ? 'back' : 'front';
         this.isFlipped = !this.isFlipped;
+        
         return true;
     }
 
@@ -60,8 +89,13 @@ class GameCard {
             id: this.id,
             type: this.type,
             text: this.getCurrentText(),
+            currentRule: this.getCurrentRule(),
+            frontRule: this.frontRule,
+            backRule: this.backRule,
             currentSide: this.currentSide,
             isFlipped: this.isFlipped,
+            hasBackRule: this.backRule !== null,
+            // Legacy compatibility
             hasFlipSide: this.sideB !== null
         };
     }
