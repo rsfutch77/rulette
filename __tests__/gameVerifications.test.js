@@ -1,22 +1,10 @@
+// Import jest from the jest package
+import { jest } from '@jest/globals';
+
+// Import the gameManager
 import { gameManager } from '../gameManager.js';
 
-// Mock Firebase functions from main.js
-// We need to specifically mock these as gameManager directly imports them.
-jest.mock('../main.js', () => ({
-    createFirestoreGameSession: jest.fn(() => Promise.resolve()),
-    initializeFirestorePlayer: jest.fn(() => Promise.resolve()),
-    updateFirestorePlayerStatus: jest.fn(() => Promise.resolve()),
-    updateFirestorePlayerHand: jest.fn(() => Promise.resolve()),
-    updateFirestoreRefereeCard: jest.fn(() => Promise.resolve()),
-    getFirestoreGameSession: jest.fn(() => Promise.resolve({ exists: true, data: () => ({ /* mock data */ }) })),
-    getFirestorePlayer: jest.fn(() => Promise.resolve({ exists: true, data: () => ({ /* mock data */ }) })),
-    getFirestorePlayersInSession: jest.fn(() => Promise.resolve([])), // Default empty, will be overridden for specific tests
-    getDevUID: jest.fn(() => 'test-dev-uid'), // Mock if needed by gameManager, though it's not directly used here
-}));
-
-// Mock Math.random to control referee card assignment for deterministic tests
-const mockMathRandom = jest.spyOn(global.Math, 'random');
-
+// Import mocked functions from main.js
 import {
     createFirestoreGameSession,
     initializeFirestorePlayer,
@@ -27,6 +15,9 @@ import {
     getFirestorePlayer,
     getFirestorePlayersInSession,
 } from '../main.js';
+
+// Mock Math.random to control referee card assignment for deterministic tests
+const mockMathRandom = jest.spyOn(global.Math, 'random');
 
 describe('Game Session Creation', () => {
     beforeEach(() => {
@@ -156,12 +147,21 @@ describe('Player Management', () => {
 });
 
 describe('Referee Card Assignment', () => {
+    let localMockMathRandom;
+    
     beforeEach(() => {
         jest.clearAllMocks();
         gameManager.gameSessions = {};
         gameManager.players = {};
-        // Restore original Math.random before each test in this suite
-        mockMathRandom.mockRestore();
+        // Create a fresh mock for Math.random in each test
+        localMockMathRandom = jest.spyOn(global.Math, 'random');
+    });
+    
+    afterEach(() => {
+        // Restore Math.random after each test
+        if (localMockMathRandom) {
+            localMockMathRandom.mockRestore();
+        }
     });
 
     test('should randomly assign the referee card to one active player and set initialRefereeCard', async () => {
@@ -195,7 +195,7 @@ describe('Referee Card Assignment', () => {
         ]);
 
         // Mock Math.random to always pick the first player (index 0) for predictable testing
-        mockMathRandom.mockReturnValue(0); // Ensures hostId is chosen
+        localMockMathRandom.mockReturnValue(0); // Ensures hostId is chosen
 
         const assignedRefereeId = await gameManager.assignRefereeCard(sessionId, refereeCard);
 
@@ -220,7 +220,7 @@ describe('Referee Card Assignment', () => {
         gameManager.players[hostId].hasRefereeCard = false;
         gameManager.gameSessions[sessionId].referee = null; // Clear previous referee
 
-        mockMathRandom.mockReturnValue(0.9); // Ensures player2Id (index 2) is chosen for a 3-player array
+        localMockMathRandom.mockReturnValue(0.9); // Ensures player2Id (index 2) is chosen for a 3-player array
         const assignedRefereeId2 = await gameManager.assignRefereeCard(sessionId, refereeCard);
         expect(assignedRefereeId2).toBe(player2Id); // Based on mock random value
         expect(gameManager.gameSessions[sessionId].referee).toBe(player2Id);

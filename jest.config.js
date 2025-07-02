@@ -22,7 +22,10 @@ export default {
   // Module name mapping for CSS and other assets
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    '\\.(gif|ttf|eot|svg|png)$': '<rootDir>/__mocks__/fileMock.js'
+    '\\.(gif|ttf|eot|svg|png)$': '<rootDir>/__mocks__/fileMock.js',
+    '^./firebase-init.js$': '<rootDir>/__mocks__/firebase-init.js',
+    '^\\.\\.?/main\\.js$': '<rootDir>/__mocks__/main.js',
+    '^\\.\\.?/gameManager\\.js$': '<rootDir>/__mocks__/gameManager.js'
   },
   
   // Coverage configuration

@@ -121,12 +121,13 @@ class GameManager {
      */
     async assignRefereeCard(sessionId, refereeCard) {
         const session = this.gameSessions[sessionId];
-        if (!session || session.players.length === 0) {
-            console.warn(`No session found for ${sessionId} or no players in session.`);
+        if (!session) {
+            console.warn(`No session found for ${sessionId}.`);
             return null;
         }
 
-        // Assuming session.players now contains objects or UIDs that can be resolved
+        // Always query Firestore for players, even if local session shows no players
+        // This ensures we get the most up-to-date player information
         const activePlayersInSession = (await getFirestorePlayersInSession(sessionId)).filter(player => player.status === 'active');
 
         if (activePlayersInSession.length === 0) {
@@ -140,9 +141,14 @@ class GameManager {
             // No need to update Firestore for old referee, as new assignment will overwrite game.referee
         }
 
-        const randomIndex = Math.floor(Math.random() * activePlayersInSession.length);
+        // Use Math.random() to select a player index
+        // For testing, this can be mocked to return a specific value
+        const randomValue = Math.random();
+        const randomIndex = Math.floor(randomValue * activePlayersInSession.length);
         const refereePlayer = activePlayersInSession[randomIndex];
         const refereePlayerId = refereePlayer.uid;
+        
+        console.log(`Random value: ${randomValue}, index: ${randomIndex}, selected player: ${refereePlayerId}`);
 
         this.players[refereePlayerId].hasRefereeCard = true;
         session.referee = refereePlayerId;

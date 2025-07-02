@@ -1,6 +1,9 @@
 // Jest setup file
 // This file is executed before each test file
 
+// Import jest from the jest package
+import { jest } from '@jest/globals';
+
 // Add custom matchers or global test utilities here
 // For example, if you're using React Testing Library:
 // import '@testing-library/jest-dom';
