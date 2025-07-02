@@ -296,17 +296,20 @@ function hideWheel() {
   }
 }
 
-// Enhanced wheel control with turn management
+// Enhanced wheel control with turn management and comprehensive error handling
 function spinWheelForPlayer(sessionId, playerId) {
   if (!window.wheelComponent || !gameManager) {
     console.error("[GAME] Wheel component or game manager not available");
+    showNotification("Game components not ready. Please refresh the page.", "System Error");
     return false;
   }
   
-  // Check if player can act
-  if (!gameManager.canPlayerAct(sessionId, playerId)) {
-    console.log("[GAME] Player", playerId, "cannot act - not their turn or already acted");
-    showNotification("It's not your turn or you have already acted this turn.", "Invalid Action");
+  // Validate player action with comprehensive error checking
+  const validation = gameManager.validatePlayerAction(sessionId, playerId, 'spin');
+  if (!validation.valid) {
+    const errorMessage = gameManager.getActionErrorMessage(sessionId, playerId, 'spin', validation.errorCode);
+    console.log("[GAME] Player action validation failed:", validation.error);
+    showNotification(errorMessage, "Invalid Action");
     return false;
   }
   
@@ -856,3 +859,163 @@ window.testCardDraw = function(cardTypeName = 'Adult') {
         console.error('Failed to initialize card draw for test:', error);
     });
 };
+
+// ===== EDGE CASES AND ERROR HANDLING =====
+
+/**
+ * Enhanced card draw function with comprehensive error handling
+ * @param {string} deckType - The deck type to draw from
+ * @param {string} playerId - The player attempting to draw
+ * @param {string} sessionId - The current session ID
+ * @returns {object} - {success: boolean, card?: object, error?: string}
+ */
+function drawCardWithErrorHandling(deckType, playerId, sessionId) {
+  if (!cardManager) {
+    console.error("[GAME] Card manager not available");
+    showNotification("Card system not ready. Please refresh the page.", "System Error");
+    return { success: false, error: "Card manager not available" };
+  }
+
+  if (!gameManager) {
+    console.error("[GAME] Game manager not available");
+    showNotification("Game system not ready. Please refresh the page.", "System Error");
+    return { success: false, error: "Game manager not available" };
+  }
+
+  // Validate player action
+  const validation = gameManager.validatePlayerAction(sessionId, playerId, 'draw');
+  if (!validation.valid) {
+    const errorMessage = gameManager.getActionErrorMessage(sessionId, playerId, 'draw', validation.errorCode);
+    console.log("[GAME] Card draw validation failed:", validation.error);
+    showNotification(errorMessage, "Invalid Action");
+    return { success: false, error: validation.error };
+  }
+
+  // Get current game state for rule validation
+  const gameState = {
+    sessionId,
+    playerId,
+    // TODO: Add actual game state when rule system is implemented
+    restrictedDecks: [] // Placeholder for rule-based restrictions
+  };
+
+  // Attempt safe card draw
+  const drawResult = cardManager.safeDraw(deckType, playerId, gameState);
+  
+  if (!drawResult.success) {
+    console.error("[GAME] Card draw failed:", drawResult.error);
+    
+    // Provide specific user feedback based on error type
+    let userMessage = drawResult.error;
+    let title = "Card Draw Failed";
+    
+    if (drawResult.error.includes("empty") || drawResult.error.includes("No cards")) {
+      title = "Deck Empty";
+      userMessage = `The ${deckType} deck is empty. No more cards can be drawn from this deck.`;
+    } else if (drawResult.error.includes("restricted")) {
+      title = "Action Restricted";
+      userMessage = `Drawing from the ${deckType} deck is currently restricted by game rules.`;
+    } else if (drawResult.error.includes("does not exist")) {
+      title = "System Error";
+      userMessage = "There was a problem with the card system. Please refresh the page.";
+    }
+    
+    showNotification(userMessage, title);
+    return drawResult;
+  }
+
+  // Success - show card to player
+  console.log("[GAME] Card drawn successfully:", drawResult.card);
+  showNotification(`You drew: ${drawResult.card.name || drawResult.card.id}`, "Card Drawn");
+  
+  return drawResult;
+}
+
+/**
+ * Handle player disconnection with appropriate cleanup
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The disconnected player ID
+ */
+function handlePlayerDisconnection(sessionId, playerId) {
+  if (!gameManager) {
+    console.error("[GAME] Game manager not available for disconnect handling");
+    return;
+  }
+
+  const result = gameManager.handlePlayerDisconnect(sessionId, playerId);
+  
+  if (result.handled) {
+    console.log("[GAME] Player disconnect handled:", result.message);
+    
+    if (result.nextPlayer) {
+      // Update UI for turn advancement
+      updateTurnUI(sessionId);
+      
+      // Notify remaining players
+      showNotification(
+        `A player disconnected during their turn. It's now ${result.nextPlayer === getCurrentUser()?.uid ? 'your' : 'the next player\'s'} turn.`,
+        "Player Disconnected"
+      );
+    }
+    
+    // Check if session should be cleaned up
+    if (gameManager.cleanupEmptySession(sessionId)) {
+      showNotification("All players have left. The game session has ended.", "Session Ended");
+      // TODO: Redirect to lobby or main menu
+    }
+  }
+}
+
+/**
+ * Simulate player disconnection for testing
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player ID to simulate disconnect
+ */
+function simulatePlayerDisconnect(sessionId, playerId) {
+  console.log("[TEST] Simulating player disconnect:", playerId);
+  handlePlayerDisconnection(sessionId, playerId);
+}
+
+/**
+ * Test edge cases and error handling
+ */
+window.testEdgeCases = function() {
+  console.log("[TEST] Testing edge cases and error handling...");
+  
+  if (!gameManager || !cardManager) {
+    console.error("[TEST] Game or card manager not available");
+    return;
+  }
+  
+  // Test with invalid session
+  console.log("[TEST] Testing invalid session...");
+  const invalidResult = drawCardWithErrorHandling("deckType1", "test-player", "invalid-session");
+  console.log("Invalid session result:", invalidResult);
+  
+  // Test with empty deck (simulate by creating a temporary card manager with empty deck)
+  console.log("[TEST] Testing empty deck...");
+  const emptyCardManager = new CardManager({ emptyDeck: [] });
+  const originalCardManager = cardManager;
+  cardManager = emptyCardManager;
+  
+  const emptyResult = drawCardWithErrorHandling("emptyDeck", "test-player", "test-session");
+  console.log("Empty deck result:", emptyResult);
+  
+  // Restore original card manager
+  cardManager = originalCardManager;
+  
+  // Test player disconnection
+  console.log("[TEST] Testing player disconnection...");
+  simulatePlayerDisconnect("test-session", "test-player");
+};
+
+// Expose functions globally for testing and integration
+window.getCurrentUser = getCurrentUser;
+window.showNotification = showNotification;
+window.spinWheelForPlayer = spinWheelForPlayer;
+window.initializeWheelForSession = initializeWheelForSession;
+window.advanceTurn = advanceTurn;
+window.updateTurnUI = updateTurnUI;
+window.drawCardWithErrorHandling = drawCardWithErrorHandling;
+window.handlePlayerDisconnection = handlePlayerDisconnection;
+window.simulatePlayerDisconnect = simulatePlayerDisconnect;

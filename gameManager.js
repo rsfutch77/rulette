@@ -201,6 +201,12 @@ class GameManager {
         const turn = this.currentTurn[sessionId];
         if (!turn) return false;
         
+        // Check if player exists and is active
+        const player = this.players[playerId];
+        if (!player || player.status !== 'active') {
+            return false;
+        }
+        
         return turn.currentPlayerId === playerId && !turn.hasSpun;
     }
 
@@ -253,6 +259,157 @@ class GameManager {
      */
     getTurnInfo(sessionId) {
         return this.currentTurn[sessionId] || null;
+    }
+
+    /**
+     * Handle player disconnection during their turn
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The disconnected player ID
+     * @returns {object} - {handled: boolean, nextPlayer?: string, message: string}
+     */
+    handlePlayerDisconnect(sessionId, playerId) {
+        const session = this.gameSessions[sessionId];
+        const turn = this.currentTurn[sessionId];
+        
+        if (!session || !turn) {
+            return { handled: false, message: 'Session or turn data not found' };
+        }
+
+        // Update player status
+        if (this.players[playerId]) {
+            this.players[playerId].status = 'disconnected';
+        }
+
+        // If it's the disconnected player's turn, advance to next player
+        if (turn.currentPlayerId === playerId) {
+            const nextPlayer = this.nextTurn(sessionId);
+            return {
+                handled: true,
+                nextPlayer,
+                message: `Player ${playerId} disconnected during their turn. Advanced to next player.`
+            };
+        }
+
+        return { handled: true, message: `Player ${playerId} disconnected but it wasn't their turn.` };
+    }
+
+    /**
+     * Validate player action with comprehensive error checking
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} action - The action type (e.g., 'spin', 'draw')
+     * @returns {object} - {valid: boolean, error?: string, errorCode?: string}
+     */
+    validatePlayerAction(sessionId, playerId, action) {
+        // Check session exists
+        if (!this.gameSessions[sessionId]) {
+            return {
+                valid: false,
+                error: 'Game session not found',
+                errorCode: 'SESSION_NOT_FOUND'
+            };
+        }
+
+        // Check player exists
+        if (!this.players[playerId]) {
+            return {
+                valid: false,
+                error: 'Player not found',
+                errorCode: 'PLAYER_NOT_FOUND'
+            };
+        }
+
+        const player = this.players[playerId];
+        const turn = this.currentTurn[sessionId];
+
+        // Check player is active
+        if (player.status !== 'active') {
+            return {
+                valid: false,
+                error: `Player is ${player.status} and cannot perform actions`,
+                errorCode: 'PLAYER_INACTIVE'
+            };
+        }
+
+        // Check turn management exists
+        if (!turn) {
+            return {
+                valid: false,
+                error: 'Turn management not initialized',
+                errorCode: 'TURN_NOT_INITIALIZED'
+            };
+        }
+
+        // Check if it's player's turn
+        if (turn.currentPlayerId !== playerId) {
+            return {
+                valid: false,
+                error: 'Not your turn',
+                errorCode: 'NOT_PLAYER_TURN'
+            };
+        }
+
+        // Check for duplicate actions
+        if (action === 'spin' && turn.hasSpun) {
+            return {
+                valid: false,
+                error: 'You have already spun this turn',
+                errorCode: 'DUPLICATE_ACTION'
+            };
+        }
+
+        return { valid: true };
+    }
+
+    /**
+     * Handle invalid player actions with appropriate feedback
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} action - The attempted action
+     * @param {string} errorCode - The error code from validation
+     * @returns {string} - User-friendly error message
+     */
+    getActionErrorMessage(sessionId, playerId, action, errorCode) {
+        const errorMessages = {
+            'SESSION_NOT_FOUND': 'Game session not found. Please refresh and try again.',
+            'PLAYER_NOT_FOUND': 'Player not found. Please refresh and try again.',
+            'PLAYER_INACTIVE': 'You cannot perform actions while disconnected.',
+            'TURN_NOT_INITIALIZED': 'Game turn system not ready. Please wait.',
+            'NOT_PLAYER_TURN': 'It\'s not your turn. Please wait for your turn.',
+            'DUPLICATE_ACTION': 'You have already performed this action this turn.'
+        };
+
+        return errorMessages[errorCode] || 'An unknown error occurred. Please try again.';
+    }
+
+    /**
+     * Check if session has any active players
+     * @param {string} sessionId - The session ID
+     * @returns {boolean} - True if session has active players
+     */
+    hasActivePlayers(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) return false;
+
+        return session.players.some(playerId =>
+            this.players[playerId] && this.players[playerId].status === 'active'
+        );
+    }
+
+    /**
+     * Handle session cleanup when all players leave
+     * @param {string} sessionId - The session ID
+     * @returns {boolean} - True if session was cleaned up
+     */
+    cleanupEmptySession(sessionId) {
+        if (!this.hasActivePlayers(sessionId)) {
+            delete this.gameSessions[sessionId];
+            delete this.currentTurn[sessionId];
+            delete this.turnOrder[sessionId];
+            console.log(`[GAME_MANAGER] Cleaned up empty session: ${sessionId}`);
+            return true;
+        }
+        return false;
     }
 
     // #TODO Implement logic to assign player to a session

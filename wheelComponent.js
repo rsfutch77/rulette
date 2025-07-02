@@ -108,27 +108,65 @@ class WheelComponent {
      * Check if a spin is allowed for the given player
      */
     canSpin(playerId) {
+        const validation = this.validateSpin(playerId);
+        return validation.valid;
+    }
+    
+    /**
+     * Enhanced validation with detailed error reporting
+     * @param {string} playerId - The player attempting to spin
+     * @returns {object} - {valid: boolean, reason?: string, errorCode?: string}
+     */
+    validateSpin(playerId) {
         const now = Date.now();
+        
+        // Check if player ID is provided
+        if (!playerId) {
+            return {
+                valid: false,
+                reason: 'Player ID is required for spinning',
+                errorCode: 'MISSING_PLAYER_ID'
+            };
+        }
         
         // Check if wheel is already spinning
         if (this.isSpinning) {
-            console.log('[WHEEL] Spin rejected: wheel already spinning');
-            return false;
+            return {
+                valid: false,
+                reason: 'Wheel is already spinning',
+                errorCode: 'WHEEL_SPINNING'
+            };
         }
         
         // Check cooldown period
         if (now - this.lastSpinTime < this.spinCooldown) {
-            console.log('[WHEEL] Spin rejected: cooldown period active');
-            return false;
+            const remainingCooldown = this.spinCooldown - (now - this.lastSpinTime);
+            return {
+                valid: false,
+                reason: `Spin cooldown active. Please wait ${Math.ceil(remainingCooldown / 1000)} more seconds`,
+                errorCode: 'COOLDOWN_ACTIVE'
+            };
         }
         
         // Check if player has already spun this turn
         if (this.hasSpunThisTurn && this.currentPlayerId === playerId) {
-            console.log('[WHEEL] Spin rejected: player has already spun this turn');
-            return false;
+            return {
+                valid: false,
+                reason: 'You have already spun this turn',
+                errorCode: 'ALREADY_SPUN'
+            };
         }
         
-        return true;
+        // Check if it's the correct player's turn (if turn management is active)
+        if (this.currentPlayerId && this.currentPlayerId !== playerId) {
+            return {
+                valid: false,
+                reason: 'It is not your turn to spin',
+                errorCode: 'NOT_YOUR_TURN'
+            };
+        }
+        
+        return { valid: true };
     }
     
     /**
@@ -189,8 +227,11 @@ class WheelComponent {
     }
     
     spinWheel(playerId = null) {
-        // Validate spin eligibility
-        if (!this.canSpin(playerId)) {
+        // Enhanced validation with detailed error reporting
+        const spinValidation = this.validateSpin(playerId);
+        if (!spinValidation.valid) {
+            console.warn('[WHEEL] Spin validation failed:', spinValidation.reason);
+            // Don't show notification here - let the calling function handle it
             return false;
         }
         
@@ -232,44 +273,87 @@ class WheelComponent {
     handleSpinComplete(finalAngle) {
         console.log('[WHEEL] Spin complete, final angle:', finalAngle);
         
-        // Calculate which segment the pointer landed on
-        // The pointer is at the top (0 degrees), so we need to account for that
-        // Normalize the angle to 0-360 range
-        const normalizedAngle = ((360 - finalAngle) % 360 + 360) % 360;
-        
-        // Determine which segment (each segment is 60 degrees)
-        const segmentIndex = Math.floor(normalizedAngle / this.segmentAngle);
-        const selectedCardType = this.cardTypes[segmentIndex];
-        
-        console.log('[WHEEL] Selected segment:', segmentIndex, 'Card type:', selectedCardType.name);
-        
-        // Display result
-        this.displayResult(selectedCardType);
-        
-        // Clean up
-        const wheel = document.getElementById('wheel');
-        if (wheel) {
-            wheel.classList.remove('spinning');
+        try {
+            // Calculate which segment the pointer landed on
+            // The pointer is at the top (0 degrees), so we need to account for that
+            // Normalize the angle to 0-360 range
+            const normalizedAngle = ((360 - finalAngle) % 360 + 360) % 360;
+            
+            // Determine which segment (each segment is 60 degrees)
+            const segmentIndex = Math.floor(normalizedAngle / this.segmentAngle);
+            
+            // Validate segment index
+            if (segmentIndex < 0 || segmentIndex >= this.cardTypes.length) {
+                throw new Error(`Invalid segment index: ${segmentIndex}. Expected 0-${this.cardTypes.length - 1}`);
+            }
+            
+            const selectedCardType = this.cardTypes[segmentIndex];
+            
+            // Validate selected card type
+            if (!selectedCardType) {
+                throw new Error(`No card type found for segment ${segmentIndex}`);
+            }
+            
+            console.log('[WHEEL] Selected segment:', segmentIndex, 'Card type:', selectedCardType.name);
+            
+            // Display result
+            this.displayResult(selectedCardType);
+            
+            // Clean up
+            const wheel = document.getElementById('wheel');
+            if (wheel) {
+                wheel.classList.remove('spinning');
+            }
+            
+            this.isSpinning = false;
+            
+            // Trigger callbacks with error handling
+            try {
+                if (this.onSpinComplete) {
+                    this.onSpinComplete(selectedCardType);
+                }
+                
+                if (this.onCardDraw) {
+                    this.onCardDraw(selectedCardType);
+                }
+            } catch (callbackError) {
+                console.error('[WHEEL] Error in spin completion callbacks:', callbackError);
+                // Don't throw here - we want the wheel to still complete its cycle
+                if (window.showNotification) {
+                    window.showNotification('An error occurred while processing the spin result. Please try again.', 'Spin Error');
+                }
+            }
+            
+            // Re-enable after a short delay to prevent rapid spinning
+            setTimeout(() => {
+                this.enable();
+            }, 1000);
+            
+            return true;
+            
+        } catch (error) {
+            console.error('[WHEEL] Error during spin completion:', error);
+            
+            // Clean up even if there was an error
+            const wheel = document.getElementById('wheel');
+            if (wheel) {
+                wheel.classList.remove('spinning');
+            }
+            
+            this.isSpinning = false;
+            
+            // Show error notification
+            if (window.showNotification) {
+                window.showNotification('An error occurred while completing the spin. Please try again.', 'Spin Error');
+            }
+            
+            // Re-enable wheel
+            setTimeout(() => {
+                this.enable();
+            }, 1000);
+            
+            return false;
         }
-        
-        this.isSpinning = false;
-        
-        // Trigger card draw callback if set
-        if (this.onSpinComplete) {
-            this.onSpinComplete(selectedCardType);
-        }
-        
-        // Trigger card draw mechanism
-        if (this.onCardDraw) {
-            this.onCardDraw(selectedCardType);
-        }
-        
-        // Re-enable after a short delay to prevent rapid spinning
-        setTimeout(() => {
-            this.enable();
-        }, 1000);
-        
-        return true;
     }
     
     displayResult(cardType) {

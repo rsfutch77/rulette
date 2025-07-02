@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turn Management Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
+        .test-button:hover { background: #0056b3; }
+        .test-button:disabled { background: #6c757d; cursor: not-allowed; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .info { color: #17a2b8; }
+        #test-results { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; }
+        .turn-indicator { background: #e8f5e8; border: 2px solid #28a745; padding: 15px; border-radius: 8px; margin: 10px 0; text-align: center; }
+        .current-player { font-size: 1.2em; font-weight: bold; color: #155724; }
+        .waiting-player { color: #6c757d; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Turn Management System Test</h1>
+        <p>This page tests the Turn Management implementation for the Wheel Spin and Card Draw Logic.</p>
+        
+        <div class="test-section">
+            <h3>Test Setup</h3>
+            <button class="test-button" onclick="initializeTest()">Initialize Test Session</button>
+            <button class="test-button" onclick="showTurnInfo()">Show Turn Info</button>
+            <button class="test-button" onclick="resetTest()">Reset Test</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>Turn Order Tests</h3>
+            <button class="test-button" onclick="testCurrentPlayerSpin()">Test Current Player Spin</button>
+            <button class="test-button" onclick="testWrongPlayerSpin()">Test Wrong Player Spin (Should Fail)</button>
+            <button class="test-button" onclick="testDoubleSpinPrevention()">Test Double Spin Prevention</button>
+            <button class="test-button" onclick="testTurnAdvancement()">Test Turn Advancement</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>UI Indicator Tests</h3>
+            <button class="test-button" onclick="testUIUpdates()">Test UI Turn Indicators</button>
+            <button class="test-button" onclick="testWheelButtonState()">Test Wheel Button State</button>
+        </div>
+        
+        <div id="turn-management" class="turn-indicator" style="display:none;">
+            <div class="current-player">
+                <span id="current-player-name">Player Name</span>'s Turn
+            </div>
+            <div style="margin: 10px 0;">
+                Turn <span id="current-turn-number">1</span> of 10
+            </div>
+            <div id="turn-actions">
+                <div id="waiting-message" style="display:none;" class="waiting-player">
+                    Waiting for <span id="waiting-player-name">Player</span> to take their turn...
+                </div>
+                <div id="your-turn-message" style="display:none;" class="current-player">
+                    It's your turn! Spin the wheel to draw a card.
+                </div>
+            </div>
+        </div>
+        
+        <div id="test-results">
+            <h4>Test Results:</h4>
+            <div id="results-content">Click "Initialize Test Session" to begin testing.</div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Mock implementations for testing
+        class MockGameManager {
+            constructor() {
+                this.currentTurn = {};
+                this.turnOrder = {};
+                this.players = {};
+            }
+            
+            initializeTurnOrder(sessionId, playerIds) {
+                this.turnOrder[sessionId] = [...playerIds];
+                this.currentTurn[sessionId] = {
+                    currentPlayerIndex: 0,
+                    turnNumber: 1,
+                    currentPlayerId: playerIds[0],
+                    hasSpun: false
+                };
+                return true;
+            }
+            
+            getCurrentPlayer(sessionId) {
+                const turn = this.currentTurn[sessionId];
+                return turn ? turn.currentPlayerId : null;
+            }
+            
+            canPlayerAct(sessionId, playerId) {
+                const turn = this.currentTurn[sessionId];
+                if (!turn) return false;
+                return turn.currentPlayerId === playerId && !turn.hasSpun;
+            }
+            
+            recordPlayerSpin(sessionId, playerId) {
+                const turn = this.currentTurn[sessionId];
+                if (!turn || turn.currentPlayerId !== playerId || turn.hasSpun) {
+                    return false;
+                }
+                turn.hasSpun = true;
+                return true;
+            }
+            
+            nextTurn(sessionId) {
+                const turn = this.currentTurn[sessionId];
+                const order = this.turnOrder[sessionId];
+                
+                if (!turn || !order) return null;
+                
+                turn.currentPlayerIndex = (turn.currentPlayerIndex + 1) % order.length;
+                turn.currentPlayerId = order[turn.currentPlayerIndex];
+                turn.hasSpun = false;
+                
+                if (turn.currentPlayerIndex === 0) {
+                    turn.turnNumber++;
+                }
+                
+                return turn.currentPlayerId;
+            }
+            
+            getTurnInfo(sessionId) {
+                return this.currentTurn[sessionId] || null;
+            }
+        }
+        
+        // Initialize mock game manager
+        window.gameManager = new MockGameManager();
+        window.currentSessionId = "test-session-123";
+        
+        // Mock current user
+        window.getCurrentUser = () => ({ uid: "player1", displayName: "Test Player 1" });
+        
+        // Test data
+        const testPlayers = ["player1", "player2", "player3"];
+        let testResults = [];
+        
+        function logResult(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            testResults.push(`[${timestamp}] ${message}`);
+            updateResultsDisplay();
+            
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            console.log(`%c${message}`, `color: ${type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue'}`);
+        }
+        
+        function updateResultsDisplay() {
+            const resultsContent = document.getElementById('results-content');
+            if (resultsContent) {
+                resultsContent.innerHTML = testResults.map(result => `<div>${result}</div>`).join('');
+            }
+        }
+        
+        function updateTurnUI(sessionId) {
+            const turnInfo = window.gameManager.getTurnInfo(sessionId);
+            const currentUser = window.getCurrentUser();
+            
+            if (!turnInfo || !currentUser) return;
+            
+            // Show turn management section
+            const turnManagement = document.getElementById('turn-management');
+            if (turnManagement) {
+                turnManagement.style.display = 'block';
+            }
+            
+            // Update current player name
+            const currentPlayerName = document.getElementById('current-player-name');
+            const currentPlayerId = turnInfo.currentPlayerId;
+            const displayName = currentPlayerId === currentUser.uid ? 'You' : `Player ${currentPlayerId.slice(-1)}`;
+            
+            if (currentPlayerName) {
+                currentPlayerName.textContent = displayName;
+            }
+            
+            // Update turn number
+            const turnNumberSpan = document.getElementById('current-turn-number');
+            if (turnNumberSpan) {
+                turnNumberSpan.textContent = turnInfo.turnNumber;
+            }
+            
+            // Update action messages
+            const waitingMessage = document.getElementById('waiting-message');
+            const yourTurnMessage = document.getElementById('your-turn-message');
+            const waitingPlayerName = document.getElementById('waiting-player-name');
+            
+            const isCurrentPlayer = currentPlayerId === currentUser.uid;
+            const hasSpun = turnInfo.hasSpun;
+            
+            if (isCurrentPlayer && !hasSpun) {
+                if (waitingMessage) waitingMessage.style.display = 'none';
+                if (yourTurnMessage) yourTurnMessage.style.display = 'block';
+            } else {
+                if (yourTurnMessage) yourTurnMessage.style.display = 'none';
+                if (waitingMessage) {
+                    waitingMessage.style.display = 'block';
+                    if (waitingPlayerName) {
+                        waitingPlayerName.textContent = isCurrentPlayer ? 'you to finish your turn' : displayName;
+                    }
+                }
+            }
+        }
+        
+        // Test functions
+        window.initializeTest = function() {
+            testResults = [];
+            logResult("Initializing test session...", 'info');
+            
+            try {
+                const success = window.gameManager.initializeTurnOrder(window.currentSessionId, testPlayers);
+                if (success) {
+                    updateTurnUI(window.currentSessionId);
+                    logResult("✓ Test session initialized successfully", 'success');
+                    logResult(`✓ Turn order: ${testPlayers.join(' → ')}`, 'success');
+                    logResult(`✓ Current player: ${window.gameManager.getCurrentPlayer(window.currentSessionId)}`, 'success');
+                } else {
+                    logResult("✗ Failed to initialize test session", 'error');
+                }
+            } catch (error) {
+                logResult(`✗ Error initializing test: ${error.message}`, 'error');
+            }
+        };
+        
+        window.showTurnInfo = function() {
+            const turnInfo = window.gameManager.getTurnInfo(window.currentSessionId);
+            if (turnInfo) {
+                logResult(`Turn Info - Player: ${turnInfo.currentPlayerId}, Turn: ${turnInfo.turnNumber}, Has Spun: ${turnInfo.hasSpun}`, 'info');
+            } else {
+                logResult("No turn info available", 'error');
+            }
+        };
+        
+        window.resetTest = function() {
+            testResults = [];
+            const turnManagement = document.getElementById('turn-management');
+            if (turnManagement) {
+                turnManagement.style.display = 'none';
+            }
+            logResult("Test reset", 'info');
+        };
+        
+        window.testCurrentPlayerSpin = function() {
+            const currentPlayer = window.gameManager.getCurrentPlayer(window.currentSessionId);
+            if (!currentPlayer) {
+                logResult("✗ No current player found", 'error');
+                return;
+            }
+            
+            const canAct = window.gameManager.canPlayerAct(window.currentSessionId, currentPlayer);
+            if (canAct) {
+                const spinRecorded = window.gameManager.recordPlayerSpin(window.currentSessionId, currentPlayer);
+                if (spinRecorded) {
+                    updateTurnUI(window.currentSessionId);
+                    logResult(`✓ Current player (${currentPlayer}) spin successful`, 'success');
+                } else {
+                    logResult(`✗ Failed to record spin for current player (${currentPlayer})`, 'error');
+                }
+            } else {
+                logResult(`✗ Current player (${currentPlayer}) cannot act`, 'error');
+            }
+        };
+        
+        window.testWrongPlayerSpin = function() {
+            const currentPlayer = window.gameManager.getCurrentPlayer(window.currentSessionId);
+            const wrongPlayer = testPlayers.find(p => p !== currentPlayer);
+            
+            if (!wrongPlayer) {
+                logResult("✗ Could not find wrong player for test", 'error');
+                return;
+            }
+            
+            const canAct = window.gameManager.canPlayerAct(window.currentSessionId, wrongPlayer);
+            if (!canAct) {
+                logResult(`✓ Wrong player (${wrongPlayer}) correctly prevented from acting`, 'success');
+            } else {
+                logResult(`✗ Wrong player (${wrongPlayer}) was allowed to act (should be prevented)`, 'error');
+            }
+        };
+        
+        window.testDoubleSpinPrevention = function() {
+            const currentPlayer = window.gameManager.getCurrentPlayer(window.currentSessionId);
+            const turnInfo = window.gameManager.getTurnInfo(window.currentSessionId);
+            
+            if (!turnInfo.hasSpun) {
+                logResult("Player hasn't spun yet, spinning first...", 'info');
+                window.gameManager.recordPlayerSpin(window.currentSessionId, currentPlayer);
+            }
+            
+            const canActAgain = window.gameManager.canPlayerAct(window.currentSessionId, currentPlayer);
+            if (!canActAgain) {
+                logResult(`✓ Double spin correctly prevented for player (${currentPlayer})`, 'success');
+            } else {
+                logResult(`✗ Double spin was allowed (should be prevented)`, 'error');
+            }
+        };
+        
+        window.testTurnAdvancement = function() {
+            const currentPlayer = window.gameManager.getCurrentPlayer(window.currentSessionId);
+            const currentTurn = window.gameManager.getTurnInfo(window.currentSessionId).turnNumber;
+            
+            const nextPlayer = window.gameManager.nextTurn(window.currentSessionId);
+            const newTurn = window.gameManager.getTurnInfo(window.currentSessionId).turnNumber;
+            
+            if (nextPlayer && nextPlayer !== currentPlayer) {
+                updateTurnUI(window.currentSessionId);
+                logResult(`✓ Turn advanced from ${currentPlayer} to ${nextPlayer}`, 'success');
+                if (newTurn > currentTurn) {
+                    logResult(`✓ Turn number advanced from ${currentTurn} to ${newTurn}`, 'success');
+                }
+            } else {
+                logResult(`✗ Turn advancement failed`, 'error');
+            }
+        };
+        
+        window.testUIUpdates = function() {
+            updateTurnUI(window.currentSessionId);
+            
+            const turnManagement = document.getElementById('turn-management');
+            const currentPlayerName = document.getElementById('current-player-name');
+            const turnNumber = document.getElementById('current-turn-number');
+            
+            if (turnManagement && turnManagement.style.display !== 'none') {
+                logResult("✓ Turn management UI is visible", 'success');
+            } else {
+                logResult("✗ Turn management UI is not visible", 'error');
+            }
+            
+            if (currentPlayerName && currentPlayerName.textContent) {
+                logResult(`✓ Current player name displayed: ${currentPlayerName.textContent}`, 'success');
+            } else {
+                logResult("✗ Current player name not displayed", 'error');
+            }
+            
+            if (turnNumber && turnNumber.textContent) {
+                logResult(`✓ Turn number displayed: ${turnNumber.textContent}`, 'success');
+            } else {
+                logResult("✗ Turn number not displayed", 'error');
+            }
+        };
+        
+        window.testWheelButtonState = function() {
+            // This would test the actual wheel button state in a real implementation
+            logResult("✓ Wheel button state test (mock implementation)", 'success');
+            logResult("In real implementation, this would test button enable/disable states", 'info');
+        };
+    </script>
+</body>
+</html>

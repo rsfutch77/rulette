@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Cases and Error Handling Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-section h2 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+        
+        .test-button.danger {
+            background: #dc3545;
+        }
+        
+        .test-button.danger:hover {
+            background: #c82333;
+        }
+        
+        .test-button.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .test-button.warning:hover {
+            background: #e0a800;
+        }
+        
+        .test-results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-ready { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-warning { background: #ffc107; }
+        
+        /* Notification Modal Styles */
+        .notification-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .notification-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .notification-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .notification-message {
+            margin-bottom: 20px;
+            color: #666;
+        }
+        
+        .notification-close {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Edge Cases and Error Handling Test Suite</h1>
+    <p>This page tests comprehensive error handling for the wheel spin and card draw logic.</p>
+    
+    <!-- System Status -->
+    <div class="test-section">
+        <h2>System Status</h2>
+        <div id="system-status">
+            <div><span class="status-indicator status-error"></span>Game Manager: <span id="game-manager-status">Not Loaded</span></div>
+            <div><span class="status-indicator status-error"></span>Card Manager: <span id="card-manager-status">Not Loaded</span></div>
+            <div><span class="status-indicator status-error"></span>Wheel Component: <span id="wheel-status">Not Loaded</span></div>
+        </div>
+    </div>
+    
+    <!-- Edge Case Tests -->
+    <div class="test-section">
+        <h2>Edge Case Tests</h2>
+        
+        <h3>1. Empty Deck Handling</h3>
+        <button class="test-button" onclick="testEmptyDeck()">Test Empty Deck</button>
+        <button class="test-button" onclick="testEmptyDeckWithReshuffle()">Test Empty Deck with Reshuffle</button>
+        
+        <h3>2. Rule Restrictions</h3>
+        <button class="test-button warning" onclick="testRuleRestrictions()">Test Rule-Based Restrictions</button>
+        <button class="test-button" onclick="testInvalidDeckType()">Test Invalid Deck Type</button>
+        
+        <h3>3. Turn Management Violations</h3>
+        <button class="test-button danger" onclick="testOutOfTurnAction()">Test Out-of-Turn Action</button>
+        <button class="test-button danger" onclick="testDuplicateAction()">Test Duplicate Action</button>
+        <button class="test-button danger" onclick="testInvalidPlayer()">Test Invalid Player</button>
+        
+        <h3>4. Player Disconnection</h3>
+        <button class="test-button warning" onclick="testPlayerDisconnectDuringTurn()">Test Disconnect During Turn</button>
+        <button class="test-button warning" onclick="testPlayerDisconnectNotTurn()">Test Disconnect Not During Turn</button>
+        <button class="test-button danger" onclick="testAllPlayersDisconnect()">Test All Players Disconnect</button>
+        
+        <h3>5. System Errors</h3>
+        <button class="test-button danger" onclick="testMissingComponents()">Test Missing Components</button>
+        <button class="test-button danger" onclick="testInvalidSession()">Test Invalid Session</button>
+        <button class="test-button danger" onclick="testCorruptedGameState()">Test Corrupted Game State</button>
+        
+        <div class="test-results" id="test-results">Test results will appear here...</div>
+    </div>
+    
+    <!-- Manual Test Controls -->
+    <div class="test-section">
+        <h2>Manual Test Controls</h2>
+        <button class="test-button" onclick="initializeTestSession()">Initialize Test Session</button>
+        <button class="test-button" onclick="resetTestEnvironment()">Reset Test Environment</button>
+        <button class="test-button" onclick="clearResults()">Clear Results</button>
+        
+        <h3>Quick Actions</h3>
+        <button class="test-button" onclick="testValidSpin()">Test Valid Spin</button>
+        <button class="test-button" onclick="testValidCardDraw()">Test Valid Card Draw</button>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+    </div>
+    
+    <!-- Notification Modal -->
+    <div id="notification-modal" class="notification-modal">
+        <div class="notification-content">
+            <div id="notification-title" class="notification-title">Notification</div>
+            <div id="notification-message" class="notification-message">Message</div>
+            <button id="notification-close-btn" class="notification-close">OK</button>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { gameManager } from './gameManager.js';
+        import { CardManager } from './cardManager.js';
+        import { loadCardData } from './cardModels.js';
+        import { WheelComponent } from './wheelComponent.js';
+        
+        let testSessionId = 'test-session-edge-cases';
+        let testPlayers = ['player1', 'player2', 'player3'];
+        let cardManager;
+        let wheelComponent;
+        
+        // Initialize components
+        async function initializeComponents() {
+            try {
+                // Initialize card manager
+                const cardData = await loadCardData();
+                cardManager = new CardManager(cardData);
+                window.cardManager = cardManager;
+                updateStatus('card-manager-status', 'Ready', 'ready');
+                
+                // Initialize wheel component
+                wheelComponent = new WheelComponent();
+                window.wheelComponent = wheelComponent;
+                updateStatus('wheel-status', 'Ready', 'ready');
+                
+                // Game manager should already be available
+                if (gameManager) {
+                    updateStatus('game-manager-status', 'Ready', 'ready');
+                }
+                
+                log('✅ All components initialized successfully');
+                
+            } catch (error) {
+                log('❌ Failed to initialize components: ' + error.message);
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        function updateStatus(elementId, text, status) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = text;
+                const indicator = element.parentElement.querySelector('.status-indicator');
+                if (indicator) {
+                    indicator.className = `status-indicator status-${status}`;
+                }
+            }
+        }
+        
+        function log(message) {
+            const results = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.textContent += `[${timestamp}] ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+            console.log(message);
+        }
+        
+        // Test Functions
+        window.testEmptyDeck = function() {
+            log('🧪 Testing empty deck handling...');
+            try {
+                const emptyCardManager = new CardManager({ emptyDeck: [] });
+                const result = emptyCardManager.safeDraw('emptyDeck', 'test-player', {});
+                log(`Empty deck result: ${JSON.stringify(result)}`);
+                
+                if (!result.success && result.error.includes('No cards')) {
+                    log('✅ Empty deck properly handled');
+                } else {
+                    log('❌ Empty deck not properly handled');
+                }
+            } catch (error) {
+                log('❌ Error testing empty deck: ' + error.message);
+            }
+        };
+        
+        window.testEmptyDeckWithReshuffle = function() {
+            log('🧪 Testing empty deck with discard pile...');
+            try {
+                const testCardManager = new CardManager({ testDeck: [{ id: 'test-card', name: 'Test Card' }] });
+                
+                // Draw the only card
+                const firstDraw = testCardManager.draw('testDeck');
+                log(`First draw: ${firstDraw.name}`);
+                
+                // Discard it
+                testCardManager.discard('testDeck', firstDraw);
+                log('Card discarded');
+                
+                // Try to draw again (should reshuffle)
+                const secondDraw = testCardManager.draw('testDeck');
+                log(`Second draw after reshuffle: ${secondDraw.name}`);
+                
+                if (secondDraw.name === firstDraw.name) {
+                    log('✅ Reshuffle mechanism working correctly');
+                } else {
+                    log('❌ Reshuffle mechanism failed');
+                }
+            } catch (error) {
+                log('❌ Error testing reshuffle: ' + error.message);
+            }
+        };
+        
+        window.testRuleRestrictions = function() {
+            log('🧪 Testing rule-based restrictions...');
+            try {
+                if (!cardManager) {
+                    log('❌ Card manager not available');
+                    return;
+                }
+                
+                const gameState = { restrictedDecks: ['deckType1'] };
+                const result = cardManager.safeDraw('deckType1', 'test-player', gameState);
+                log(`Restricted deck result: ${JSON.stringify(result)}`);
+                
+                if (!result.success && result.error.includes('restricted')) {
+                    log('✅ Rule restrictions properly enforced');
+                } else {
+                    log('❌ Rule restrictions not working');
+                }
+            } catch (error) {
+                log('❌ Error testing rule restrictions: ' + error.message);
+            }
+        };
+        
+        window.testInvalidDeckType = function() {
+            log('🧪 Testing invalid deck type...');
+            try {
+                if (!cardManager) {
+                    log('❌ Card manager not available');
+                    return;
+                }
+                
+                const result = cardManager.safeDraw('nonexistentDeck', 'test-player', {});
+                log(`Invalid deck result: ${JSON.stringify(result)}`);
+                
+                if (!result.success && result.error.includes('does not exist')) {
+                    log('✅ Invalid deck type properly handled');
+                } else {
+                    log('❌ Invalid deck type not properly handled');
+                }
+            } catch (error) {
+                log('❌ Error testing invalid deck: ' + error.message);
+            }
+        };
+        
+        window.testOutOfTurnAction = function() {
+            log('🧪 Testing out-of-turn action...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                // Initialize a test session
+                gameManager.initializeTurnOrder(testSessionId, testPlayers);
+                
+                // Try to act as wrong player
+                const wrongPlayer = testPlayers[1]; // Not the first player
+                const validation = gameManager.validatePlayerAction(testSessionId, wrongPlayer, 'spin');
+                log(`Out-of-turn validation: ${JSON.stringify(validation)}`);
+                
+                if (!validation.valid && validation.errorCode === 'NOT_PLAYER_TURN') {
+                    log('✅ Out-of-turn action properly blocked');
+                } else {
+                    log('❌ Out-of-turn action not properly blocked');
+                }
+            } catch (error) {
+                log('❌ Error testing out-of-turn action: ' + error.message);
+            }
+        };
+        
+        window.testDuplicateAction = function() {
+            log('🧪 Testing duplicate action...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                // Initialize test session
+                gameManager.initializeTurnOrder(testSessionId, testPlayers);
+                const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
+                
+                // Record first spin
+                gameManager.recordPlayerSpin(testSessionId, currentPlayer);
+                log('First spin recorded');
+                
+                // Try to spin again
+                const validation = gameManager.validatePlayerAction(testSessionId, currentPlayer, 'spin');
+                log(`Duplicate action validation: ${JSON.stringify(validation)}`);
+                
+                if (!validation.valid && validation.errorCode === 'NOT_PLAYER_TURN') {
+                    log('✅ Duplicate action properly blocked');
+                } else {
+                    log('❌ Duplicate action not properly blocked');
+                }
+            } catch (error) {
+                log('❌ Error testing duplicate action: ' + error.message);
+            }
+        };
+        
+        window.testInvalidPlayer = function() {
+            log('🧪 Testing invalid player...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                const validation = gameManager.validatePlayerAction(testSessionId, 'nonexistent-player', 'spin');
+                log(`Invalid player validation: ${JSON.stringify(validation)}`);
+                
+                if (!validation.valid && validation.errorCode === 'PLAYER_NOT_FOUND') {
+                    log('✅ Invalid player properly handled');
+                } else {
+                    log('❌ Invalid player not properly handled');
+                }
+            } catch (error) {
+                log('❌ Error testing invalid player: ' + error.message);
+            }
+        };
+        
+        window.testPlayerDisconnectDuringTurn = function() {
+            log('🧪 Testing player disconnect during turn...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                // Initialize test session with players
+                gameManager.initializeTurnOrder(testSessionId, testPlayers);
+                
+                // Initialize players
+                testPlayers.forEach(playerId => {
+                    gameManager.players[playerId] = {
+                        playerId,
+                        displayName: `Player ${playerId}`,
+                        points: 20,
+                        status: 'active',
+                        hasRefereeCard: false,
+                        hand: []
+                    };
+                });
+                
+                const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
+                log(`Current player: ${currentPlayer}`);
+                
+                // Simulate disconnect
+                const result = gameManager.handlePlayerDisconnect(testSessionId, currentPlayer);
+                log(`Disconnect result: ${JSON.stringify(result)}`);
+                
+                if (result.handled && result.nextPlayer) {
+                    log('✅ Player disconnect during turn properly handled');
+                } else {
+                    log('❌ Player disconnect during turn not properly handled');
+                }
+            } catch (error) {
+                log('❌ Error testing player disconnect: ' + error.message);
+            }
+        };
+        
+        window.testPlayerDisconnectNotTurn = function() {
+            log('🧪 Testing player disconnect not during turn...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                // Initialize test session
+                gameManager.initializeTurnOrder(testSessionId, testPlayers);
+                
+                // Initialize players
+                testPlayers.forEach(playerId => {
+                    gameManager.players[playerId] = {
+                        playerId,
+                        displayName: `Player ${playerId}`,
+                        points: 20,
+                        status: 'active',
+                        hasRefereeCard: false,
+                        hand: []
+                    };
+                });
+                
+                const notCurrentPlayer = testPlayers[1]; // Not the current player
+                
+                // Simulate disconnect
+                const result = gameManager.handlePlayerDisconnect(testSessionId, notCurrentPlayer);
+                log(`Disconnect result: ${JSON.stringify(result)}`);
+                
+                if (result.handled && !result.nextPlayer) {
+                    log('✅ Player disconnect not during turn properly handled');
+                } else {
+                    log('❌ Player disconnect not during turn not properly handled');
+                }
+            } catch (error) {
+                log('❌ Error testing player disconnect: ' + error.message);
+            }
+        };
+        
+        window.testAllPlayersDisconnect = function() {
+            log('🧪 Testing all players disconnect...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                // Initialize test session
+                gameManager.initializeTurnOrder(testSessionId, testPlayers);
+                
+                // Initialize players
+                testPlayers.forEach(playerId => {
+                    gameManager.players[playerId] = {
+                        playerId,
+                        displayName: `Player ${playerId}`,
+                        points: 20,
+                        status: 'active',
+                        hasRefereeCard: false,
+                        hand: []
+                    };
+                });
+                
+                // Disconnect all players
+                testPlayers.forEach(playerId => {
+                    gameManager.players[playerId].status = 'disconnected';
+                });
+                
+                // Check if session gets cleaned up
+                const cleaned = gameManager.cleanupEmptySession(testSessionId);
+                log(`Session cleanup result: ${cleaned}`);
+                
+                if (cleaned) {
+                    log('✅ Empty session properly cleaned up');
+                } else {
+                    log('❌ Empty session not properly cleaned up');
+                }
+            } catch (error) {
+                log('❌ Error testing all players disconnect: ' + error.message);
+            }
+        };
+        
+        window.testMissingComponents = function() {
+            log('🧪 Testing missing components...');
+            try {
+                // Temporarily remove components
+                const originalCardManager = window.cardManager;
+                const originalGameManager = window.gameManager;
+                
+                window.cardManager = null;
+                
+                // Test card draw with missing card manager
+                if (window.drawCardWithErrorHandling) {
+                    const result = window.drawCardWithErrorHandling('deckType1', 'test-player', testSessionId);
+                    log(`Missing card manager result: ${JSON.stringify(result)}`);
+                }
+                
+                // Restore components
+                window.cardManager = originalCardManager;
+                
+                log('✅ Missing components test completed');
+            } catch (error) {
+                log('❌ Error testing missing components: ' + error.message);
+            }
+        };
+        
+        window.testInvalidSession = function() {
+            log('🧪 Testing invalid session...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                const validation = gameManager.validatePlayerAction('invalid-session', 'test-player', 'spin');
+                log(`Invalid session validation: ${JSON.stringify(validation)}`);
+                
+                if (!validation.valid && validation.errorCode === 'SESSION_NOT_FOUND') {
+                    log('✅ Invalid session properly handled');
+                } else {
+                    log('❌ Invalid session not properly handled');
+                }
+            } catch (error) {
+                log('❌ Error testing invalid session: ' + error.message);
+            }
+        };
+        
+        window.testCorruptedGameState = function() {
+            log('🧪 Testing corrupted game state...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                // Create a session with corrupted turn data
+                gameManager.gameSessions[testSessionId] = { sessionId: testSessionId };
+                gameManager.currentTurn[testSessionId] = null; // Corrupted turn data
+                
+                const validation = gameManager.validatePlayerAction(testSessionId, 'test-player', 'spin');
+                log(`Corrupted state validation: ${JSON.stringify(validation)}`);
+                
+                if (!validation.valid && validation.errorCode === 'TURN_NOT_INITIALIZED') {
+                    log('✅ Corrupted game state properly handled');
+                } else {
+                    log('❌ Corrupted game state not properly handled');
+                }
+            } catch (error) {
+                log('❌ Error testing corrupted game state: ' + error.message);
+            }
+        };
+        
+        window.initializeTestSession = function() {
+            log('🔧 Initializing test session...');
+            try {
+                if (!gameManager) {
+                    log('❌ Game manager not available');
+                    return;
+                }
+                
+                // Create session
+                gameManager.gameSessions[testSessionId] = {
+                    sessionId: testSessionId,
+                    hostId: testPlayers[0],
+                    players: testPlayers,
+                    status: 'in-progress',
+                    referee: testPlayers[0]
+                };
+                
+                // Initialize players
+                testPlayers.forEach(playerId => {
+                    gameManager.players[playerId] = {
+                        playerId,
+                        displayName: `Player ${playerId}`,
+                        points: 20,
+                        status: 'active',
+                        hasRefereeCard: playerId === testPlayers[0],
+                        hand: []
+                    };
+                });
+                
+                // Initialize turn order
+                gameManager.initializeTurnOrder(testSessionId, testPlayers);
+                
+                log('✅ Test session initialized successfully');
+            } catch (error) {
+                log('❌ Error initializing test session: ' + error.message);
+            }
+        };
+        
+        window.resetTestEnvironment = function() {
+            log('🔄 Resetting test environment...');
+            try {
+                if (gameManager) {
+                    delete gameManager.gameSessions[testSessionId];
+                    delete gameManager.currentTurn[testSessionId];
+                    delete gameManager.turnOrder[testSessionId];
+                    
+                    testPlayers.forEach(playerId => {
+                        delete gameManager.players[playerId];
+                    });
+                }
+                
+                log('✅ Test environment reset');
+            } catch (error) {
+                log('❌ Error resetting test environment: ' + error.message);
+            }
+        };
+        
+        window.clearResults = function() {
+            document.getElementById('test-results').textContent = '';
+        };
+        
+        window.testValidSpin = function() {
+            log('🧪 Testing valid spin...');
+            try {
+                initializeTestSession();
+                
+                if (window.spinWheelForPlayer) {
+                    const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
+                    const result = window.spinWheelForPlayer(testSessionId, currentPlayer);
+                    log(`Valid spin result: ${result}`);
+                } else {
+                    log('❌ spinWheelForPlayer function not available');
+                }
+            } catch (error) {
+                log('❌ Error testing valid spin: ' + error.message);
+            }
+        };
+        
+        window.testValidCardDraw = function() {
+            log('🧪 Testing valid card draw...');
+            try {
+                initializeTestSession();
+                
+                if (window.drawCardWithErrorHandling) {
+                    const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
+                    const result = window.drawCardWithErrorHandling('deckType1', currentPlayer, testSessionId);
+                    log(`Valid card draw result: ${JSON.stringify(result)}`);
+                } else {
+                    log('❌ drawCardWithErrorHandling function not available');
+                }
+            } catch (error) {
+                log('❌ Error testing valid card draw: ' + error.message);
+            }
+        };
+        
+        window.runAllTests = function() {
+            log('🚀 Running all edge case tests...');
+            clearResults();
+            
+            const tests = [
+                testEmptyDeck,
+                testEmptyDeckWithReshuffle,
+                testRuleRestrictions,
+                testInvalidDeckType,
+                testOutOfTurnAction,
+                testDuplicateAction,
+                testInvalidPlayer,
+                testPlayerDisconnectDuringTurn,
+                testPlayerDisconnectNotTurn,
+                testAllPlayersDisconnect,
+                testMissingComponents,
+                testInvalidSession,
+                testCorruptedGameState
+            ];
+            
+            let testIndex = 0;
+            function runNextTest() {
+                if (testIndex < tests.length) {
+                    try {
+                        tests[testIndex]();
+                    } catch (error) {
+                        log(`❌ Test ${testIndex + 1} failed: ${error.message}`);
+                    }
+                    testIndex++;
+                    setTimeout(runNextTest, 500); // Small delay between tests
+                } else {
+                    log('🏁 All tests completed');
+                }
+            }
+            
+            runNextTest();
+        };
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeComponents();
+        });
+        
+    </script>
+</body>
+</html>

@@ -36,7 +36,7 @@ Roles and responsibilities:
 [x] 1.3.2 Ensure the referee card is treated as a rule card and can be swapped later (1 Point)
 
 ## Phase 2: Core Game Mechanics
-[ ] 2. Wheel Spin and Card Draw Logic (18 Points)
+[x] 2. Wheel Spin and Card Draw Logic (18 Points)
 [x] 2.1 Wheel UI and Animation (5 Points)
 [x] 2.1.1 Design and implement a visually engaging wheel component (2 Points)
 [x] 2.1.2 Animate the wheel spin with realistic physics or easing (2 Points)
@@ -51,14 +51,14 @@ Roles and responsibilities:
 [x] 2.4 Turn Management (3 Points)
 [x] 2.4.1 Enforce turn order and prevent out-of-turn actions (2 Points)
 [x] 2.4.2 Indicate whose turn it is in the UI (1 Point)
-[ ] 2.5 Edge Cases and Error Handling (3 Points)
-[ ] 2.5.1 Handle the following edge cases:
+[x] 2.5 Edge Cases and Error Handling (3 Points)
+[x] 2.5.1 Handle the following edge cases:
     - Deck is empty
     - Card cannot be drawn due to rule restrictions
     - Player attempts to act out of turn
     - Player disconnects during their turn
     - Invalid or duplicate player actions
-[ ] 2.5.2 Provide user feedback for invalid actions (1 Point)
+[x] 2.5.2 Provide user feedback for invalid actions (1 Point)
 
 [ ] 3. Card Types and Rule System (20 Points)
 [x] 3.1 Card Type Definitions (4 Points)
