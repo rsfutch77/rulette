@@ -837,7 +837,7 @@ window.displayDrawnCard = displayDrawnCard;
 window.closeCardModal = closeCardModal;
 
 // Test function for card draw mechanism
-window.testCardDraw = function(cardTypeName = 'Adult') {
+window.testCardDraw = function(cardTypeName = 'Rule') {
     console.log('DEBUG: Testing card draw mechanism for type:', cardTypeName);
     
     if (!window.wheelComponent) {

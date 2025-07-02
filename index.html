@@ -55,12 +55,12 @@
     #wheel {
       background: conic-gradient(
         from 0deg,
-        #FF6B6B 0deg 60deg,    /* Adult - Red */
-        #4ECDC4 60deg 120deg,  /* Teen - Teal */
-        #45B7D1 120deg 180deg, /* Child - Blue */
-        #96CEB4 180deg 240deg, /* Baby - Green */
-        #FFEAA7 240deg 300deg, /* Elder - Yellow */
-        #DDA0DD 300deg 360deg  /* Beyond - Purple */
+        #FF6B6B 0deg 60deg,    /* Rule - Red */
+        #4ECDC4 60deg 120deg,  /* Prompt - Teal */
+        #45B7D1 120deg 180deg, /* Modifier - Blue */
+        #96CEB4 180deg 240deg, /* Clone - Green */
+        #FFEAA7 240deg 300deg, /* Flip - Yellow */
+        #DDA0DD 300deg 360deg  /* Swap - Purple */
       );
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       position: relative;
@@ -210,9 +210,9 @@
     <!-- Test buttons for card draw mechanism -->
     <div id="test-buttons" style="margin-top:2rem; padding:1rem; background:#f8f9fa; border-radius:8px; text-align:center;">
       <h4>Test Card Draw Mechanism</h4>
-      <button onclick="window.testCardDraw('Adult')" style="background:#FF6B6B; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Adult Card</button>
-      <button onclick="window.testCardDraw('Teen')" style="background:#4ECDC4; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Teen Card</button>
-      <button onclick="window.testCardDraw('Child')" style="background:#45B7D1; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Child Card</button>
+      <button onclick="window.testCardDraw('Rule')" style="background:#FF6B6B; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Rule Card</button>
+      <button onclick="window.testCardDraw('Prompt')" style="background:#4ECDC4; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Prompt Card</button>
+      <button onclick="window.testCardDraw('Modifier')" style="background:#45B7D1; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Modifier Card</button>
       <button onclick="window.testWheel()" style="background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Wheel + Card Draw</button>
     </div>
   </div>

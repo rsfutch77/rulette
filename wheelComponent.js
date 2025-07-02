@@ -6,12 +6,12 @@
 class WheelComponent {
     constructor() {
         this.cardTypes = [
-            { name: 'Adult', color: '#FF6B6B', deckKey: 'deckType1' },
-            { name: 'Teen', color: '#4ECDC4', deckKey: 'deckType2' },
-            { name: 'Child', color: '#45B7D1', deckKey: 'deckType3' },
-            { name: 'Baby', color: '#96CEB4', deckKey: 'deckType4' },
-            { name: 'Elder', color: '#FFEAA7', deckKey: 'deckType5' },
-            { name: 'Beyond', color: '#DDA0DD', deckKey: 'deckType6' }
+            { name: 'Rule', color: '#FF6B6B', deckKey: 'deckType1' },
+            { name: 'Prompt', color: '#4ECDC4', deckKey: 'deckType2' },
+            { name: 'Modifier', color: '#45B7D1', deckKey: 'deckType3' },
+            { name: 'Clone', color: '#96CEB4', deckKey: 'deckType4' },
+            { name: 'Flip', color: '#FFEAA7', deckKey: 'deckType5' },
+            { name: 'Swap', color: '#DDA0DD', deckKey: 'deckType6' }
         ];
         
         this.isSpinning = false;

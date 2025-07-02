@@ -137,15 +137,20 @@ async function loadCardData() {
     const promptCards = filterCards('prompt');
     const modifierCards = filterCards('modifier');
     
+    // Create placeholder arrays for new card types (to be implemented)
+    const cloneCards = []; // TODO: Implement clone cards
+    const flipCards = []; // TODO: Implement flip cards
+    const swapCards = []; // TODO: Implement swap cards
+    
     // Distribute cards across the 6 deck types to match wheel segments
     // This maintains compatibility with the existing wheel component
     const result = {
-        deckType1: [...ruleCards], // Adult -> Rule cards
-        deckType2: [...promptCards], // Teen -> Prompt cards
-        deckType3: [...modifierCards], // Child -> Modifier cards
-        deckType4: [...ruleCards], // Baby -> Rule cards (duplicate for more variety)
-        deckType5: [...promptCards], // Elder -> Prompt cards (duplicate for more variety)
-        deckType6: [...modifierCards] // Beyond -> Modifier cards (duplicate for more variety)
+        deckType1: [...ruleCards], // Rule cards
+        deckType2: [...promptCards], // Prompt cards
+        deckType3: [...modifierCards], // Modifier cards
+        deckType4: [...cloneCards], // Clone cards (placeholder)
+        deckType5: [...flipCards], // Flip cards (placeholder)
+        deckType6: [...swapCards] // Swap cards (placeholder)
     };
     
     if (process.env.NODE_ENV !== 'test') {
