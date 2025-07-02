@@ -9,6 +9,7 @@ import { CardManager } from './cardManager.js';
 let cardManager; // Make cardManager accessible globally
 let cardManagerInitialized = false; // Flag to track initialization status
 import { loadCardData } from './cardModels.js';
+import { WheelComponent } from './wheelComponent.js';
 
 // FIXME: DEV ONLY - Helper for managing a local dev UID for localhost testing
 function getDevUID() {
@@ -137,6 +138,23 @@ function getCurrentUser() {
   cardManagerInitialized = true;
   console.log("[CARD MANAGER] Successfully initialized with all card decks");
 
+  // Initialize Wheel Component
+  window.wheelComponent = new WheelComponent();
+  
+  // Set up wheel spin callback to handle card drawing
+  window.wheelComponent.setSpinCompleteCallback((selectedCardType) => {
+    console.log("[WHEEL] Spin completed, selected card type:", selectedCardType.name);
+    
+    // TODO: Integrate with card draw logic when implemented
+    // For now, just log the selected card type
+    if (cardManager && cardManager[selectedCardType.deckKey]) {
+      const availableCards = cardManager[selectedCardType.deckKey].length;
+      console.log("[WHEEL] Available cards in", selectedCardType.name, "deck:", availableCards);
+    }
+  });
+  
+  console.log("[WHEEL] Wheel component initialized and integrated");
+
   // ...rest of your initialization code that depends on cardManager...
 })();
 import {
@@ -243,4 +261,44 @@ function showNotification(message, title = "Notification", callback = null) {
 window.testNotification = function(message = "Test notification", title = "Test") {
   console.log("DEBUG: Manual test notification triggered");
   showNotification(message, title);
+};
+
+// Wheel control functions
+function showWheel() {
+  if (window.wheelComponent) {
+    window.wheelComponent.show();
+    window.wheelComponent.enable();
+    console.log("[GAME] Wheel shown and enabled");
+  }
+}
+
+function hideWheel() {
+  if (window.wheelComponent) {
+    window.wheelComponent.hide();
+    window.wheelComponent.disable();
+    console.log("[GAME] Wheel hidden and disabled");
+  }
+}
+
+// Expose wheel control functions for testing and game integration
+window.showWheel = showWheel;
+window.hideWheel = hideWheel;
+
+// Test function to demonstrate wheel functionality
+window.testWheel = function() {
+  console.log("DEBUG: Testing wheel functionality");
+  showWheel();
+  
+  // Test each card type
+  const cardTypes = window.wheelComponent.getCardTypes();
+  console.log("Available card types:", cardTypes.map(type => type.name));
+  
+  // Test spin to specific segment (for development)
+  setTimeout(() => {
+    if (window.wheelComponent) {
+      const randomSegment = Math.floor(Math.random() * cardTypes.length);
+      console.log("Testing spin to segment:", randomSegment, "(" + cardTypes[randomSegment].name + ")");
+      window.wheelComponent.testSpin(randomSegment);
+    }
+  }, 1000);
 };

@@ -37,10 +37,10 @@ Roles and responsibilities:
 
 ## Phase 2: Core Game Mechanics
 [ ] 2. Wheel Spin and Card Draw Logic (18 Points)
-[ ] 2.1 Wheel UI and Animation (5 Points)
-[ ] 2.1.1 Design and implement a visually engaging wheel component (2 Points)
-[ ] 2.1.2 Animate the wheel spin with realistic physics or easing (2 Points)
-[ ] 2.1.3 Display card types as segments on the wheel (1 Point)
+[x] 2.1 Wheel UI and Animation (5 Points)
+[x] 2.1.1 Design and implement a visually engaging wheel component (2 Points)
+[x] 2.1.2 Animate the wheel spin with realistic physics or easing (2 Points)
+[x] 2.1.3 Display card types as segments on the wheel (1 Point)
 [ ] 2.2 Randomized Spin Logic (3 Points)
 [ ] 2.2.1 Ensure spins are random and cannot be manipulated (2 Points)
 [ ] 2.2.2 Prevent repeated spins or double actions per turn (1 Point)
