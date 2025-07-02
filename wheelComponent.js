@@ -18,6 +18,16 @@ class WheelComponent {
         this.currentRotation = 0;
         this.segmentAngle = 360 / this.cardTypes.length; // 60 degrees per segment
         
+        // Randomized spin logic state
+        this.lastSpinTime = 0;
+        this.spinCooldown = 1000; // Minimum time between spins (ms)
+        this.hasSpunThisTurn = false;
+        this.currentPlayerId = null;
+        this.turnNumber = 0;
+        
+        // Cryptographically secure random number generation
+        this.crypto = window.crypto || window.msCrypto;
+        
         this.initializeWheel();
         this.bindEvents();
     }
@@ -64,6 +74,89 @@ class WheelComponent {
         }
     }
     
+    /**
+     * Generate cryptographically secure random number between 0 and 1
+     * Falls back to Math.random() if crypto API is not available
+     */
+    getSecureRandom() {
+        if (this.crypto && this.crypto.getRandomValues) {
+            const array = new Uint32Array(1);
+            this.crypto.getRandomValues(array);
+            return array[0] / (0xffffffff + 1);
+        }
+        // Fallback to Math.random() if crypto API not available
+        console.warn('[WHEEL] Crypto API not available, falling back to Math.random()');
+        return Math.random();
+    }
+    
+    /**
+     * Check if a spin is allowed for the given player
+     */
+    canSpin(playerId) {
+        const now = Date.now();
+        
+        // Check if wheel is already spinning
+        if (this.isSpinning) {
+            console.log('[WHEEL] Spin rejected: wheel already spinning');
+            return false;
+        }
+        
+        // Check cooldown period
+        if (now - this.lastSpinTime < this.spinCooldown) {
+            console.log('[WHEEL] Spin rejected: cooldown period active');
+            return false;
+        }
+        
+        // Check if player has already spun this turn
+        if (this.hasSpunThisTurn && this.currentPlayerId === playerId) {
+            console.log('[WHEEL] Spin rejected: player has already spun this turn');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Set the current player and turn for spin validation
+     */
+    setCurrentTurn(playerId, turnNumber) {
+        // If it's a new turn, reset the spin flag
+        if (this.turnNumber !== turnNumber) {
+            this.hasSpunThisTurn = false;
+            this.turnNumber = turnNumber;
+            console.log('[WHEEL] New turn started:', turnNumber);
+        }
+        
+        // If it's a new player, reset the spin flag
+        if (this.currentPlayerId !== playerId) {
+            this.hasSpunThisTurn = false;
+            this.currentPlayerId = playerId;
+            console.log('[WHEEL] Current player set to:', playerId);
+        }
+    }
+    
+    /**
+     * Reset spin state for new turn
+     */
+    resetTurnState() {
+        this.hasSpunThisTurn = false;
+        console.log('[WHEEL] Turn state reset');
+    }
+    
+    /**
+     * Get current spin state for debugging
+     */
+    getSpinState() {
+        return {
+            isSpinning: this.isSpinning,
+            hasSpunThisTurn: this.hasSpunThisTurn,
+            currentPlayerId: this.currentPlayerId,
+            turnNumber: this.turnNumber,
+            lastSpinTime: this.lastSpinTime,
+            timeSinceLastSpin: Date.now() - this.lastSpinTime
+        };
+    }
+    
     enable() {
         const spinButton = document.getElementById('spin-wheel-btn');
         if (spinButton) {
@@ -80,14 +173,16 @@ class WheelComponent {
         }
     }
     
-    spinWheel() {
-        if (this.isSpinning) {
-            console.log('[WHEEL] Spin already in progress');
-            return;
+    spinWheel(playerId = null) {
+        // Validate spin eligibility
+        if (!this.canSpin(playerId)) {
+            return false;
         }
         
-        console.log('[WHEEL] Starting wheel spin');
+        console.log('[WHEEL] Starting wheel spin for player:', playerId);
         this.isSpinning = true;
+        this.hasSpunThisTurn = true;
+        this.lastSpinTime = Date.now();
         this.disable();
         
         // Clear previous result
@@ -96,11 +191,11 @@ class WheelComponent {
             resultDiv.innerHTML = '';
         }
         
-        // Generate random spin: 3-5 full rotations + random final position
+        // Generate cryptographically secure random spin
         const minSpins = 3;
         const maxSpins = 5;
-        const spins = minSpins + Math.random() * (maxSpins - minSpins);
-        const finalAngle = Math.random() * 360;
+        const spins = minSpins + this.getSecureRandom() * (maxSpins - minSpins);
+        const finalAngle = this.getSecureRandom() * 360;
         const totalRotation = (spins * 360) + finalAngle;
         
         // Apply rotation
@@ -149,10 +244,17 @@ class WheelComponent {
             this.onSpinComplete(selectedCardType);
         }
         
+        // Trigger card draw mechanism
+        if (this.onCardDraw) {
+            this.onCardDraw(selectedCardType);
+        }
+        
         // Re-enable after a short delay to prevent rapid spinning
         setTimeout(() => {
             this.enable();
         }, 1000);
+        
+        return true;
     }
     
     displayResult(cardType) {
@@ -173,6 +275,12 @@ class WheelComponent {
         console.log('[WHEEL] Spin complete callback set');
     }
     
+    // Method to set callback for card draw mechanism
+    setCardDrawCallback(callback) {
+        this.onCardDraw = callback;
+        console.log('[WHEEL] Card draw callback set');
+    }
+    
     // Method to get card type info by name
     getCardTypeByName(name) {
         return this.cardTypes.find(type => type.name === name);
@@ -184,8 +292,15 @@ class WheelComponent {
     }
     
     // Method for testing - spin to specific segment
-    testSpin(segmentIndex) {
-        if (this.isSpinning) return;
+    testSpin(segmentIndex, playerId = 'test-player') {
+        // For testing, temporarily bypass validation
+        const originalCanSpin = this.canSpin;
+        this.canSpin = () => true;
+        
+        if (this.isSpinning) {
+            this.canSpin = originalCanSpin;
+            return false;
+        }
         
         console.log('[WHEEL] Test spin to segment:', segmentIndex);
         
@@ -195,6 +310,8 @@ class WheelComponent {
         const totalRotation = (spins * 360) + (360 - targetAngle);
         
         this.isSpinning = true;
+        this.hasSpunThisTurn = true;
+        this.lastSpinTime = Date.now();
         this.disable();
         
         const wheel = document.getElementById('wheel');
@@ -205,8 +322,12 @@ class WheelComponent {
             
             setTimeout(() => {
                 this.handleSpinComplete(360 - targetAngle);
+                // Restore original validation
+                this.canSpin = originalCanSpin;
             }, 4000);
         }
+        
+        return true;
     }
 }
 

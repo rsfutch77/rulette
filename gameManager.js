@@ -16,6 +16,8 @@ class GameManager {
     constructor() {
         this.gameSessions = {}; // Stores active game sessions
         this.players = {}; // Stores all connected players
+        this.currentTurn = {}; // Tracks current turn for each session
+        this.turnOrder = {}; // Tracks turn order for each session
     }
 
     /**
@@ -163,6 +165,95 @@ class GameManager {
         return refereePlayerId;
     }
 
+    /**
+     * Initialize turn management for a session
+     * @param {string} sessionId - The session ID
+     * @param {Array<string>} playerIds - Array of player IDs in turn order
+     */
+    initializeTurnOrder(sessionId, playerIds) {
+        this.turnOrder[sessionId] = [...playerIds];
+        this.currentTurn[sessionId] = {
+            currentPlayerIndex: 0,
+            turnNumber: 1,
+            currentPlayerId: playerIds[0],
+            hasSpun: false
+        };
+        console.log(`Turn order initialized for session ${sessionId}:`, this.turnOrder[sessionId]);
+    }
+
+    /**
+     * Get the current player for a session
+     * @param {string} sessionId - The session ID
+     * @returns {string|null} - Current player ID or null if no session
+     */
+    getCurrentPlayer(sessionId) {
+        const turn = this.currentTurn[sessionId];
+        return turn ? turn.currentPlayerId : null;
+    }
+
+    /**
+     * Check if a player can perform an action (like spinning the wheel)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @returns {boolean} - True if player can act
+     */
+    canPlayerAct(sessionId, playerId) {
+        const turn = this.currentTurn[sessionId];
+        if (!turn) return false;
+        
+        return turn.currentPlayerId === playerId && !turn.hasSpun;
+    }
+
+    /**
+     * Mark that the current player has spun the wheel
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @returns {boolean} - True if action was recorded
+     */
+    recordPlayerSpin(sessionId, playerId) {
+        const turn = this.currentTurn[sessionId];
+        if (!turn || turn.currentPlayerId !== playerId || turn.hasSpun) {
+            return false;
+        }
+        
+        turn.hasSpun = true;
+        console.log(`Player ${playerId} spin recorded for session ${sessionId}`);
+        return true;
+    }
+
+    /**
+     * Advance to the next player's turn
+     * @param {string} sessionId - The session ID
+     * @returns {string|null} - Next player ID or null if no session
+     */
+    nextTurn(sessionId) {
+        const turn = this.currentTurn[sessionId];
+        const order = this.turnOrder[sessionId];
+        
+        if (!turn || !order) return null;
+        
+        // Move to next player
+        turn.currentPlayerIndex = (turn.currentPlayerIndex + 1) % order.length;
+        turn.currentPlayerId = order[turn.currentPlayerIndex];
+        turn.hasSpun = false;
+        
+        // If we've cycled through all players, increment turn number
+        if (turn.currentPlayerIndex === 0) {
+            turn.turnNumber++;
+        }
+        
+        console.log(`Advanced to next turn in session ${sessionId}: Player ${turn.currentPlayerId}, Turn ${turn.turnNumber}`);
+        return turn.currentPlayerId;
+    }
+
+    /**
+     * Get turn information for a session
+     * @param {string} sessionId - The session ID
+     * @returns {object|null} - Turn information or null
+     */
+    getTurnInfo(sessionId) {
+        return this.currentTurn[sessionId] || null;
+    }
 
     // #TODO Implement logic to assign player to a session
     // #TODO Implement lobby and ready system

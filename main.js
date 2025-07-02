@@ -10,6 +10,7 @@ let cardManager; // Make cardManager accessible globally
 let cardManagerInitialized = false; // Flag to track initialization status
 import { loadCardData } from './cardModels.js';
 import { WheelComponent } from './wheelComponent.js';
+import { gameManager } from './gameManager.js';
 
 // FIXME: DEV ONLY - Helper for managing a local dev UID for localhost testing
 function getDevUID() {
@@ -145,12 +146,21 @@ function getCurrentUser() {
   window.wheelComponent.setSpinCompleteCallback((selectedCardType) => {
     console.log("[WHEEL] Spin completed, selected card type:", selectedCardType.name);
     
-    // TODO: Integrate with card draw logic when implemented
-    // For now, just log the selected card type
-    if (cardManager && cardManager[selectedCardType.deckKey]) {
-      const availableCards = cardManager[selectedCardType.deckKey].length;
+    // Log available cards for debugging
+    if (cardManager && cardManager.decks && cardManager.decks[selectedCardType.deckKey]) {
+      const availableCards = cardManager.decks[selectedCardType.deckKey].length;
       console.log("[WHEEL] Available cards in", selectedCardType.name, "deck:", availableCards);
     }
+    
+    // TODO: Advance to next player's turn after spin completes
+    // This will be implemented when turn management is fully integrated
+  });
+  
+  // Initialize card draw mechanism
+  initializeCardDrawMechanism().then(() => {
+    console.log("[WHEEL] Card draw mechanism integrated with wheel component");
+  }).catch(error => {
+    console.error("[WHEEL] Failed to integrate card draw mechanism:", error);
   });
   
   console.log("[WHEEL] Wheel component initialized and integrated");
@@ -280,9 +290,82 @@ function hideWheel() {
   }
 }
 
+// Enhanced wheel control with turn management
+function spinWheelForPlayer(sessionId, playerId) {
+  if (!window.wheelComponent || !gameManager) {
+    console.error("[GAME] Wheel component or game manager not available");
+    return false;
+  }
+  
+  // Check if player can act
+  if (!gameManager.canPlayerAct(sessionId, playerId)) {
+    console.log("[GAME] Player", playerId, "cannot act - not their turn or already acted");
+    return false;
+  }
+  
+  // Get turn info and set it on the wheel
+  const turnInfo = gameManager.getTurnInfo(sessionId);
+  if (turnInfo) {
+    window.wheelComponent.setCurrentTurn(playerId, turnInfo.turnNumber);
+  }
+  
+  // Attempt to spin
+  const spinResult = window.wheelComponent.spinWheel(playerId);
+  if (spinResult) {
+    // Record the spin in game manager
+    gameManager.recordPlayerSpin(sessionId, playerId);
+    console.log("[GAME] Spin initiated for player", playerId);
+  }
+  
+  return spinResult;
+}
+
+// Function to initialize turn-based wheel for a session
+function initializeWheelForSession(sessionId, playerIds) {
+  if (!gameManager) {
+    console.error("[GAME] Game manager not available");
+    return false;
+  }
+  
+  // Initialize turn order in game manager
+  gameManager.initializeTurnOrder(sessionId, playerIds);
+  
+  // Set up wheel for first player
+  const currentPlayer = gameManager.getCurrentPlayer(sessionId);
+  const turnInfo = gameManager.getTurnInfo(sessionId);
+  
+  if (window.wheelComponent && currentPlayer && turnInfo) {
+    window.wheelComponent.setCurrentTurn(currentPlayer, turnInfo.turnNumber);
+    console.log("[GAME] Wheel initialized for session", sessionId, "- current player:", currentPlayer);
+  }
+  
+  return true;
+}
+
+// Function to advance turn and update wheel
+function advanceTurn(sessionId) {
+  if (!gameManager) {
+    console.error("[GAME] Game manager not available");
+    return null;
+  }
+  
+  const nextPlayer = gameManager.nextTurn(sessionId);
+  const turnInfo = gameManager.getTurnInfo(sessionId);
+  
+  if (window.wheelComponent && nextPlayer && turnInfo) {
+    window.wheelComponent.setCurrentTurn(nextPlayer, turnInfo.turnNumber);
+    console.log("[GAME] Advanced to next turn - player:", nextPlayer, "turn:", turnInfo.turnNumber);
+  }
+  
+  return nextPlayer;
+}
+
 // Expose wheel control functions for testing and game integration
 window.showWheel = showWheel;
 window.hideWheel = hideWheel;
+window.spinWheelForPlayer = spinWheelForPlayer;
+window.initializeWheelForSession = initializeWheelForSession;
+window.advanceTurn = advanceTurn;
 
 // Test function to demonstrate wheel functionality
 window.testWheel = function() {
@@ -301,4 +384,332 @@ window.testWheel = function() {
       window.wheelComponent.testSpin(randomSegment);
     }
   }, 1000);
+};
+
+// Test function to demonstrate randomized spin logic
+window.testRandomizedSpin = function() {
+  console.log("DEBUG: Testing randomized spin logic");
+  
+  // Create a test session
+  const testSessionId = "test-session-123";
+  const testPlayers = ["player1", "player2", "player3"];
+  
+  // Initialize wheel for session
+  if (initializeWheelForSession(testSessionId, testPlayers)) {
+    showWheel();
+    
+    console.log("Test session initialized. Current player:", gameManager.getCurrentPlayer(testSessionId));
+    console.log("Turn info:", gameManager.getTurnInfo(testSessionId));
+    console.log("Wheel state:", window.wheelComponent.getSpinState());
+    
+    // Test spinning for current player
+    setTimeout(() => {
+      const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
+      console.log("Attempting spin for current player:", currentPlayer);
+      
+      const spinResult = spinWheelForPlayer(testSessionId, currentPlayer);
+      console.log("Spin result:", spinResult);
+      
+      // Test trying to spin again (should fail)
+      setTimeout(() => {
+        console.log("Attempting second spin (should fail):");
+        const secondSpinResult = spinWheelForPlayer(testSessionId, currentPlayer);
+        console.log("Second spin result:", secondSpinResult);
+        
+        // Test spinning for wrong player (should fail)
+        const wrongPlayer = testPlayers.find(p => p !== currentPlayer);
+        console.log("Attempting spin for wrong player:", wrongPlayer, "(should fail)");
+        const wrongPlayerResult = spinWheelForPlayer(testSessionId, wrongPlayer);
+        console.log("Wrong player spin result:", wrongPlayerResult);
+      }, 1000);
+    }, 1000);
+  }
+};
+
+// Expose test functions
+window.testRandomizedSpin = window.testRandomizedSpin;
+
+// Card Draw Mechanism Implementation
+// This connects the wheel result to the card drawing logic
+
+/**
+ * Initialize the card manager and set up card draw mechanism
+ */
+async function initializeCardDrawMechanism() {
+    try {
+        console.log('[CARD_DRAW] Initializing card draw mechanism...');
+        
+        // Load card data if not already loaded
+        if (!cardManagerInitialized) {
+            const cardData = await loadCardData();
+            cardManager = new CardManager(cardData);
+            cardManagerInitialized = true;
+            console.log('[CARD_DRAW] Card manager initialized with decks:', cardManager.getDeckTypes());
+        }
+        
+        // Set up wheel callback for card drawing
+        if (window.wheelComponent) {
+            window.wheelComponent.setCardDrawCallback(handleCardDraw);
+            console.log('[CARD_DRAW] Card draw callback set on wheel component');
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('[CARD_DRAW] Failed to initialize card draw mechanism:', error);
+        return false;
+    }
+}
+
+/**
+ * Handle card draw based on wheel result
+ * @param {Object} selectedCardType - The card type selected by the wheel
+ */
+function handleCardDraw(selectedCardType) {
+    console.log('[CARD_DRAW] Handling card draw for type:', selectedCardType.name);
+    
+    try {
+        // Map wheel segment to deck type
+        const deckKey = selectedCardType.deckKey;
+        
+        if (!cardManager) {
+            console.error('[CARD_DRAW] Card manager not initialized');
+            showNotification('Card system not ready. Please try again.', 'Error');
+            return;
+        }
+        
+        // Draw card from appropriate deck
+        const drawnCard = drawCardFromDeck(deckKey);
+        
+        if (drawnCard) {
+            // Display the drawn card to the player
+            displayDrawnCard(drawnCard, selectedCardType);
+            console.log('[CARD_DRAW] Card drawn and displayed:', drawnCard.question);
+        } else {
+            console.error('[CARD_DRAW] Failed to draw card from deck:', deckKey);
+            showNotification('Failed to draw card. Deck may be empty.', 'Error');
+        }
+        
+    } catch (error) {
+        console.error('[CARD_DRAW] Error in card draw handling:', error);
+        showNotification('An error occurred while drawing the card.', 'Error');
+    }
+}
+
+/**
+ * Draw a card from the specified deck
+ * @param {string} deckKey - The deck key to draw from
+ * @returns {Object|null} - The drawn card or null if failed
+ */
+function drawCardFromDeck(deckKey) {
+    try {
+        console.log('[CARD_DRAW] Drawing card from deck:', deckKey);
+        
+        // Validate deck exists
+        const availableDecks = cardManager.getDeckTypes();
+        if (!availableDecks.includes(deckKey)) {
+            console.error('[CARD_DRAW] Invalid deck key:', deckKey, 'Available:', availableDecks);
+            return null;
+        }
+        
+        // Draw the card
+        const card = cardManager.draw(deckKey);
+        console.log('[CARD_DRAW] Successfully drew card from', deckKey);
+        
+        return card;
+        
+    } catch (error) {
+        console.error('[CARD_DRAW] Error drawing card from deck:', deckKey, error);
+        
+        // Handle specific error cases
+        if (error.message.includes('does not exist')) {
+            console.error('[CARD_DRAW] Deck type mapping error - check wheel cardTypes deckKey values');
+        } else if (error.message.includes('No cards left')) {
+            console.warn('[CARD_DRAW] Deck is empty, attempting to reshuffle');
+        }
+        
+        return null;
+    }
+}
+
+/**
+ * Display the drawn card to the player using the game card modal
+ * @param {Object} card - The drawn card object
+ * @param {Object} cardType - The card type from the wheel
+ */
+function displayDrawnCard(card, cardType) {
+    console.log('[CARD_DRAW] Displaying drawn card:', card.question);
+    
+    try {
+        // Get modal elements
+        const modal = document.getElementById('game-card-modal');
+        const title = document.getElementById('game-card-title');
+        const question = document.getElementById('game-card-question');
+        const choices = document.getElementById('game-card-choices');
+        const result = document.getElementById('game-card-result');
+        
+        if (!modal || !title || !question || !choices || !result) {
+            console.error('[CARD_DRAW] Card modal elements not found');
+            // Fallback to notification
+            showNotification(`Card drawn: ${card.question}`, `${cardType.name} Card`);
+            return;
+        }
+        
+        // Set card content
+        title.textContent = `${cardType.name} Card`;
+        title.style.color = cardType.color;
+        question.textContent = card.question;
+        
+        // Clear previous choices and result
+        choices.innerHTML = '';
+        result.innerHTML = '';
+        
+        // Create choice buttons
+        card.choices.forEach((choice, index) => {
+            const button = document.createElement('button');
+            button.textContent = choice;
+            button.style.cssText = `
+                display: block;
+                width: 100%;
+                margin: 0.5rem 0;
+                padding: 0.7rem;
+                background: #f8f9fa;
+                border: 2px solid #dee2e6;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1rem;
+                transition: all 0.2s;
+            `;
+            
+            button.addEventListener('click', () => handleCardAnswer(card, index, cardType));
+            button.addEventListener('mouseenter', () => {
+                button.style.background = '#e9ecef';
+                button.style.borderColor = '#adb5bd';
+            });
+            button.addEventListener('mouseleave', () => {
+                button.style.background = '#f8f9fa';
+                button.style.borderColor = '#dee2e6';
+            });
+            
+            choices.appendChild(button);
+        });
+        
+        // Show modal
+        modal.style.display = 'flex';
+        console.log('[CARD_DRAW] Card modal displayed');
+        
+    } catch (error) {
+        console.error('[CARD_DRAW] Error displaying card:', error);
+        // Fallback to notification
+        showNotification(`Card drawn: ${card.question}`, `${cardType.name} Card`);
+    }
+}
+
+/**
+ * Handle player's answer to the card question
+ * @param {Object} card - The card object
+ * @param {number} selectedIndex - The index of the selected answer
+ * @param {Object} cardType - The card type from the wheel
+ */
+function handleCardAnswer(card, selectedIndex, cardType) {
+    console.log('[CARD_DRAW] Player answered card, choice index:', selectedIndex);
+    
+    try {
+        // Record the answer
+        card.answer(selectedIndex);
+        
+        // Get result elements
+        const choices = document.getElementById('game-card-choices');
+        const result = document.getElementById('game-card-result');
+        const modal = document.getElementById('game-card-modal');
+        
+        // Disable all choice buttons
+        const buttons = choices.querySelectorAll('button');
+        buttons.forEach((button, index) => {
+            button.disabled = true;
+            button.style.cursor = 'not-allowed';
+            
+            if (index === selectedIndex) {
+                // Highlight selected answer
+                button.style.background = card.wasCorrect ? '#d4edda' : '#f8d7da';
+                button.style.borderColor = card.wasCorrect ? '#c3e6cb' : '#f5c6cb';
+                button.style.color = card.wasCorrect ? '#155724' : '#721c24';
+            } else if (index === card.correctIndex) {
+                // Highlight correct answer if different from selected
+                button.style.background = '#d4edda';
+                button.style.borderColor = '#c3e6cb';
+                button.style.color = '#155724';
+            } else {
+                // Dim other answers
+                button.style.opacity = '0.6';
+            }
+        });
+        
+        // Show result
+        const resultText = card.wasCorrect ? 'Correct!' : 'Incorrect!';
+        const correctAnswer = card.choices[card.correctIndex];
+        
+        result.innerHTML = `
+            <div style="color: ${card.wasCorrect ? '#28a745' : '#dc3545'}; font-size: 1.2rem; margin-bottom: 0.5rem;">
+                ${resultText}
+            </div>
+            ${!card.wasCorrect ? `<div style="color: #6c757d;">Correct answer: ${correctAnswer}</div>` : ''}
+            <button onclick="closeCardModal()" style="background: #007bff; color: #fff; border: none; border-radius: 5px; padding: 0.5rem 1.2rem; font-size: 1rem; cursor: pointer; margin-top: 1rem;">
+                Continue
+            </button>
+        `;
+        
+        console.log('[CARD_DRAW] Card answer processed, result:', card.wasCorrect ? 'correct' : 'incorrect');
+        
+        // TODO: Here we could integrate with game scoring, rule effects, etc.
+        // For now, we just show the result and allow the player to continue
+        
+    } catch (error) {
+        console.error('[CARD_DRAW] Error handling card answer:', error);
+        showNotification('Error processing your answer.', 'Error');
+    }
+}
+
+/**
+ * Close the card modal
+ */
+function closeCardModal() {
+    const modal = document.getElementById('game-card-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('[CARD_DRAW] Card modal closed');
+    }
+    
+    // TODO: Here we could trigger next turn, update game state, etc.
+    // For now, we just close the modal
+}
+
+// Expose card draw functions for testing and game integration
+window.initializeCardDrawMechanism = initializeCardDrawMechanism;
+window.handleCardDraw = handleCardDraw;
+window.drawCardFromDeck = drawCardFromDeck;
+window.displayDrawnCard = displayDrawnCard;
+window.closeCardModal = closeCardModal;
+
+// Test function for card draw mechanism
+window.testCardDraw = function(cardTypeName = 'Adult') {
+    console.log('DEBUG: Testing card draw mechanism for type:', cardTypeName);
+    
+    if (!window.wheelComponent) {
+        console.error('Wheel component not available');
+        return;
+    }
+    
+    const cardType = window.wheelComponent.getCardTypeByName(cardTypeName);
+    if (!cardType) {
+        console.error('Card type not found:', cardTypeName);
+        return;
+    }
+    
+    // Initialize card draw mechanism if needed
+    initializeCardDrawMechanism().then(() => {
+        // Simulate card draw
+        handleCardDraw(cardType);
+    }).catch(error => {
+        console.error('Failed to initialize card draw for test:', error);
+    });
 };
