@@ -163,6 +163,24 @@
     </div>
     <button id="start-game-btn" style="display:none; background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer;">Start Game</button>
     <div id="turn-order" style="margin-top:1rem; font-weight:bold;"></div>
+    
+    <!-- Turn Management UI -->
+    <div id="turn-management" style="display:none; margin-top:1.5rem; padding:1rem; background:#e8f5e8; border:2px solid #28a745; border-radius:8px; text-align:center;">
+      <div id="current-turn-indicator" style="font-size:1.3rem; font-weight:bold; color:#155724; margin-bottom:0.5rem;">
+        <span id="current-player-name">Player Name</span>'s Turn
+      </div>
+      <div id="turn-info" style="font-size:0.9rem; color:#155724; margin-bottom:1rem;">
+        Turn <span id="current-turn-number">1</span> of 10
+      </div>
+      <div id="turn-actions" style="margin-top:1rem;">
+        <div id="waiting-message" style="display:none; color:#6c757d; font-style:italic;">
+          Waiting for <span id="waiting-player-name">Player</span> to take their turn...
+        </div>
+        <div id="your-turn-message" style="display:none; color:#155724; font-weight:bold;">
+          It's your turn! Spin the wheel to draw a card.
+        </div>
+      </div>
+    </div>
     <!-- Dev Dice Roll Override (only visible for dev/test users) -->
     <div id="dev-dice-controls" style="display:none; margin-top:1rem; padding:1rem; background:#fff3cd; border:2px solid #ffeaa7; border-radius:8px; text-align:center;">
       <div style="font-weight:bold; color:#856404; margin-bottom:0.5rem;">🛠️ DEV MODE: Dice Roll Override</div>

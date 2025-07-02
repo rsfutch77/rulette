@@ -48,9 +48,9 @@ Roles and responsibilities:
 [x] 2.3.1 Link wheel result to card draw logic (1 Point)
 [x] 2.3.2 Draw a card from the appropriate deck based on the wheel segment (2 Points)
 [x] 2.3.3 Display the drawn card to the player (1 Point)
-[ ] 2.4 Turn Management (3 Points)
-[ ] 2.4.1 Enforce turn order and prevent out-of-turn actions (2 Points)
-[ ] 2.4.2 Indicate whose turn it is in the UI (1 Point)
+[x] 2.4 Turn Management (3 Points)
+[x] 2.4.1 Enforce turn order and prevent out-of-turn actions (2 Points)
+[x] 2.4.2 Indicate whose turn it is in the UI (1 Point)
 [ ] 2.5 Edge Cases and Error Handling (3 Points)
 [ ] 2.5.1 Handle the following edge cases:
     - Deck is empty

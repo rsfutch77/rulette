@@ -54,7 +54,22 @@ class WheelComponent {
     bindEvents() {
         const spinButton = document.getElementById('spin-wheel-btn');
         if (spinButton) {
-            spinButton.addEventListener('click', () => this.spinWheel());
+            spinButton.addEventListener('click', () => {
+                // In turn-based mode, use the current session and player
+                if (window.currentSessionId && window.spinWheelForPlayer) {
+                    // Get current user to determine if they can spin
+                    const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+                    if (currentUser) {
+                        window.spinWheelForPlayer(window.currentSessionId, currentUser.uid);
+                    } else {
+                        console.warn('[WHEEL] No current user found for turn-based spin');
+                        this.spinWheel(); // Fallback to basic spin
+                    }
+                } else {
+                    // Fallback to basic spin for testing
+                    this.spinWheel();
+                }
+            });
         }
     }
     

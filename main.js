@@ -142,7 +142,7 @@ function getCurrentUser() {
   // Initialize Wheel Component
   window.wheelComponent = new WheelComponent();
   
-  // Set up wheel spin callback to handle card drawing
+  // Set up wheel spin callback to handle card drawing and turn advancement
   window.wheelComponent.setSpinCompleteCallback((selectedCardType) => {
     console.log("[WHEEL] Spin completed, selected card type:", selectedCardType.name);
     
@@ -152,8 +152,14 @@ function getCurrentUser() {
       console.log("[WHEEL] Available cards in", selectedCardType.name, "deck:", availableCards);
     }
     
-    // TODO: Advance to next player's turn after spin completes
-    // This will be implemented when turn management is fully integrated
+    // Advance to next player's turn after spin completes
+    // Get current session ID (this would be stored globally in a real implementation)
+    const currentSessionId = window.currentSessionId;
+    if (currentSessionId) {
+      setTimeout(() => {
+        completeTurn(currentSessionId);
+      }, 2000); // Give time for card draw to complete
+    }
   });
   
   // Initialize card draw mechanism
@@ -300,6 +306,7 @@ function spinWheelForPlayer(sessionId, playerId) {
   // Check if player can act
   if (!gameManager.canPlayerAct(sessionId, playerId)) {
     console.log("[GAME] Player", playerId, "cannot act - not their turn or already acted");
+    showNotification("It's not your turn or you have already acted this turn.", "Invalid Action");
     return false;
   }
   
@@ -315,6 +322,9 @@ function spinWheelForPlayer(sessionId, playerId) {
     // Record the spin in game manager
     gameManager.recordPlayerSpin(sessionId, playerId);
     console.log("[GAME] Spin initiated for player", playerId);
+    
+    // Update UI to show that player has acted
+    updateTurnUI(sessionId);
   }
   
   return spinResult;
@@ -357,7 +367,143 @@ function advanceTurn(sessionId) {
     console.log("[GAME] Advanced to next turn - player:", nextPlayer, "turn:", turnInfo.turnNumber);
   }
   
+  // Update turn UI
+  updateTurnUI(sessionId);
+  
   return nextPlayer;
+}
+
+// Function to update turn management UI
+function updateTurnUI(sessionId) {
+  if (!gameManager) return;
+  
+  const turnInfo = gameManager.getTurnInfo(sessionId);
+  const currentUser = getCurrentUser();
+  
+  if (!turnInfo || !currentUser) return;
+  
+  // Show turn management section
+  const turnManagement = document.getElementById('turn-management');
+  if (turnManagement) {
+    turnManagement.style.display = 'block';
+  }
+  
+  // Update current player name
+  const currentPlayerName = document.getElementById('current-player-name');
+  const currentPlayerId = turnInfo.currentPlayerId;
+  
+  // Get player display name (simplified for now - in real implementation would fetch from player data)
+  const displayName = currentPlayerId === currentUser.uid ? 'You' : `Player ${currentPlayerId.slice(-4)}`;
+  
+  if (currentPlayerName) {
+    currentPlayerName.textContent = displayName;
+  }
+  
+  // Update turn number
+  const turnNumberSpan = document.getElementById('current-turn-number');
+  if (turnNumberSpan) {
+    turnNumberSpan.textContent = turnInfo.turnNumber;
+  }
+  
+  // Update action messages based on whose turn it is
+  const waitingMessage = document.getElementById('waiting-message');
+  const yourTurnMessage = document.getElementById('your-turn-message');
+  const waitingPlayerName = document.getElementById('waiting-player-name');
+  
+  const isCurrentPlayer = currentPlayerId === currentUser.uid;
+  const hasSpun = turnInfo.hasSpun;
+  
+  if (isCurrentPlayer && !hasSpun) {
+    // It's the current user's turn and they haven't spun yet
+    if (waitingMessage) waitingMessage.style.display = 'none';
+    if (yourTurnMessage) yourTurnMessage.style.display = 'block';
+    
+    // Enable wheel for current player
+    enableWheelForCurrentPlayer();
+  } else {
+    // Either not current player's turn or they've already spun
+    if (yourTurnMessage) yourTurnMessage.style.display = 'none';
+    if (waitingMessage) {
+      waitingMessage.style.display = 'block';
+      if (waitingPlayerName) {
+        waitingPlayerName.textContent = isCurrentPlayer ? 'you to finish your turn' : displayName;
+      }
+    }
+    
+    // Disable wheel for non-current players or if already spun
+    disableWheelForNonCurrentPlayer();
+  }
+  
+  console.log("[TURN_UI] Updated for session", sessionId, "- current player:", currentPlayerId, "is current user:", isCurrentPlayer);
+}
+
+// Helper functions for wheel state management
+function enableWheelForCurrentPlayer() {
+  if (window.wheelComponent) {
+    window.wheelComponent.enable();
+  }
+  
+  const spinButton = document.getElementById('spin-wheel-btn');
+  if (spinButton) {
+    spinButton.disabled = false;
+    spinButton.textContent = 'Spin Wheel';
+    spinButton.style.background = '#28a745';
+  }
+  
+  console.log("[TURN_UI] Wheel enabled for current player");
+}
+
+function disableWheelForNonCurrentPlayer() {
+  if (window.wheelComponent) {
+    window.wheelComponent.disable();
+  }
+  
+  const spinButton = document.getElementById('spin-wheel-btn');
+  if (spinButton) {
+    spinButton.disabled = true;
+    spinButton.textContent = 'Not Your Turn';
+    spinButton.style.background = '#6c757d';
+  }
+  
+  console.log("[TURN_UI] Wheel disabled for non-current player");
+}
+
+// Function to initialize turn management for a session
+function initializeTurnManagement(sessionId, playerIds) {
+  if (!gameManager) {
+    console.error("[GAME] Game manager not available");
+    return false;
+  }
+  
+  // Initialize turn order in game manager
+  gameManager.initializeTurnOrder(sessionId, playerIds);
+  
+  // Update UI
+  updateTurnUI(sessionId);
+  
+  console.log("[TURN_MGMT] Turn management initialized for session", sessionId);
+  return true;
+}
+
+// Function to handle turn completion and advance to next player
+function completeTurn(sessionId) {
+  if (!gameManager) {
+    console.error("[GAME] Game manager not available");
+    return false;
+  }
+  
+  const currentPlayer = gameManager.getCurrentPlayer(sessionId);
+  console.log("[TURN_MGMT] Completing turn for player", currentPlayer);
+  
+  // Advance to next turn
+  const nextPlayer = advanceTurn(sessionId);
+  
+  if (nextPlayer) {
+    console.log("[TURN_MGMT] Turn advanced to player", nextPlayer);
+    return true;
+  }
+  
+  return false;
 }
 
 // Expose wheel control functions for testing and game integration
@@ -366,6 +512,11 @@ window.hideWheel = hideWheel;
 window.spinWheelForPlayer = spinWheelForPlayer;
 window.initializeWheelForSession = initializeWheelForSession;
 window.advanceTurn = advanceTurn;
+
+// Expose turn management functions
+window.updateTurnUI = updateTurnUI;
+window.initializeTurnManagement = initializeTurnManagement;
+window.completeTurn = completeTurn;
 
 // Test function to demonstrate wheel functionality
 window.testWheel = function() {
@@ -386,21 +537,23 @@ window.testWheel = function() {
   }, 1000);
 };
 
-// Test function to demonstrate randomized spin logic
-window.testRandomizedSpin = function() {
-  console.log("DEBUG: Testing randomized spin logic");
+// Test function to demonstrate turn management and randomized spin logic
+window.testTurnManagement = function() {
+  console.log("DEBUG: Testing turn management system");
   
   // Create a test session
   const testSessionId = "test-session-123";
   const testPlayers = ["player1", "player2", "player3"];
   
-  // Initialize wheel for session
-  if (initializeWheelForSession(testSessionId, testPlayers)) {
+  // Set current session for testing
+  window.currentSessionId = testSessionId;
+  
+  // Initialize turn management
+  if (initializeTurnManagement(testSessionId, testPlayers)) {
     showWheel();
     
-    console.log("Test session initialized. Current player:", gameManager.getCurrentPlayer(testSessionId));
+    console.log("Turn management initialized. Current player:", gameManager.getCurrentPlayer(testSessionId));
     console.log("Turn info:", gameManager.getTurnInfo(testSessionId));
-    console.log("Wheel state:", window.wheelComponent.getSpinState());
     
     // Test spinning for current player
     setTimeout(() => {
@@ -425,6 +578,9 @@ window.testRandomizedSpin = function() {
     }, 1000);
   }
 };
+
+// Legacy test function for backward compatibility
+window.testRandomizedSpin = window.testTurnManagement;
 
 // Expose test functions
 window.testRandomizedSpin = window.testRandomizedSpin;
