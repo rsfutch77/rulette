@@ -2,30 +2,68 @@
 // Loads card lists for each deck type from cards.csv via HTTP fetch (browser-compatible)
 
 /**
- * GameCard represents a generic multiple-choice question card.
- * - question: The question text shown to all players.
- * - choices: Array of possible answer strings.
- * - correctIndex: The index of the correct answer in the choices array.
- * - selectedIndex: The index of the answer selected by the current player (null if not answered yet).
- * - wasCorrect: Boolean indicating if the selected answer was correct (null if not answered yet).
+ * GameCard represents a rule, prompt, or modifier card.
+ * - type: The card type (rule, prompt, modifier)
+ * - sideA: The text for side A of the card
+ * - sideB: The text for side B of the card (for rule and modifier cards)
+ * - currentSide: Which side is currently active ('A' or 'B')
+ * - isFlipped: Boolean indicating if the card has been flipped
  */
 class GameCard {
-    constructor({ question, choices, correctIndex, type = 'generic' }) {
-        this.type = type; // Card type/category (e.g., Adult, Teen, Custom, etc.)
-        this.question = question; // string
-        this.choices = choices; // array of strings
-        this.correctIndex = correctIndex; // integer
-        this.selectedIndex = null; // integer or null
-        this.wasCorrect = null; // boolean or null
+    constructor({ type, sideA, sideB = null }) {
+        this.type = type; // 'rule', 'prompt', 'modifier'
+        this.sideA = sideA; // string
+        this.sideB = sideB; // string or null (for prompt cards)
+        this.currentSide = 'A'; // 'A' or 'B'
+        this.isFlipped = false; // boolean
+        this.id = this.generateId(); // unique identifier
     }
 
     /**
-     * Call this when the current player selects an answer.
-     * @param {number} index - The index of the selected answer.
+     * Generate a unique ID for the card
      */
-    answer(index) {
-        this.selectedIndex = index;
-        this.wasCorrect = index === this.correctIndex;
+    generateId() {
+        return `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    /**
+     * Get the current active text based on which side is showing
+     */
+    getCurrentText() {
+        return this.currentSide === 'A' ? this.sideA : this.sideB;
+    }
+
+    /**
+     * Flip the card to the other side (only for rule and modifier cards)
+     */
+    flip() {
+        if (this.type === 'prompt') {
+            console.warn('Cannot flip prompt cards');
+            return false;
+        }
+        
+        if (!this.sideB) {
+            console.warn('Cannot flip card with no side B');
+            return false;
+        }
+        
+        this.currentSide = this.currentSide === 'A' ? 'B' : 'A';
+        this.isFlipped = !this.isFlipped;
+        return true;
+    }
+
+    /**
+     * Get display information for the card
+     */
+    getDisplayInfo() {
+        return {
+            id: this.id,
+            type: this.type,
+            text: this.getCurrentText(),
+            currentSide: this.currentSide,
+            isFlipped: this.isFlipped,
+            hasFlipSide: this.sideB !== null
+        };
     }
 }
 
@@ -61,38 +99,24 @@ function parseCardsCSV(csv) {
         if (row.length < 2) continue; // skip incomplete rows
 
         const cardType = row[0]?.trim() || '';
-        const question = row[1]?.trim() || '';
-        // Choices: answerA, answerB, answerC (columns 2, 3, 4)
-        const choices = [row[2], row[3], row[4]].filter(c => c && c.trim().length > 0).map(c => c.trim());
-        // The correct answer is in row[5] (answerCorrect)
-        const correctAnswer = row[5] ? row[5].trim() : '';
-        // Reference is in row[7] (optionalReference)
-        const reference = row[7] ? row[7].trim() : '';
+        const sideA = row[1]?.trim() || '';
+        const sideB = row[2]?.trim() || null; // Side B is optional (null for prompt cards)
 
-        // Find the correctIndex by matching the correct answer to one of the choices (ignoring explanations)
-        let correctIndex = -1;
-        for (let j = 0; j < choices.length; j++) {
-            // Some correct answers have explanations, so match by prefix
-            if (correctAnswer.startsWith(choices[j])) {
-                correctIndex = j;
-                break;
-            }
+        // Validate card type
+        if (!['rule', 'prompt', 'modifier'].includes(cardType)) {
+            console.warn(`Unknown card type: ${cardType}, skipping card`);
+            continue;
         }
-        // If not found, try exact match (for True/False, etc.)
-        if (correctIndex === -1 && choices.length === 2) {
-            if (correctAnswer.toLowerCase().startsWith('true')) correctIndex = choices.findIndex(c => c.toLowerCase() === 'true');
-            if (correctAnswer.toLowerCase().startsWith('false')) correctIndex = choices.findIndex(c => c.toLowerCase() === 'false');
-        }
-        // If still not found, default to 0
-        if (correctIndex === -1) correctIndex = 0;
 
+        // Create the card
         cards.push(new GameCard({
-            question,
-            choices,
-            correctIndex,
-            type: cardType // Pass the original card type (Adult, Teen, Child, Beyond, etc.)
+            type: cardType,
+            sideA: sideA,
+            sideB: sideB
         }));
     }
+    
+    console.log(`[CARD_PARSER] Parsed ${cards.length} cards from CSV`);
     return cards;
 }
 
@@ -105,31 +129,34 @@ async function loadCardData() {
     const allCards = parseCardsCSV(csv);
     
     function filterCards(type) {
-        return allCards
-            .filter(card => card.type.toLowerCase() === type.toLowerCase())
-            .map(card => ({
-                question: card.question,
-                choices: card.choices,
-                correctIndex: card.correctIndex
-            }));
+        return allCards.filter(card => card.type.toLowerCase() === type.toLowerCase());
     }
     
-    // Generalized deck categories (can be customized as needed)
+    // Group cards by type and distribute across deck types for wheel compatibility
+    const ruleCards = filterCards('rule');
+    const promptCards = filterCards('prompt');
+    const modifierCards = filterCards('modifier');
+    
+    // Distribute cards across the 6 deck types to match wheel segments
+    // This maintains compatibility with the existing wheel component
     const result = {
-        deckType1: filterCards('Adult'),
-        deckType2: filterCards('Teen'),
-        deckType3: filterCards('Child'),
-        deckType4: filterCards('Baby'),
-        deckType5: filterCards('Elder'),
-        deckType6: filterCards('Beyond')
+        deckType1: [...ruleCards], // Adult -> Rule cards
+        deckType2: [...promptCards], // Teen -> Prompt cards
+        deckType3: [...modifierCards], // Child -> Modifier cards
+        deckType4: [...ruleCards], // Baby -> Rule cards (duplicate for more variety)
+        deckType5: [...promptCards], // Elder -> Prompt cards (duplicate for more variety)
+        deckType6: [...modifierCards] // Beyond -> Modifier cards (duplicate for more variety)
     };
     
     if (process.env.NODE_ENV !== 'test') {
-        console.log('[DEBUG] Card counts by type:');
-        Object.keys(result).forEach(type => {
-            console.log(`  ${type}:`, result[type].length);
+        console.log('[DEBUG] Card counts by deck type:');
+        Object.keys(result).forEach(deckType => {
+            console.log(`  ${deckType}:`, result[deckType].length);
         });
         console.log('  Total cards parsed:', allCards.length);
+        console.log('  Rule cards:', ruleCards.length);
+        console.log('  Prompt cards:', promptCards.length);
+        console.log('  Modifier cards:', modifierCards.length);
     }
     
     return result;

@@ -188,6 +188,15 @@
     
     <button id="roll-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; font-size:1.1rem; cursor:pointer; margin-top:1.5rem;" disabled>Roll</button>
     <span id="roll-result" style="margin-left:1rem; font-weight:bold; font-size:1.1rem;"></span>
+    
+    <!-- Test buttons for card draw mechanism -->
+    <div id="test-buttons" style="margin-top:2rem; padding:1rem; background:#f8f9fa; border-radius:8px; text-align:center;">
+      <h4>Test Card Draw Mechanism</h4>
+      <button onclick="window.testCardDraw('Adult')" style="background:#FF6B6B; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Adult Card</button>
+      <button onclick="window.testCardDraw('Teen')" style="background:#4ECDC4; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Teen Card</button>
+      <button onclick="window.testCardDraw('Child')" style="background:#45B7D1; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Child Card</button>
+      <button onclick="window.testWheel()" style="background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; margin:0.25rem; cursor:pointer;">Test Wheel + Card Draw</button>
+    </div>
   </div>
   <script type="module" src="./firebase-init.js"></script>
   <script type="module" src="./main.js"></script>

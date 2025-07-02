@@ -537,7 +537,7 @@ function drawCardFromDeck(deckKey) {
  * @param {Object} cardType - The card type from the wheel
  */
 function displayDrawnCard(card, cardType) {
-    console.log('[CARD_DRAW] Displaying drawn card:', card.question);
+    console.log('[CARD_DRAW] Displaying drawn card:', card.getCurrentText());
     
     try {
         // Get modal elements
@@ -550,48 +550,99 @@ function displayDrawnCard(card, cardType) {
         if (!modal || !title || !question || !choices || !result) {
             console.error('[CARD_DRAW] Card modal elements not found');
             // Fallback to notification
-            showNotification(`Card drawn: ${card.question}`, `${cardType.name} Card`);
+            showNotification(`Card drawn: ${card.getCurrentText()}`, `${cardType.name} Card`);
             return;
         }
         
         // Set card content
-        title.textContent = `${cardType.name} Card`;
+        title.textContent = `${cardType.name} Card - ${card.type.toUpperCase()}`;
         title.style.color = cardType.color;
-        question.textContent = card.question;
+        question.textContent = card.getCurrentText();
         
         // Clear previous choices and result
         choices.innerHTML = '';
         result.innerHTML = '';
         
-        // Create choice buttons
-        card.choices.forEach((choice, index) => {
-            const button = document.createElement('button');
-            button.textContent = choice;
-            button.style.cssText = `
+        // Create action buttons based on card type
+        if (card.type === 'prompt') {
+            // Prompt cards just need an acknowledgment
+            const acknowledgeButton = document.createElement('button');
+            acknowledgeButton.textContent = 'Got it!';
+            acknowledgeButton.style.cssText = `
                 display: block;
                 width: 100%;
-                margin: 0.5rem 0;
+                margin: 1rem 0;
                 padding: 0.7rem;
-                background: #f8f9fa;
-                border: 2px solid #dee2e6;
+                background: #28a745;
+                color: white;
+                border: none;
                 border-radius: 5px;
                 cursor: pointer;
                 font-size: 1rem;
                 transition: all 0.2s;
             `;
             
-            button.addEventListener('click', () => handleCardAnswer(card, index, cardType));
-            button.addEventListener('mouseenter', () => {
-                button.style.background = '#e9ecef';
-                button.style.borderColor = '#adb5bd';
-            });
-            button.addEventListener('mouseleave', () => {
-                button.style.background = '#f8f9fa';
-                button.style.borderColor = '#dee2e6';
+            acknowledgeButton.addEventListener('click', () => {
+                console.log('[CARD_DRAW] Prompt card acknowledged');
+                closeCardModal();
             });
             
-            choices.appendChild(button);
-        });
+            choices.appendChild(acknowledgeButton);
+            
+        } else if (card.type === 'rule' || card.type === 'modifier') {
+            // Rule and modifier cards can be flipped if they have a side B
+            if (card.sideB) {
+                const flipButton = document.createElement('button');
+                flipButton.textContent = `Flip to Side ${card.currentSide === 'A' ? 'B' : 'A'}`;
+                flipButton.style.cssText = `
+                    display: block;
+                    width: 100%;
+                    margin: 0.5rem 0;
+                    padding: 0.7rem;
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 1rem;
+                    transition: all 0.2s;
+                `;
+                
+                flipButton.addEventListener('click', () => {
+                    card.flip();
+                    question.textContent = card.getCurrentText();
+                    flipButton.textContent = `Flip to Side ${card.currentSide === 'A' ? 'B' : 'A'}`;
+                    console.log('[CARD_DRAW] Card flipped to side', card.currentSide);
+                });
+                
+                choices.appendChild(flipButton);
+            }
+            
+            // Accept button
+            const acceptButton = document.createElement('button');
+            acceptButton.textContent = 'Accept Card';
+            acceptButton.style.cssText = `
+                display: block;
+                width: 100%;
+                margin: 0.5rem 0;
+                padding: 0.7rem;
+                background: #28a745;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1rem;
+                transition: all 0.2s;
+            `;
+            
+            acceptButton.addEventListener('click', () => {
+                console.log('[CARD_DRAW] Card accepted:', card.getCurrentText());
+                // TODO: Add card to player's hand/active rules
+                closeCardModal();
+            });
+            
+            choices.appendChild(acceptButton);
+        }
         
         // Show modal
         modal.style.display = 'flex';
@@ -600,74 +651,10 @@ function displayDrawnCard(card, cardType) {
     } catch (error) {
         console.error('[CARD_DRAW] Error displaying card:', error);
         // Fallback to notification
-        showNotification(`Card drawn: ${card.question}`, `${cardType.name} Card`);
+        showNotification(`Card drawn: ${card.getCurrentText()}`, `${cardType.name} Card`);
     }
 }
 
-/**
- * Handle player's answer to the card question
- * @param {Object} card - The card object
- * @param {number} selectedIndex - The index of the selected answer
- * @param {Object} cardType - The card type from the wheel
- */
-function handleCardAnswer(card, selectedIndex, cardType) {
-    console.log('[CARD_DRAW] Player answered card, choice index:', selectedIndex);
-    
-    try {
-        // Record the answer
-        card.answer(selectedIndex);
-        
-        // Get result elements
-        const choices = document.getElementById('game-card-choices');
-        const result = document.getElementById('game-card-result');
-        const modal = document.getElementById('game-card-modal');
-        
-        // Disable all choice buttons
-        const buttons = choices.querySelectorAll('button');
-        buttons.forEach((button, index) => {
-            button.disabled = true;
-            button.style.cursor = 'not-allowed';
-            
-            if (index === selectedIndex) {
-                // Highlight selected answer
-                button.style.background = card.wasCorrect ? '#d4edda' : '#f8d7da';
-                button.style.borderColor = card.wasCorrect ? '#c3e6cb' : '#f5c6cb';
-                button.style.color = card.wasCorrect ? '#155724' : '#721c24';
-            } else if (index === card.correctIndex) {
-                // Highlight correct answer if different from selected
-                button.style.background = '#d4edda';
-                button.style.borderColor = '#c3e6cb';
-                button.style.color = '#155724';
-            } else {
-                // Dim other answers
-                button.style.opacity = '0.6';
-            }
-        });
-        
-        // Show result
-        const resultText = card.wasCorrect ? 'Correct!' : 'Incorrect!';
-        const correctAnswer = card.choices[card.correctIndex];
-        
-        result.innerHTML = `
-            <div style="color: ${card.wasCorrect ? '#28a745' : '#dc3545'}; font-size: 1.2rem; margin-bottom: 0.5rem;">
-                ${resultText}
-            </div>
-            ${!card.wasCorrect ? `<div style="color: #6c757d;">Correct answer: ${correctAnswer}</div>` : ''}
-            <button onclick="closeCardModal()" style="background: #007bff; color: #fff; border: none; border-radius: 5px; padding: 0.5rem 1.2rem; font-size: 1rem; cursor: pointer; margin-top: 1rem;">
-                Continue
-            </button>
-        `;
-        
-        console.log('[CARD_DRAW] Card answer processed, result:', card.wasCorrect ? 'correct' : 'incorrect');
-        
-        // TODO: Here we could integrate with game scoring, rule effects, etc.
-        // For now, we just show the result and allow the player to continue
-        
-    } catch (error) {
-        console.error('[CARD_DRAW] Error handling card answer:', error);
-        showNotification('Error processing your answer.', 'Error');
-    }
-}
 
 /**
  * Close the card modal
