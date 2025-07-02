@@ -115,6 +115,31 @@
       display: inline-block;
       animation: resultPulse 0.6s ease-out;
     }
+
+    /* Player hand styles */
+    #player-hand {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      justify-content: center;
+    }
+
+    .player-card {
+      border: 1px solid #ccc;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      min-width: 80px;
+      text-align: center;
+      transition: transform 0.3s;
+    }
+
+    .player-card.flipped {
+      background: #f9f9f9;
+      transform: rotateY(180deg);
+    }
     
     @keyframes resultPulse {
       0% { transform: scale(0.8); opacity: 0; }
@@ -203,7 +228,9 @@
       <button id="spin-wheel-btn" style="background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; font-size:1.1rem; cursor:pointer; margin-top:1.5rem;" disabled>Spin Wheel</button>
       <div id="wheel-result" style="margin-top:1rem; font-weight:bold; font-size:1.2rem; color:#333;"></div>
     </div>
-    
+
+    <div id="player-hand"></div>
+
     <button id="roll-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; font-size:1.1rem; cursor:pointer; margin-top:1.5rem;" disabled>Roll</button>
     <span id="roll-result" style="margin-left:1rem; font-weight:bold; font-size:1.1rem;"></span>
     

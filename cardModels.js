@@ -4,17 +4,18 @@
 /**
  * GameCard represents a rule, prompt, or modifier card.
  * - type: The card type (rule, prompt, modifier)
- * - sideA: The text for side A of the card
- * - sideB: The text for side B of the card (for rule and modifier cards)
- * - currentSide: Which side is currently active ('A' or 'B')
+ * - frontText: Text for the "front" of the card
+ * - backText: Text for the "back" of the card (for rule/modifier cards)
+ * - face: Which side is currently active ('front' or 'back')
  * - isFlipped: Boolean indicating if the card has been flipped
  */
 class GameCard {
-    constructor({ type, sideA, sideB = null }) {
+    constructor({ type, sideA = null, sideB = null, frontText = null, backText = null }) {
         this.type = type; // 'rule', 'prompt', 'modifier'
-        this.sideA = sideA; // string
-        this.sideB = sideB; // string or null (for prompt cards)
-        this.currentSide = 'A'; // 'A' or 'B'
+        // Backwards compatibility with sideA/sideB parameters
+        this.frontText = frontText || sideA; // string
+        this.backText = backText || sideB; // string or null (for prompt cards)
+        this.face = 'front'; // 'front' or 'back'
         this.isFlipped = false; // boolean
         this.id = this.generateId(); // unique identifier
     }
@@ -30,7 +31,7 @@ class GameCard {
      * Get the current active text based on which side is showing
      */
     getCurrentText() {
-        return this.currentSide === 'A' ? this.sideA : this.sideB;
+        return this.face === 'front' ? this.frontText : this.backText;
     }
 
     /**
@@ -41,14 +42,14 @@ class GameCard {
             console.warn('Cannot flip prompt cards');
             return false;
         }
-        
-        if (!this.sideB) {
+
+        if (!this.backText) {
             console.warn('Cannot flip card with no side B');
             return false;
         }
-        
-        this.currentSide = this.currentSide === 'A' ? 'B' : 'A';
-        this.isFlipped = !this.isFlipped;
+
+        this.face = this.face === 'front' ? 'back' : 'front';
+        this.isFlipped = this.face === 'back';
         return true;
     }
 
@@ -60,9 +61,9 @@ class GameCard {
             id: this.id,
             type: this.type,
             text: this.getCurrentText(),
-            currentSide: this.currentSide,
+            face: this.face,
             isFlipped: this.isFlipped,
-            hasFlipSide: this.sideB !== null
+            hasFlipSide: this.backText !== null
         };
     }
 }
@@ -99,8 +100,8 @@ function parseCardsCSV(csv) {
         if (row.length < 2) continue; // skip incomplete rows
 
         const cardType = row[0]?.trim() || '';
-        const sideA = row[1]?.trim() || '';
-        const sideB = row[2]?.trim() || null; // Side B is optional (null for prompt cards)
+        const frontText = row[1]?.trim() || '';
+        const backText = row[2]?.trim() || null; // Back text is optional (null for prompt cards)
 
         // Validate card type
         if (!['rule', 'prompt', 'modifier'].includes(cardType)) {
@@ -111,8 +112,8 @@ function parseCardsCSV(csv) {
         // Create the card
         cards.push(new GameCard({
             type: cardType,
-            sideA: sideA,
-            sideB: sideB
+            frontText,
+            backText
         }));
     }
     

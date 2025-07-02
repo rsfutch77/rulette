@@ -199,6 +199,8 @@ const gameCodeHeader = document.getElementById("game-code-header");
 const gamePage = document.getElementById("game-page");
 const gameJoinCodeDiv = document.getElementById("game-join-code");
 const playersScoresDiv = document.getElementById("players-scores");
+const playerHandDiv = document.getElementById("player-hand");
+let playerHand = [];
 const gameLogoutBtn = document.getElementById("game-logout-btn");
 const startGameBtn = document.getElementById("start-game-btn");
 const turnOrderDiv = document.getElementById("turn-order");
@@ -749,10 +751,10 @@ function displayDrawnCard(card, cardType) {
             choices.appendChild(acknowledgeButton);
             
         } else if (card.type === 'rule' || card.type === 'modifier') {
-            // Rule and modifier cards can be flipped if they have a side B
-            if (card.sideB) {
+            // Rule and modifier cards can be flipped if they have a back side
+            if (card.backText) {
                 const flipButton = document.createElement('button');
-                flipButton.textContent = `Flip to Side ${card.currentSide === 'A' ? 'B' : 'A'}`;
+                flipButton.textContent = `Flip to ${card.face === 'front' ? 'Back' : 'Front'}`;
                 flipButton.style.cssText = `
                     display: block;
                     width: 100%;
@@ -770,8 +772,8 @@ function displayDrawnCard(card, cardType) {
                 flipButton.addEventListener('click', () => {
                     card.flip();
                     question.textContent = card.getCurrentText();
-                    flipButton.textContent = `Flip to Side ${card.currentSide === 'A' ? 'B' : 'A'}`;
-                    console.log('[CARD_DRAW] Card flipped to side', card.currentSide);
+                    flipButton.textContent = `Flip to ${card.face === 'front' ? 'Back' : 'Front'}`;
+                    console.log('[CARD_DRAW] Card flipped to', card.face);
                 });
                 
                 choices.appendChild(flipButton);
@@ -794,9 +796,10 @@ function displayDrawnCard(card, cardType) {
                 transition: all 0.2s;
             `;
             
-            acceptButton.addEventListener('click', () => {
-                console.log('[CARD_DRAW] Card accepted:', card.getCurrentText());
-                // TODO: Add card to player's hand/active rules
+           acceptButton.addEventListener('click', () => {
+               console.log('[CARD_DRAW] Card accepted:', card.getCurrentText());
+                playerHand.push(card);
+                renderPlayerHand();
                 closeCardModal();
             });
             
@@ -829,12 +832,28 @@ function closeCardModal() {
     // For now, we just close the modal
 }
 
+function renderPlayerHand() {
+    if (!playerHandDiv) return;
+    playerHandDiv.innerHTML = '';
+    playerHand.forEach((card, index) => {
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'player-card' + (card.isFlipped ? ' flipped' : '');
+        cardDiv.textContent = card.getCurrentText();
+        cardDiv.addEventListener('click', () => {
+            card.flip();
+            renderPlayerHand();
+        });
+        playerHandDiv.appendChild(cardDiv);
+    });
+}
+
 // Expose card draw functions for testing and game integration
 window.initializeCardDrawMechanism = initializeCardDrawMechanism;
 window.handleCardDraw = handleCardDraw;
 window.drawCardFromDeck = drawCardFromDeck;
 window.displayDrawnCard = displayDrawnCard;
 window.closeCardModal = closeCardModal;
+window.renderPlayerHand = renderPlayerHand;
 
 // Test function for card draw mechanism
 window.testCardDraw = function(cardTypeName = 'Rule') {
