@@ -5,12 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edge Cases and Error Handling Test</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f5f5; 
+            padding-bottom: 200px; /* Space for fixed bottom bar */
+        }
+        .main-container { 
+            display: flex; 
+            gap: 20px; 
+            max-width: 1600px; 
+            margin: 0 auto; 
+        }
+        .test-column { 
+            flex: 1; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .instructions-column { 
+            flex: 1; 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #dc3545;
         }
         
         .test-section {
@@ -25,17 +46,28 @@
             color: #333;
             border-bottom: 2px solid #007bff;
             padding-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        .test-section h3 {
+            color: #495057;
+            margin: 15px 0 10px 0;
+            font-size: 16px;
         }
         
         .test-button {
             background: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
-            margin: 5px;
+            padding: 10px 15px;
+            margin: 3px;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 5px;
         }
         
         .test-button:hover {
@@ -59,16 +91,27 @@
             background: #e0a800;
         }
         
-        .test-results {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
+        /* Fixed bottom results bar */
+        #test-results { 
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #343a40;
+            color: white;
             padding: 15px;
-            margin-top: 15px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            max-height: 300px;
+            max-height: 180px;
             overflow-y: auto;
+            border-top: 3px solid #dc3545;
+            z-index: 1000;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        #test-results h4 {
+            margin: 0 0 10px 0;
+            color: #ffc107;
+            font-family: Arial, sans-serif;
         }
         
         .status-indicator {
@@ -83,117 +126,419 @@
         .status-error { background: #dc3545; }
         .status-warning { background: #ffc107; }
         
-        /* Notification Modal Styles */
-        .notification-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .notification-content {
-            background: white;
-            padding: 20px;
+        .system-status {
+            background: #e9ecef;
+            padding: 15px;
             border-radius: 8px;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        .notification-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .notification-message {
             margin-bottom: 20px;
-            color: #666;
         }
         
-        .notification-close {
-            background: #007bff;
+        .instruction-step {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 12px;
+            margin: 10px 0;
+            border-left: 4px solid #dc3545;
+        }
+        .instruction-step.setup { border-left-color: #007bff; }
+        .instruction-step.deck { border-left-color: #28a745; }
+        .instruction-step.turn { border-left-color: #ffc107; }
+        .instruction-step.disconnect { border-left-color: #fd7e14; }
+        .instruction-step.system { border-left-color: #dc3545; }
+        .instruction-step.manual { border-left-color: #6c757d; }
+        
+        .step-number {
+            background: #dc3545;
             color: white;
-            border: none;
-            padding: 8px 16px;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .step-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .step-description {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+        .step-expected {
+            font-size: 12px;
+            color: #28a745;
+            font-style: italic;
+        }
+        
+        h1, h2, h3 {
+            color: #343a40;
+        }
+        
+        .phase-header {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 20px 0 10px 0;
+            font-weight: bold;
+        }
+        
+        .category-header {
+            background: #6c757d;
+            color: white;
+            padding: 8px 12px;
             border-radius: 4px;
-            cursor: pointer;
+            margin: 15px 0 8px 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .test-category {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f8f9fa;
+        }
+        
+        .danger-warning {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 13px;
         }
     </style>
 </head>
 <body>
-    <h1>Edge Cases and Error Handling Test Suite</h1>
-    <p>This page tests comprehensive error handling for the wheel spin and card draw logic.</p>
-    
-    <!-- System Status -->
-    <div class="test-section">
-        <h2>System Status</h2>
-        <div id="system-status">
-            <div><span class="status-indicator status-error"></span>Game Manager: <span id="game-manager-status">Not Loaded</span></div>
-            <div><span class="status-indicator status-error"></span>Card Manager: <span id="card-manager-status">Not Loaded</span></div>
-            <div><span class="status-indicator status-error"></span>Wheel Component: <span id="wheel-status">Not Loaded</span></div>
+    <div class="main-container">
+        <!-- Test Controls Column -->
+        <div class="test-column">
+            <h1>Edge Cases and Error Handling Test Suite</h1>
+            <p>This page tests comprehensive error handling for the wheel spin and card draw logic.</p>
+            
+            <!-- System Status -->
+            <div class="system-status">
+                <h3>System Status</h3>
+                <div id="system-status">
+                    <div><span class="status-indicator status-error"></span>Game Manager: <span id="game-manager-status">Not Loaded</span></div>
+                    <div><span class="status-indicator status-error"></span>Card Manager: <span id="card-manager-status">Not Loaded</span></div>
+                    <div><span class="status-indicator status-error"></span>Wheel Component: <span id="wheel-status">Not Loaded</span></div>
+                </div>
+            </div>
+            
+            <!-- Edge Case Tests -->
+            <div class="test-section">
+                <h2>Edge Case Tests</h2>
+                
+                <div class="test-category">
+                    <h3>1. Empty Deck Handling</h3>
+                    <button class="test-button" onclick="testEmptyDeck()">1.1 Test Empty Deck</button>
+                    <button class="test-button" onclick="testEmptyDeckWithReshuffle()">1.2 Test Empty Deck with Reshuffle</button>
+                </div>
+                
+                <div class="test-category">
+                    <h3>2. Rule Restrictions</h3>
+                    <button class="test-button warning" onclick="testRuleRestrictions()">2.1 Test Rule-Based Restrictions</button>
+                    <button class="test-button" onclick="testInvalidDeckType()">2.2 Test Invalid Deck Type</button>
+                </div>
+                
+                <div class="test-category">
+                    <h3>3. Turn Management Violations</h3>
+                    <button class="test-button danger" onclick="testOutOfTurnAction()">3.1 Test Out-of-Turn Action</button>
+                    <button class="test-button danger" onclick="testDuplicateAction()">3.2 Test Duplicate Action</button>
+                    <button class="test-button danger" onclick="testInvalidPlayer()">3.3 Test Invalid Player</button>
+                </div>
+                
+                <div class="test-category">
+                    <h3>4. Player Disconnection</h3>
+                    <button class="test-button warning" onclick="testPlayerDisconnectDuringTurn()">4.1 Test Disconnect During Turn</button>
+                    <button class="test-button warning" onclick="testPlayerDisconnectNotTurn()">4.2 Test Disconnect Not During Turn</button>
+                    <button class="test-button danger" onclick="testAllPlayersDisconnect()">4.3 Test All Players Disconnect</button>
+                </div>
+                
+                <div class="test-category">
+                    <h3>5. System Errors</h3>
+                    <button class="test-button danger" onclick="testMissingComponents()">5.1 Test Missing Components</button>
+                    <button class="test-button danger" onclick="testInvalidSession()">5.2 Test Invalid Session</button>
+                    <button class="test-button danger" onclick="testCorruptedGameState()">5.3 Test Corrupted Game State</button>
+                </div>
+            </div>
+            
+            <!-- Manual Test Controls -->
+            <div class="test-section">
+                <h2>Manual Test Controls</h2>
+                <button class="test-button" onclick="initializeTestSession()">Initialize Test Session</button>
+                <button class="test-button" onclick="resetTestEnvironment()">Reset Test Environment</button>
+                <button class="test-button" onclick="clearResults()">Clear Results</button>
+                
+                <h3>Quick Actions</h3>
+                <button class="test-button" onclick="testValidSpin()">Test Valid Spin</button>
+                <button class="test-button" onclick="testValidCardDraw()">Test Valid Card Draw</button>
+                <button class="test-button" onclick="runAllTests()">🚀 Run All Tests</button>
+            </div>
+        </div>
+        
+        <!-- Instructions Column -->
+        <div class="instructions-column">
+            <h2>🧪 Edge Case Testing Guide</h2>
+            
+            <div class="info-box">
+                <strong>Purpose:</strong> This test suite validates error handling and edge cases in the game system. Tests are designed to fail gracefully and provide meaningful error messages.
+            </div>
+            
+            <div class="phase-header">Setup Phase</div>
+            
+            <div class="instruction-step setup">
+                <div class="step-title">
+                    <span class="step-number">🔧</span>Initialize Test Session (Recommended First)
+                </div>
+                <div class="step-description">
+                    Sets up a complete test environment with players, sessions, and turn order
+                </div>
+                <div class="step-expected">
+                    ✅ Creates test session with 3 players and proper game state
+                </div>
+            </div>
+            
+            <div class="phase-header">Category 1: Empty Deck Handling</div>
+            
+            <div class="instruction-step deck">
+                <div class="step-title">
+                    <span class="step-number">1.1</span>Test Empty Deck
+                </div>
+                <div class="step-description">
+                    Tests behavior when trying to draw from a completely empty deck
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "No cards available" error message
+                </div>
+            </div>
+            
+            <div class="instruction-step deck">
+                <div class="step-title">
+                    <span class="step-number">1.2</span>Test Empty Deck with Reshuffle
+                </div>
+                <div class="step-description">
+                    Tests automatic reshuffle mechanism when deck is empty but discard pile has cards
+                </div>
+                <div class="step-expected">
+                    ✅ Should successfully reshuffle and draw the same card again
+                </div>
+            </div>
+            
+            <div class="phase-header">Category 2: Rule Restrictions</div>
+            
+            <div class="instruction-step deck">
+                <div class="step-title">
+                    <span class="step-number">2.1</span>Test Rule-Based Restrictions
+                </div>
+                <div class="step-description">
+                    Tests game rules that prevent drawing from certain decks under specific conditions
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "deck is restricted" error message
+                </div>
+            </div>
+            
+            <div class="instruction-step deck">
+                <div class="step-title">
+                    <span class="step-number">2.2</span>Test Invalid Deck Type
+                </div>
+                <div class="step-description">
+                    Tests behavior when trying to draw from a non-existent deck
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "deck does not exist" error message
+                </div>
+            </div>
+            
+            <div class="phase-header">Category 3: Turn Management Violations</div>
+            
+            <div class="danger-warning">
+                <strong>⚠️ Warning:</strong> These tests intentionally violate turn order rules to verify proper error handling.
+            </div>
+            
+            <div class="instruction-step turn">
+                <div class="step-title">
+                    <span class="step-number">3.1</span>Test Out-of-Turn Action
+                </div>
+                <div class="step-description">
+                    Tests when a player tries to act when it's not their turn
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "NOT_PLAYER_TURN" error code
+                </div>
+            </div>
+            
+            <div class="instruction-step turn">
+                <div class="step-title">
+                    <span class="step-number">3.2</span>Test Duplicate Action
+                </div>
+                <div class="step-description">
+                    Tests when current player tries to spin twice in the same turn
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "NOT_PLAYER_TURN" error (already spun)
+                </div>
+            </div>
+            
+            <div class="instruction-step turn">
+                <div class="step-title">
+                    <span class="step-number">3.3</span>Test Invalid Player
+                </div>
+                <div class="step-description">
+                    Tests behavior when a non-existent player tries to take action
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "PLAYER_NOT_FOUND" error code
+                </div>
+            </div>
+            
+            <div class="phase-header">Category 4: Player Disconnection</div>
+            
+            <div class="instruction-step disconnect">
+                <div class="step-title">
+                    <span class="step-number">4.1</span>Test Disconnect During Turn
+                </div>
+                <div class="step-description">
+                    Tests handling when the current player disconnects mid-turn
+                </div>
+                <div class="step-expected">
+                    ✅ Should advance to next player and mark disconnection
+                </div>
+            </div>
+            
+            <div class="instruction-step disconnect">
+                <div class="step-title">
+                    <span class="step-number">4.2</span>Test Disconnect Not During Turn
+                </div>
+                <div class="step-description">
+                    Tests handling when a non-current player disconnects
+                </div>
+                <div class="step-expected">
+                    ✅ Should mark player as disconnected without affecting turn order
+                </div>
+            </div>
+            
+            <div class="instruction-step disconnect">
+                <div class="step-title">
+                    <span class="step-number">4.3</span>Test All Players Disconnect
+                </div>
+                <div class="step-description">
+                    Tests session cleanup when all players have disconnected
+                </div>
+                <div class="step-expected">
+                    ✅ Should clean up empty session and return true
+                </div>
+            </div>
+            
+            <div class="phase-header">Category 5: System Errors</div>
+            
+            <div class="danger-warning">
+                <strong>⚠️ Critical:</strong> These tests simulate system failures and component unavailability.
+            </div>
+            
+            <div class="instruction-step system">
+                <div class="step-title">
+                    <span class="step-number">5.1</span>Test Missing Components
+                </div>
+                <div class="step-description">
+                    Tests behavior when required system components are unavailable
+                </div>
+                <div class="step-expected">
+                    ❌ Should handle gracefully with appropriate error messages
+                </div>
+            </div>
+            
+            <div class="instruction-step system">
+                <div class="step-title">
+                    <span class="step-number">5.2</span>Test Invalid Session
+                </div>
+                <div class="step-description">
+                    Tests behavior when trying to act on a non-existent game session
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "SESSION_NOT_FOUND" error code
+                </div>
+            </div>
+            
+            <div class="instruction-step system">
+                <div class="step-title">
+                    <span class="step-number">5.3</span>Test Corrupted Game State
+                </div>
+                <div class="step-description">
+                    Tests recovery from corrupted or incomplete game state data
+                </div>
+                <div class="step-expected">
+                    ❌ Should fail with "TURN_NOT_INITIALIZED" error code
+                </div>
+            </div>
+            
+            <div class="phase-header">Manual Controls & Automation</div>
+            
+            <div class="instruction-step manual">
+                <div class="step-title">
+                    <span class="step-number">🚀</span>Run All Tests (Automated)
+                </div>
+                <div class="step-description">
+                    Executes all edge case tests automatically with 500ms delays between tests
+                </div>
+                <div class="step-expected">
+                    🏁 Comprehensive test suite completion with full results
+                </div>
+            </div>
+            
+            <div class="instruction-step manual">
+                <div class="step-title">
+                    <span class="step-number">✅</span>Test Valid Operations
+                </div>
+                <div class="step-description">
+                    Use "Test Valid Spin" and "Test Valid Card Draw" to verify normal operations work
+                </div>
+                <div class="step-expected">
+                    ✅ Should succeed and demonstrate proper functionality
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px; padding: 15px; background: #e9ecef; border-radius: 5px;">
+                <h4>🎯 What to Watch For:</h4>
+                <ul style="margin: 10px 0; padding-left: 20px; font-size: 13px;">
+                    <li><strong style="color: #28a745;">✅ Success:</strong> Expected behavior, proper error handling</li>
+                    <li><strong style="color: #dc3545;">❌ Failure:</strong> Unexpected errors or missing validation</li>
+                    <li><strong style="color: #ffc107;">⚠️ Warning:</strong> Edge cases that need attention</li>
+                    <li><strong>Error Codes:</strong> Specific validation failure reasons</li>
+                    <li><strong>System Status:</strong> Component availability indicators</li>
+                </ul>
+            </div>
         </div>
     </div>
-    
-    <!-- Edge Case Tests -->
-    <div class="test-section">
-        <h2>Edge Case Tests</h2>
-        
-        <h3>1. Empty Deck Handling</h3>
-        <button class="test-button" onclick="testEmptyDeck()">Test Empty Deck</button>
-        <button class="test-button" onclick="testEmptyDeckWithReshuffle()">Test Empty Deck with Reshuffle</button>
-        
-        <h3>2. Rule Restrictions</h3>
-        <button class="test-button warning" onclick="testRuleRestrictions()">Test Rule-Based Restrictions</button>
-        <button class="test-button" onclick="testInvalidDeckType()">Test Invalid Deck Type</button>
-        
-        <h3>3. Turn Management Violations</h3>
-        <button class="test-button danger" onclick="testOutOfTurnAction()">Test Out-of-Turn Action</button>
-        <button class="test-button danger" onclick="testDuplicateAction()">Test Duplicate Action</button>
-        <button class="test-button danger" onclick="testInvalidPlayer()">Test Invalid Player</button>
-        
-        <h3>4. Player Disconnection</h3>
-        <button class="test-button warning" onclick="testPlayerDisconnectDuringTurn()">Test Disconnect During Turn</button>
-        <button class="test-button warning" onclick="testPlayerDisconnectNotTurn()">Test Disconnect Not During Turn</button>
-        <button class="test-button danger" onclick="testAllPlayersDisconnect()">Test All Players Disconnect</button>
-        
-        <h3>5. System Errors</h3>
-        <button class="test-button danger" onclick="testMissingComponents()">Test Missing Components</button>
-        <button class="test-button danger" onclick="testInvalidSession()">Test Invalid Session</button>
-        <button class="test-button danger" onclick="testCorruptedGameState()">Test Corrupted Game State</button>
-        
-        <div class="test-results" id="test-results">Test results will appear here...</div>
+
+    <!-- Fixed Bottom Results Bar -->
+    <div id="test-results">
+        <h4>🔍 Test Results (Live Updates)</h4>
+        <div id="results-content">Test results will appear here...</div>
     </div>
-    
-    <!-- Manual Test Controls -->
-    <div class="test-section">
-        <h2>Manual Test Controls</h2>
-        <button class="test-button" onclick="initializeTestSession()">Initialize Test Session</button>
-        <button class="test-button" onclick="resetTestEnvironment()">Reset Test Environment</button>
-        <button class="test-button" onclick="clearResults()">Clear Results</button>
-        
-        <h3>Quick Actions</h3>
-        <button class="test-button" onclick="testValidSpin()">Test Valid Spin</button>
-        <button class="test-button" onclick="testValidCardDraw()">Test Valid Card Draw</button>
-        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
-    </div>
-    
-    <!-- Notification Modal -->
-    <div id="notification-modal" class="notification-modal">
-        <div class="notification-content">
-            <div id="notification-title" class="notification-title">Notification</div>
-            <div id="notification-message" class="notification-message">Message</div>
-            <button id="notification-close-btn" class="notification-close">OK</button>
-        </div>
-    </div>
-    
+
     <script type="module">
         import { gameManager } from './gameManager.js';
         import { CardManager } from './cardManager.js';
@@ -244,9 +589,24 @@
         }
         
         function log(message) {
-            const results = document.getElementById('test-results');
+            const results = document.getElementById('results-content');
             const timestamp = new Date().toLocaleTimeString();
-            results.textContent += `[${timestamp}] ${message}\n`;
+            const icon = message.startsWith('✅') ? '✅' : message.startsWith('❌') ? '❌' : message.startsWith('⚠️') ? '⚠️' : '🧪';
+            
+            // Create a new div for this message
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = `${icon} [${timestamp}] ${message}`;
+            messageDiv.style.marginBottom = '2px';
+            messageDiv.style.paddingBottom = '2px';
+            messageDiv.style.borderBottom = '1px solid #495057';
+            
+            results.appendChild(messageDiv);
+            
+            // Keep only last 15 messages
+            while (results.children.length > 15) {
+                results.removeChild(results.firstChild);
+            }
+            
             results.scrollTop = results.scrollHeight;
             console.log(message);
         }
@@ -665,7 +1025,7 @@
         };
         
         window.clearResults = function() {
-            document.getElementById('test-results').textContent = '';
+            document.getElementById('results-content').innerHTML = 'Test results will appear here...';
         };
         
         window.testValidSpin = function() {
