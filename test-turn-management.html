@@ -5,68 +5,348 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Turn Management Test</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
-        .test-button { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f5f5; 
+            padding-bottom: 200px; /* Space for fixed bottom bar */
+        }
+        .main-container { 
+            display: flex; 
+            gap: 20px; 
+            max-width: 1400px; 
+            margin: 0 auto; 
+        }
+        .test-column { 
+            flex: 1; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .instructions-column { 
+            flex: 1; 
+            background: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 5px; 
+        }
+        .test-button { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            margin: 5px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            display: block;
+            width: 100%;
+            text-align: left;
+        }
         .test-button:hover { background: #0056b3; }
         .test-button:disabled { background: #6c757d; cursor: not-allowed; }
         .success { color: #28a745; font-weight: bold; }
         .error { color: #dc3545; font-weight: bold; }
         .info { color: #17a2b8; }
-        #test-results { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; }
-        .turn-indicator { background: #e8f5e8; border: 2px solid #28a745; padding: 15px; border-radius: 8px; margin: 10px 0; text-align: center; }
+        
+        /* Fixed bottom results bar */
+        #test-results { 
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #343a40;
+            color: white;
+            padding: 15px;
+            max-height: 180px;
+            overflow-y: auto;
+            border-top: 3px solid #007bff;
+            z-index: 1000;
+        }
+        #test-results h4 {
+            margin: 0 0 10px 0;
+            color: #ffc107;
+        }
+        #results-content {
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        #results-content div {
+            margin: 2px 0;
+            padding: 2px 0;
+            border-bottom: 1px solid #495057;
+        }
+        
+        .turn-indicator { 
+            background: #e8f5e8; 
+            border: 2px solid #28a745; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0; 
+            text-align: center; 
+        }
         .current-player { font-size: 1.2em; font-weight: bold; color: #155724; }
         .waiting-player { color: #6c757d; font-style: italic; }
+        
+        .instruction-step {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 12px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+        }
+        .instruction-step.phase-1 { border-left-color: #007bff; }
+        .instruction-step.phase-2 { border-left-color: #28a745; }
+        .instruction-step.phase-3 { border-left-color: #ffc107; }
+        .instruction-step.phase-4 { border-left-color: #6c757d; }
+        
+        .step-number {
+            background: #007bff;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .step-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .step-description {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+        .step-expected {
+            font-size: 12px;
+            color: #28a745;
+            font-style: italic;
+        }
+        
+        h1, h2, h3 {
+            color: #343a40;
+        }
+        
+        .phase-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin: 20px 0 10px 0;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Turn Management System Test</h1>
-        <p>This page tests the Turn Management implementation for the Wheel Spin and Card Draw Logic.</p>
-        
-        <div class="test-section">
-            <h3>Test Setup</h3>
-            <button class="test-button" onclick="initializeTest()">Initialize Test Session</button>
-            <button class="test-button" onclick="showTurnInfo()">Show Turn Info</button>
-            <button class="test-button" onclick="resetTest()">Reset Test</button>
-        </div>
-        
-        <div class="test-section">
-            <h3>Turn Order Tests</h3>
-            <button class="test-button" onclick="testCurrentPlayerSpin()">Test Current Player Spin</button>
-            <button class="test-button" onclick="testWrongPlayerSpin()">Test Wrong Player Spin (Should Fail)</button>
-            <button class="test-button" onclick="testDoubleSpinPrevention()">Test Double Spin Prevention</button>
-            <button class="test-button" onclick="testTurnAdvancement()">Test Turn Advancement</button>
-        </div>
-        
-        <div class="test-section">
-            <h3>UI Indicator Tests</h3>
-            <button class="test-button" onclick="testUIUpdates()">Test UI Turn Indicators</button>
-            <button class="test-button" onclick="testWheelButtonState()">Test Wheel Button State</button>
-        </div>
-        
-        <div id="turn-management" class="turn-indicator" style="display:none;">
-            <div class="current-player">
-                <span id="current-player-name">Player Name</span>'s Turn
+    <div class="main-container">
+        <!-- Test Controls Column -->
+        <div class="test-column">
+            <h1>Turn Management System Test</h1>
+            <p>This page tests the Turn Management implementation for the Wheel Spin and Card Draw Logic.</p>
+            
+            <div class="test-section">
+                <h3>Phase 1: Test Setup</h3>
+                <button class="test-button" onclick="initializeTest()">1. Initialize Test Session</button>
+                <button class="test-button" onclick="showTurnInfo()">2. Show Turn Info</button>
+                <button class="test-button" onclick="resetTest()">Reset Test</button>
             </div>
-            <div style="margin: 10px 0;">
-                Turn <span id="current-turn-number">1</span> of 10
+            
+            <div class="test-section">
+                <h3>Phase 2: Turn Order Tests</h3>
+                <button class="test-button" onclick="testCurrentPlayerSpin()">3. Test Current Player Spin</button>
+                <button class="test-button" onclick="testWrongPlayerSpin()">4. Test Wrong Player Spin (Should Fail)</button>
+                <button class="test-button" onclick="testDoubleSpinPrevention()">5. Test Double Spin Prevention</button>
+                <button class="test-button" onclick="testTurnAdvancement()">6. Test Turn Advancement</button>
             </div>
-            <div id="turn-actions">
-                <div id="waiting-message" style="display:none;" class="waiting-player">
-                    Waiting for <span id="waiting-player-name">Player</span> to take their turn...
+            
+            <div class="test-section">
+                <h3>Phase 3: UI Indicator Tests</h3>
+                <button class="test-button" onclick="testUIUpdates()">7. Test UI Turn Indicators</button>
+                <button class="test-button" onclick="testWheelButtonState()">8. Test Wheel Button State</button>
+            </div>
+            
+            <div id="turn-management" class="turn-indicator" style="display:none;">
+                <div class="current-player">
+                    <span id="current-player-name">Player Name</span>'s Turn
                 </div>
-                <div id="your-turn-message" style="display:none;" class="current-player">
-                    It's your turn! Spin the wheel to draw a card.
+                <div style="margin: 10px 0;">
+                    Turn <span id="current-turn-number">1</span> of 10
+                </div>
+                <div id="turn-actions">
+                    <div id="waiting-message" style="display:none;" class="waiting-player">
+                        Waiting for <span id="waiting-player-name">Player</span> to take their turn...
+                    </div>
+                    <div id="your-turn-message" style="display:none;" class="current-player">
+                        It's your turn! Spin the wheel to draw a card.
+                    </div>
                 </div>
             </div>
         </div>
         
-        <div id="test-results">
-            <h4>Test Results:</h4>
-            <div id="results-content">Click "Initialize Test Session" to begin testing.</div>
+        <!-- Instructions Column -->
+        <div class="instructions-column">
+            <h2>📋 Step-by-Step Testing Guide</h2>
+            
+            <div class="phase-header">Phase 1: Setup and Initialization</div>
+            
+            <div class="instruction-step phase-1">
+                <div class="step-title">
+                    <span class="step-number">1</span>Click "Initialize Test Session" (REQUIRED FIRST)
+                </div>
+                <div class="step-description">
+                    Sets up a mock game session with 3 players and initializes turn order
+                </div>
+                <div class="step-expected">
+                    ✅ Green success messages, turn order displayed, UI becomes visible
+                </div>
+            </div>
+            
+            <div class="instruction-step phase-1">
+                <div class="step-title">
+                    <span class="step-number">2</span>Click "Show Turn Info" (Optional)
+                </div>
+                <div class="step-description">
+                    Displays current turn state information for verification
+                </div>
+                <div class="step-expected">
+                    ℹ️ Blue info message with current player, turn number, and spin status
+                </div>
+            </div>
+            
+            <div class="phase-header">Phase 2: Core Turn Management Tests</div>
+            
+            <div class="instruction-step phase-2">
+                <div class="step-title">
+                    <span class="step-number">3</span>Click "Test Current Player Spin"
+                </div>
+                <div class="step-description">
+                    Tests that the current player (player1) can successfully spin
+                </div>
+                <div class="step-expected">
+                    ✅ Success message, UI updates to waiting state
+                </div>
+            </div>
+            
+            <div class="instruction-step phase-2">
+                <div class="step-title">
+                    <span class="step-number">4</span>Click "Test Wrong Player Spin"
+                </div>
+                <div class="step-description">
+                    Tests that non-current players cannot spin out of turn
+                </div>
+                <div class="step-expected">
+                    ✅ Success message confirming wrong player prevented from acting
+                </div>
+            </div>
+            
+            <div class="instruction-step phase-2">
+                <div class="step-title">
+                    <span class="step-number">5</span>Click "Test Double Spin Prevention"
+                </div>
+                <div class="step-description">
+                    Tests that current player cannot spin twice in same turn
+                </div>
+                <div class="step-expected">
+                    ✅ Success message confirming double spin prevented
+                </div>
+            </div>
+            
+            <div class="instruction-step phase-2">
+                <div class="step-title">
+                    <span class="step-number">6</span>Click "Test Turn Advancement"
+                </div>
+                <div class="step-description">
+                    Advances to the next player's turn
+                </div>
+                <div class="step-expected">
+                    ✅ Success message showing turn advanced, UI updates to next player
+                </div>
+            </div>
+            
+            <div class="phase-header">Phase 3: UI and Visual Tests</div>
+            
+            <div class="instruction-step phase-3">
+                <div class="step-title">
+                    <span class="step-number">7</span>Click "Test UI Turn Indicators"
+                </div>
+                <div class="step-description">
+                    Verifies that UI elements properly display turn information
+                </div>
+                <div class="step-expected">
+                    ✅ Multiple success messages confirming UI visibility and content
+                </div>
+            </div>
+            
+            <div class="instruction-step phase-3">
+                <div class="step-title">
+                    <span class="step-number">8</span>Click "Test Wheel Button State"
+                </div>
+                <div class="step-description">
+                    Mock test for wheel button states (placeholder implementation)
+                </div>
+                <div class="step-expected">
+                    ✅ Success message (mock), info about real implementation
+                </div>
+            </div>
+            
+            <div class="phase-header">Phase 4: Additional Testing</div>
+            
+            <div class="instruction-step phase-4">
+                <div class="step-title">
+                    <span class="step-number">↻</span>Repeat Steps 3-6 for Multiple Cycles
+                </div>
+                <div class="step-description">
+                    Test multiple turn cycles: player2 → player3 → player1 (turn 2)
+                </div>
+                <div class="step-expected">
+                    🔄 Continuous turn advancement and proper state management
+                </div>
+            </div>
+            
+            <div class="instruction-step phase-4">
+                <div class="step-title">
+                    <span class="step-number">🔄</span>Click "Reset Test" When Finished
+                </div>
+                <div class="step-description">
+                    Clears all test results and hides turn management UI
+                </div>
+                <div class="step-expected">
+                    🧹 Clean slate ready for fresh testing
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px; padding: 15px; background: #e9ecef; border-radius: 5px;">
+                <h4>🎯 What to Watch For:</h4>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong style="color: #28a745;">Green (✓):</strong> Successful tests</li>
+                    <li><strong style="color: #dc3545;">Red (✗):</strong> Failed tests or errors</li>
+                    <li><strong style="color: #17a2b8;">Blue (ℹ️):</strong> Informational feedback</li>
+                    <li><strong>Turn UI:</strong> Updates with each turn change</li>
+                    <li><strong>Timestamps:</strong> Track test progression</li>
+                </ul>
+            </div>
         </div>
+    </div>
+
+    <!-- Fixed Bottom Results Bar -->
+    <div id="test-results">
+        <h4>🔍 Test Results (Live Updates)</h4>
+        <div id="results-content">Click "Initialize Test Session" to begin testing.</div>
     </div>
 
     <script type="module">
@@ -144,7 +424,8 @@
         
         function logResult(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
-            testResults.push(`[${timestamp}] ${message}`);
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+            testResults.push(`${icon} [${timestamp}] ${message}`);
             updateResultsDisplay();
             
             const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
@@ -154,7 +435,8 @@
         function updateResultsDisplay() {
             const resultsContent = document.getElementById('results-content');
             if (resultsContent) {
-                resultsContent.innerHTML = testResults.map(result => `<div>${result}</div>`).join('');
+                resultsContent.innerHTML = testResults.slice(-10).map(result => `<div>${result}</div>`).join('');
+                resultsContent.scrollTop = resultsContent.scrollHeight;
             }
         }
         
@@ -216,14 +498,14 @@
                 const success = window.gameManager.initializeTurnOrder(window.currentSessionId, testPlayers);
                 if (success) {
                     updateTurnUI(window.currentSessionId);
-                    logResult("✓ Test session initialized successfully", 'success');
-                    logResult(`✓ Turn order: ${testPlayers.join(' → ')}`, 'success');
-                    logResult(`✓ Current player: ${window.gameManager.getCurrentPlayer(window.currentSessionId)}`, 'success');
+                    logResult("Test session initialized successfully", 'success');
+                    logResult(`Turn order: ${testPlayers.join(' → ')}`, 'success');
+                    logResult(`Current player: ${window.gameManager.getCurrentPlayer(window.currentSessionId)}`, 'success');
                 } else {
-                    logResult("✗ Failed to initialize test session", 'error');
+                    logResult("Failed to initialize test session", 'error');
                 }
             } catch (error) {
-                logResult(`✗ Error initializing test: ${error.message}`, 'error');
+                logResult(`Error initializing test: ${error.message}`, 'error');
             }
         };
         
@@ -248,7 +530,7 @@
         window.testCurrentPlayerSpin = function() {
             const currentPlayer = window.gameManager.getCurrentPlayer(window.currentSessionId);
             if (!currentPlayer) {
-                logResult("✗ No current player found", 'error');
+                logResult("No current player found", 'error');
                 return;
             }
             
@@ -257,12 +539,12 @@
                 const spinRecorded = window.gameManager.recordPlayerSpin(window.currentSessionId, currentPlayer);
                 if (spinRecorded) {
                     updateTurnUI(window.currentSessionId);
-                    logResult(`✓ Current player (${currentPlayer}) spin successful`, 'success');
+                    logResult(`Current player (${currentPlayer}) spin successful`, 'success');
                 } else {
-                    logResult(`✗ Failed to record spin for current player (${currentPlayer})`, 'error');
+                    logResult(`Failed to record spin for current player (${currentPlayer})`, 'error');
                 }
             } else {
-                logResult(`✗ Current player (${currentPlayer}) cannot act`, 'error');
+                logResult(`Current player (${currentPlayer}) cannot act`, 'error');
             }
         };
         
@@ -271,15 +553,15 @@
             const wrongPlayer = testPlayers.find(p => p !== currentPlayer);
             
             if (!wrongPlayer) {
-                logResult("✗ Could not find wrong player for test", 'error');
+                logResult("Could not find wrong player for test", 'error');
                 return;
             }
             
             const canAct = window.gameManager.canPlayerAct(window.currentSessionId, wrongPlayer);
             if (!canAct) {
-                logResult(`✓ Wrong player (${wrongPlayer}) correctly prevented from acting`, 'success');
+                logResult(`Wrong player (${wrongPlayer}) correctly prevented from acting`, 'success');
             } else {
-                logResult(`✗ Wrong player (${wrongPlayer}) was allowed to act (should be prevented)`, 'error');
+                logResult(`Wrong player (${wrongPlayer}) was allowed to act (should be prevented)`, 'error');
             }
         };
         
@@ -294,9 +576,9 @@
             
             const canActAgain = window.gameManager.canPlayerAct(window.currentSessionId, currentPlayer);
             if (!canActAgain) {
-                logResult(`✓ Double spin correctly prevented for player (${currentPlayer})`, 'success');
+                logResult(`Double spin correctly prevented for player (${currentPlayer})`, 'success');
             } else {
-                logResult(`✗ Double spin was allowed (should be prevented)`, 'error');
+                logResult(`Double spin was allowed (should be prevented)`, 'error');
             }
         };
         
@@ -309,12 +591,12 @@
             
             if (nextPlayer && nextPlayer !== currentPlayer) {
                 updateTurnUI(window.currentSessionId);
-                logResult(`✓ Turn advanced from ${currentPlayer} to ${nextPlayer}`, 'success');
+                logResult(`Turn advanced from ${currentPlayer} to ${nextPlayer}`, 'success');
                 if (newTurn > currentTurn) {
-                    logResult(`✓ Turn number advanced from ${currentTurn} to ${newTurn}`, 'success');
+                    logResult(`Turn number advanced from ${currentTurn} to ${newTurn}`, 'success');
                 }
             } else {
-                logResult(`✗ Turn advancement failed`, 'error');
+                logResult(`Turn advancement failed`, 'error');
             }
         };
         
@@ -326,27 +608,27 @@
             const turnNumber = document.getElementById('current-turn-number');
             
             if (turnManagement && turnManagement.style.display !== 'none') {
-                logResult("✓ Turn management UI is visible", 'success');
+                logResult("Turn management UI is visible", 'success');
             } else {
-                logResult("✗ Turn management UI is not visible", 'error');
+                logResult("Turn management UI is not visible", 'error');
             }
             
             if (currentPlayerName && currentPlayerName.textContent) {
-                logResult(`✓ Current player name displayed: ${currentPlayerName.textContent}`, 'success');
+                logResult(`Current player name displayed: ${currentPlayerName.textContent}`, 'success');
             } else {
-                logResult("✗ Current player name not displayed", 'error');
+                logResult("Current player name not displayed", 'error');
             }
             
             if (turnNumber && turnNumber.textContent) {
-                logResult(`✓ Turn number displayed: ${turnNumber.textContent}`, 'success');
+                logResult(`Turn number displayed: ${turnNumber.textContent}`, 'success');
             } else {
-                logResult("✗ Turn number not displayed", 'error');
+                logResult("Turn number not displayed", 'error');
             }
         };
         
         window.testWheelButtonState = function() {
             // This would test the actual wheel button state in a real implementation
-            logResult("✓ Wheel button state test (mock implementation)", 'success');
+            logResult("Wheel button state test (mock implementation)", 'success');
             logResult("In real implementation, this would test button enable/disable states", 'info');
         };
     </script>
