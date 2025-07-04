@@ -127,3 +127,4 @@ flowchart TD
 ### Progress Tracker
 - [x] 3.a Flip Card Mechanic
 - [x] 3.b Clone Card Mechanic
+- [x] 3.c Prompt Card Mechanic

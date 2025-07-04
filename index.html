@@ -236,5 +236,22 @@
       <button id="notification-close-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer; margin-top:1rem;">OK</button>
     </div>
   </div>
+  <!-- Active Prompt Modal -->
+  <div id="prompt-active-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#4ECDC4; color:#fff; padding:2rem; border-radius:1rem; max-width:400px; margin:auto; text-align:center;">
+      <h3 id="prompt-active-text"></h3>
+      <p id="prompt-timer" style="margin:1rem 0;"></p>
+      <button id="prompt-complete-btn" style="background:#fff; color:#333; border:none; border-radius:5px; padding:0.5rem 1.2rem; cursor:pointer;">I'm Done</button>
+    </div>
+  </div>
+  <!-- Referee Judgment Modal -->
+  <div id="referee-judgment-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:2rem; border-radius:1rem; max-width:400px; margin:auto; text-align:center;">
+      <h3 id="referee-prompt-text"></h3>
+      <p id="referee-rules-text" style="font-size:0.9rem; margin-bottom:1rem;"></p>
+      <button id="referee-success-btn" style="background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; margin-right:0.5rem; cursor:pointer;">Successful</button>
+      <button id="referee-fail-btn" style="background:#d9534f; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; cursor:pointer;">Unsuccessful</button>
+    </div>
+  </div>
 </body>
 </html>

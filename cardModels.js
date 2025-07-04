@@ -126,6 +126,38 @@ class GameCard {
     }
 }
 
+/**
+ * PromptCard represents an interactive prompt that a player must complete.
+ * - id: Unique identifier for this card.
+ * - name: Short title for the prompt.
+ * - description: The text describing what the player must do.
+ * - rules_for_referee: Guidance for the referee on how to judge the attempt.
+ * - point_value: Points awarded if the prompt is successful.
+ * - discard_rule_on_success: If true, player may discard one rule/modifier card on success.
+ */
+class PromptCard extends GameCard {
+    constructor({ id = null, name, description, rules_for_referee = '', point_value = 1, discard_rule_on_success = false }) {
+        super({ type: 'prompt', sideA: description, sideB: null });
+        if (id) this.id = id;
+        this.name = name;
+        this.description = description;
+        this.rules_for_referee = rules_for_referee;
+        this.point_value = point_value;
+        this.discard_rule_on_success = discard_rule_on_success;
+    }
+
+    getDisplayInfo() {
+        return {
+            id: this.id,
+            name: this.name,
+            description: this.description,
+            rules_for_referee: this.rules_for_referee,
+            point_value: this.point_value,
+            discard_rule_on_success: this.discard_rule_on_success
+        };
+    }
+}
+
 
 // Simple CSV line parser (handles quoted fields)
 function parseCSVLine(line) {
@@ -167,12 +199,21 @@ function parseCardsCSV(csv) {
             continue;
         }
 
-        // Create the card
-        cards.push(new GameCard({
-            type: cardType,
-            sideA: sideA,
-            sideB: sideB
-        }));
+        if (cardType === 'prompt') {
+            cards.push(new PromptCard({
+                name: sideA,
+                description: sideA,
+                rules_for_referee: 'Referee decides if the task was completed',
+                point_value: 1,
+                discard_rule_on_success: true
+            }));
+        } else {
+            cards.push(new GameCard({
+                type: cardType,
+                sideA: sideA,
+                sideB: sideB
+            }));
+        }
     }
     
     console.log(`[CARD_PARSER] Parsed ${cards.length} cards from CSV`);
@@ -230,6 +271,7 @@ async function loadCardData() {
 
 export {
   GameCard,
+  PromptCard,
   loadCardData,
   // consumers should call loadCardData() to obtain card lists
 };

@@ -728,15 +728,14 @@ function displayDrawnCard(card, cardType) {
         
         // Create action buttons based on card type
         if (card.type === 'prompt') {
-            // Prompt cards just need an acknowledgment
-            const acknowledgeButton = document.createElement('button');
-            acknowledgeButton.textContent = 'Got it!';
-            acknowledgeButton.style.cssText = `
+            const startButton = document.createElement('button');
+            startButton.textContent = 'Start Prompt';
+            startButton.style.cssText = `
                 display: block;
                 width: 100%;
                 margin: 1rem 0;
                 padding: 0.7rem;
-                background: #28a745;
+                background: #4ECDC4;
                 color: white;
                 border: none;
                 border-radius: 5px;
@@ -744,13 +743,14 @@ function displayDrawnCard(card, cardType) {
                 font-size: 1rem;
                 transition: all 0.2s;
             `;
-            
-            acknowledgeButton.addEventListener('click', () => {
-                console.log('[CARD_DRAW] Prompt card acknowledged');
+
+            startButton.addEventListener('click', () => {
+                console.log('[CARD_DRAW] Prompt card started');
                 closeCardModal();
+                startPrompt(card);
             });
-            
-            choices.appendChild(acknowledgeButton);
+
+            choices.appendChild(startButton);
             
         } else if (card.type === 'rule' || card.type === 'modifier') {
             // Rule and modifier cards can be flipped if they have a side B
@@ -867,6 +867,105 @@ function closeCardModal() {
     
     // TODO: Here we could trigger next turn, update game state, etc.
     // For now, we just close the modal
+}
+
+// ===== Prompt Card Flow =====
+let activePrompt = null;
+let promptTimer = null;
+
+function startPrompt(card) {
+    const modal = document.getElementById('prompt-active-modal');
+    const text = document.getElementById('prompt-active-text');
+    const timerEl = document.getElementById('prompt-timer');
+    const completeBtn = document.getElementById('prompt-complete-btn');
+
+    if (!modal || !text || !timerEl || !completeBtn) {
+        console.warn('Prompt modal elements missing');
+        return;
+    }
+
+    const currentUser = getCurrentUser();
+    activePrompt = { card, playerId: currentUser ? currentUser.uid : null };
+    text.textContent = card.description || card.getCurrentText();
+    modal.style.display = 'flex';
+
+    let timeLeft = 30;
+    timerEl.textContent = `Time Remaining: ${timeLeft}s`;
+
+    promptTimer = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = `Time Remaining: ${timeLeft}s`;
+        if (timeLeft <= 0) {
+            clearInterval(promptTimer);
+            finishPrompt();
+        }
+    }, 1000);
+
+    completeBtn.onclick = () => {
+        clearInterval(promptTimer);
+        finishPrompt();
+    };
+}
+
+function finishPrompt() {
+    const modal = document.getElementById('prompt-active-modal');
+    if (modal) modal.style.display = 'none';
+    if (activePrompt) {
+        openRefereeJudgment(activePrompt.card, activePrompt.playerId);
+    }
+}
+
+function openRefereeJudgment(card, playerId) {
+    const modal = document.getElementById('referee-judgment-modal');
+    const text = document.getElementById('referee-prompt-text');
+    const rulesEl = document.getElementById('referee-rules-text');
+    const successBtn = document.getElementById('referee-success-btn');
+    const failBtn = document.getElementById('referee-fail-btn');
+
+    if (!modal || !text || !rulesEl || !successBtn || !failBtn) return;
+
+    text.textContent = card.description || card.getCurrentText();
+    rulesEl.textContent = card.rules_for_referee || '';
+    modal.style.display = 'flex';
+
+    successBtn.onclick = () => handleRefereeDecision(true, card, playerId);
+    failBtn.onclick = () => handleRefereeDecision(false, card, playerId);
+}
+
+function handleRefereeDecision(success, card, playerId) {
+    const modal = document.getElementById('referee-judgment-modal');
+    if (modal) modal.style.display = 'none';
+
+    if (success) {
+        if (gameManager) {
+            gameManager.awardPoints(window.currentSessionId, playerId, card.point_value || 1);
+        }
+        showNotification('Prompt Successful!', 'Prompt');
+
+        if (card.discard_rule_on_success) {
+            promptDiscardRule(playerId);
+        }
+    } else {
+        showNotification('Prompt failed.', 'Prompt');
+    }
+
+    updateActiveRulesDisplay();
+    activePrompt = null;
+}
+
+function promptDiscardRule(playerId) {
+    if (!gameManager) return;
+    const player = gameManager.players[playerId];
+    if (!player) return;
+    const ruleCards = player.hand.filter(c => c.type === 'rule' || c.type === 'modifier');
+    if (ruleCards.length === 0) return;
+
+    const list = ruleCards.map((c, i) => `${i + 1}: ${c.getCurrentText ? c.getCurrentText() : c.sideA}`).join('\n');
+    const choice = prompt(`Choose a card to discard:\n${list}`, '1');
+    const index = parseInt(choice) - 1;
+    if (!isNaN(index) && ruleCards[index]) {
+        gameManager.removeCardFromPlayer(window.currentSessionId, playerId, ruleCards[index].id);
+    }
 }
 
 /**
@@ -1058,6 +1157,8 @@ window.flipCardById = flipCardById;
 window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
 window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
 window.updateActiveRulesDisplay = updateActiveRulesDisplay;
+window.startPrompt = startPrompt;
+window.openRefereeJudgment = openRefereeJudgment;
 
 // Test function for clone card mechanic
 window.testCloneCard = function(targetPlayerId, targetCardId) {
