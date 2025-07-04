@@ -121,6 +121,87 @@
       50% { transform: scale(1.1); }
       100% { transform: scale(1); opacity: 1; }
     }
+    
+    /* Prompt Card Visual Distinctions */
+    .prompt-card-indicator {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      background: #4ECDC4;
+      border-radius: 50%;
+      color: white;
+      font-weight: bold;
+      font-size: 12px;
+      margin-right: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .prompt-card-highlight {
+      background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+      border: 2px solid #4ECDC4 !important;
+      box-shadow: 0 0 10px rgba(78, 205, 196, 0.3) !important;
+    }
+    
+    .prompt-status-indicator {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    
+    .prompt-status-progress {
+      background: #e3f2fd;
+      color: #1976d2;
+      border: 1px solid #bbdefb;
+    }
+    
+    .prompt-status-judging {
+      background: #fff3e0;
+      color: #f57c00;
+      border: 1px solid #ffcc02;
+    }
+    
+    .prompt-status-completed {
+      background: #e8f5e8;
+      color: #2e7d32;
+      border: 1px solid #4caf50;
+    }
+    
+    .prompt-status-failed {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #f44336;
+    }
+    
+    /* Enhanced wheel segment styling for Prompt cards */
+    #wheel .wheel-segment:nth-child(2) {
+      position: relative;
+    }
+    
+    #wheel .wheel-segment:nth-child(2)::before {
+      content: "P";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: rgba(255,255,255,0.9);
+      color: #4ECDC4;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      margin-top: -20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body>

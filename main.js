@@ -717,10 +717,40 @@ function displayDrawnCard(card, cardType) {
             return;
         }
         
-        // Set card content
-        title.textContent = `${cardType.name} Card - ${card.type.toUpperCase()}`;
-        title.style.color = cardType.color;
-        question.textContent = card.getCurrentText();
+        // Set card content with enhanced visual distinction for Prompt Cards
+        if (card.type === 'prompt') {
+            // Enhanced styling for Prompt Cards
+            title.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center;">
+                    <div style="width: 24px; height: 24px; background: #4ECDC4; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center;">
+                        <span style="color: white; font-weight: bold; font-size: 14px;">P</span>
+                    </div>
+                    ${cardType.name} Card - ${card.type.toUpperCase()}
+                </div>
+            `;
+            title.style.color = cardType.color;
+            title.style.background = 'linear-gradient(135deg, #4ECDC4, #44A08D)';
+            title.style.color = 'white';
+            title.style.padding = '10px';
+            title.style.borderRadius = '8px';
+            title.style.marginBottom = '15px';
+            
+            // Enhanced question display for prompts
+            question.innerHTML = `
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #4ECDC4; margin-bottom: 10px;">
+                    ${card.getCurrentText()}
+                </div>
+                ${card.rules_for_referee ? `
+                <div style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffeaa7; font-size: 0.9em; color: #856404;">
+                    <strong>Referee Notes:</strong> ${card.rules_for_referee}
+                </div>
+                ` : ''}
+            `;
+        } else {
+            title.textContent = `${cardType.name} Card - ${card.type.toUpperCase()}`;
+            title.style.color = cardType.color;
+            question.textContent = card.getCurrentText();
+        }
         
         // Clear previous choices and result
         choices.innerHTML = '';
@@ -730,20 +760,32 @@ function displayDrawnCard(card, cardType) {
         if (card.type === 'prompt') {
             // Prompt cards need to be activated with timer and referee judgment
             const startPromptButton = document.createElement('button');
-            startPromptButton.textContent = 'Start Prompt Challenge';
+            startPromptButton.textContent = '🎯 Start Prompt Challenge';
             startPromptButton.style.cssText = `
                 display: block;
                 width: 100%;
                 margin: 1rem 0;
                 padding: 0.7rem;
-                background: #28a745;
+                background: linear-gradient(135deg, #28a745, #20c997);
                 color: white;
                 border: none;
-                border-radius: 5px;
+                border-radius: 8px;
                 cursor: pointer;
                 font-size: 1rem;
+                font-weight: bold;
                 transition: all 0.2s;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             `;
+            
+            startPromptButton.addEventListener('mouseover', () => {
+                startPromptButton.style.transform = 'translateY(-2px)';
+                startPromptButton.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+            });
+            
+            startPromptButton.addEventListener('mouseout', () => {
+                startPromptButton.style.transform = 'translateY(0)';
+                startPromptButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            });
             
             startPromptButton.addEventListener('click', () => {
                 console.log('[CARD_DRAW] Starting prompt challenge');
@@ -1372,7 +1414,7 @@ function showPromptUI(promptState) {
             padding: 20px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             z-index: 1000;
-            max-width: 500px;
+            max-width: 600px;
             text-align: center;
         `;
         document.body.appendChild(promptContainer);
@@ -1380,11 +1422,18 @@ function showPromptUI(promptState) {
     
     const playerName = getPlayerDisplayName(promptState.playerId);
     const promptText = promptState.promptCard.description || promptState.promptCard.getCurrentText();
+    const rulesForReferee = promptState.promptCard.rules_for_referee || '';
     
     promptContainer.innerHTML = `
-        <h3 style="color: #4ECDC4; margin-top: 0;">Prompt Challenge</h3>
+        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 15px;">
+            <div style="width: 24px; height: 24px; background: #4ECDC4; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-weight: bold; font-size: 14px;">P</span>
+            </div>
+            <h3 style="color: #4ECDC4; margin: 0;">Prompt Challenge</h3>
+        </div>
         <p><strong>${playerName}</strong> is attempting:</p>
-        <p style="font-size: 1.2em; font-weight: bold; color: #333;">${promptText}</p>
+        <p style="font-size: 1.2em; font-weight: bold; color: #333; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #4ECDC4;">${promptText}</p>
+        <div id="prompt-status" style="font-size: 1.1em; color: #6c757d; margin: 10px 0; font-style: italic;">Challenge in progress...</div>
         <div id="prompt-timer" style="font-size: 1.5em; color: #e74c3c; margin: 10px 0;">60</div>
         <div id="prompt-actions" style="margin-top: 15px;"></div>
     `;
@@ -1414,14 +1463,29 @@ function showPromptUI(promptState) {
     // Check if current user is referee
     const session = gameManager.gameSessions[promptState.sessionId];
     if (currentUser && session && session.referee === currentUser.uid) {
-        // Show referee controls (initially hidden until prompt is completed)
+        // Enhanced referee controls with comprehensive prompt information
         const refereeDiv = document.createElement('div');
         refereeDiv.id = 'referee-controls';
         refereeDiv.style.display = 'none';
         refereeDiv.innerHTML = `
-            <p style="margin-top: 20px; font-weight: bold;">Referee Judgment:</p>
-            <button id="judge-success" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">Successful</button>
-            <button id="judge-fail" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">Unsuccessful</button>
+            <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border: 2px solid #ffeaa7; border-radius: 8px; text-align: left;">
+                <h4 style="color: #856404; margin-top: 0; text-align: center;">🏛️ Referee Assessment</h4>
+                <div style="margin-bottom: 15px;">
+                    <strong style="color: #856404;">Prompt:</strong>
+                    <p style="margin: 5px 0; padding: 10px; background: #fff; border-radius: 5px; border: 1px solid #ffeaa7;">${promptText}</p>
+                </div>
+                ${rulesForReferee ? `
+                <div style="margin-bottom: 15px;">
+                    <strong style="color: #856404;">Judgment Criteria:</strong>
+                    <p style="margin: 5px 0; padding: 10px; background: #fff; border-radius: 5px; border: 1px solid #ffeaa7; font-style: italic;">${rulesForReferee}</p>
+                </div>
+                ` : ''}
+                <div style="text-align: center; margin-top: 15px;">
+                    <p style="font-weight: bold; color: #856404; margin-bottom: 10px;">Your Judgment:</p>
+                    <button id="judge-success" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; font-weight: bold;">✓ Successful</button>
+                    <button id="judge-fail" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; font-weight: bold;">✗ Unsuccessful</button>
+                </div>
+            </div>
         `;
         actionsDiv.appendChild(refereeDiv);
         
@@ -1479,7 +1543,15 @@ function completePromptChallenge(sessionId, playerId) {
         window.currentPromptTimer = null;
     }
     
-    // Update UI to show waiting for referee
+    // Update status with enhanced feedback
+    const statusElement = document.getElementById('prompt-status');
+    if (statusElement) {
+        statusElement.innerHTML = '⏳ <strong>Referee is Judging...</strong>';
+        statusElement.style.color = '#ffc107';
+        statusElement.style.fontWeight = 'bold';
+    }
+    
+    // Update timer display
     const timerElement = document.getElementById('prompt-timer');
     if (timerElement) {
         timerElement.textContent = 'Awaiting Referee...';
@@ -1512,7 +1584,15 @@ function handlePromptTimeout(sessionId) {
     const result = gameManager.handlePromptTimeout(sessionId);
     
     if (result.success) {
-        // Update UI
+        // Update status with enhanced feedback
+        const statusElement = document.getElementById('prompt-status');
+        if (statusElement) {
+            statusElement.innerHTML = '⏰ <strong>Time\'s Up! Referee is Judging...</strong>';
+            statusElement.style.color = '#dc3545';
+            statusElement.style.fontWeight = 'bold';
+        }
+        
+        // Update timer display
         const timerElement = document.getElementById('prompt-timer');
         if (timerElement) {
             timerElement.textContent = 'Time\'s Up!';
@@ -1546,33 +1626,49 @@ function judgePrompt(sessionId, refereeId, successful) {
         return;
     }
     
-    // Hide prompt UI
-    hidePromptUI();
-    
-    // Show result notification
-    const playerName = getPlayerDisplayName(result.result.playerId);
-    if (successful) {
-        showNotification(
-            `${playerName} successfully completed the prompt and earned ${result.result.pointsAwarded} points!`,
-            'Prompt Successful'
-        );
-        
-        if (result.result.requiresCardDiscard) {
-            showNotification(
-                `${playerName} may now discard one of their rule cards.`,
-                'Card Discard Available'
-            );
+    // Update status before hiding UI to show completion
+    const statusElement = document.getElementById('prompt-status');
+    if (statusElement) {
+        if (successful) {
+            statusElement.innerHTML = '🎉 <strong>Prompt Completed!</strong>';
+            statusElement.style.color = '#28a745';
+        } else {
+            statusElement.innerHTML = '❌ <strong>Prompt Failed</strong>';
+            statusElement.style.color = '#dc3545';
         }
-    } else {
-        showNotification(
-            `${playerName} did not successfully complete the prompt.`,
-            'Prompt Unsuccessful'
-        );
+        statusElement.style.fontWeight = 'bold';
     }
     
-    // Update UI displays
-    updateTurnUI();
-    updateActiveRulesDisplay();
+    // Brief delay to show completion status before hiding
+    setTimeout(() => {
+        // Hide prompt UI
+        hidePromptUI();
+        
+        // Show result notification
+        const playerName = getPlayerDisplayName(result.result.playerId);
+        if (successful) {
+            showNotification(
+                `${playerName} successfully completed the prompt and earned ${result.result.pointsAwarded} points!`,
+                'Prompt Successful'
+            );
+            
+            if (result.result.requiresCardDiscard) {
+                showNotification(
+                    `${playerName} may now discard one of their rule cards.`,
+                    'Card Discard Available'
+                );
+            }
+        } else {
+            showNotification(
+                `${playerName} did not successfully complete the prompt.`,
+                'Prompt Unsuccessful'
+            );
+        }
+        
+        // Update UI displays
+        updateTurnUI();
+        updateActiveRulesDisplay();
+    }, 1500); // 1.5 second delay to show completion status
 }
 
 /**
