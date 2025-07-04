@@ -605,6 +605,20 @@ class GameManager {
     }
 
     /**
+     * Award points to a player
+     * @param {string} sessionId - Session where points are awarded
+     * @param {string} playerId - Player receiving points
+     * @param {number} points - Amount of points to add
+     */
+    awardPoints(sessionId, playerId, points = 1) {
+        const player = this.players[playerId];
+        if (!player) return false;
+        player.points += points;
+        console.log(`[GAME_MANAGER] Awarded ${points} points to ${playerId}. Total: ${player.points}`);
+        return true;
+    }
+
+    /**
      * Get user-friendly error message for card flip failures
      * @param {string} errorCode - The error code from flipCard()
      * @returns {string} - User-friendly error message
