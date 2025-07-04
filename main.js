@@ -728,10 +728,10 @@ function displayDrawnCard(card, cardType) {
         
         // Create action buttons based on card type
         if (card.type === 'prompt') {
-            // Prompt cards just need an acknowledgment
-            const acknowledgeButton = document.createElement('button');
-            acknowledgeButton.textContent = 'Got it!';
-            acknowledgeButton.style.cssText = `
+            // Prompt cards need to be activated with timer and referee judgment
+            const startPromptButton = document.createElement('button');
+            startPromptButton.textContent = 'Start Prompt Challenge';
+            startPromptButton.style.cssText = `
                 display: block;
                 width: 100%;
                 margin: 1rem 0;
@@ -745,12 +745,19 @@ function displayDrawnCard(card, cardType) {
                 transition: all 0.2s;
             `;
             
-            acknowledgeButton.addEventListener('click', () => {
-                console.log('[CARD_DRAW] Prompt card acknowledged');
+            startPromptButton.addEventListener('click', () => {
+                console.log('[CARD_DRAW] Starting prompt challenge');
+                const currentUser = getCurrentUser();
+                if (currentUser && window.currentSessionId) {
+                    activatePromptChallenge(window.currentSessionId, currentUser.uid, card);
+                } else {
+                    console.error('[PROMPT] No current user or session for prompt activation');
+                    showNotification('Unable to start prompt challenge', 'Error');
+                }
                 closeCardModal();
             });
             
-            choices.appendChild(acknowledgeButton);
+            choices.appendChild(startPromptButton);
             
         } else if (card.type === 'rule' || card.type === 'modifier') {
             // Rule and modifier cards can be flipped if they have a side B
@@ -1311,6 +1318,289 @@ window.testEdgeCases = function() {
   simulatePlayerDisconnect("test-session", "test-player");
 };
 
+/**
+ * Activate a prompt challenge for a player
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player ID
+ * @param {Object} promptCard - The prompt card object
+ */
+function activatePromptChallenge(sessionId, playerId, promptCard) {
+    console.log('[PROMPT] Activating prompt challenge for player', playerId);
+    
+    // Activate the prompt in game manager
+    const result = gameManager.activatePromptCard(sessionId, playerId, promptCard);
+    
+    if (!result.success) {
+        console.error('[PROMPT] Failed to activate prompt:', result.error);
+        showNotification(result.error, 'Prompt Error');
+        return;
+    }
+    
+    // Show prompt UI to all players
+    showPromptUI(result.promptState);
+    
+    // Start timer
+    startPromptTimer(sessionId, result.promptState.timeLimit);
+    
+    // Notify all players
+    showNotification(
+        `${getPlayerDisplayName(playerId)} is attempting a prompt challenge!`,
+        'Prompt Challenge Started'
+    );
+}
+
+/**
+ * Show the prompt UI to all players
+ * @param {Object} promptState - The prompt state object
+ */
+function showPromptUI(promptState) {
+    console.log('[PROMPT] Showing prompt UI');
+    
+    // Create or update prompt display
+    let promptContainer = document.getElementById('prompt-container');
+    if (!promptContainer) {
+        promptContainer = document.createElement('div');
+        promptContainer.id = 'prompt-container';
+        promptContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border: 3px solid #4ECDC4;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 500px;
+            text-align: center;
+        `;
+        document.body.appendChild(promptContainer);
+    }
+    
+    const playerName = getPlayerDisplayName(promptState.playerId);
+    const promptText = promptState.promptCard.description || promptState.promptCard.getCurrentText();
+    
+    promptContainer.innerHTML = `
+        <h3 style="color: #4ECDC4; margin-top: 0;">Prompt Challenge</h3>
+        <p><strong>${playerName}</strong> is attempting:</p>
+        <p style="font-size: 1.2em; font-weight: bold; color: #333;">${promptText}</p>
+        <div id="prompt-timer" style="font-size: 1.5em; color: #e74c3c; margin: 10px 0;">60</div>
+        <div id="prompt-actions" style="margin-top: 15px;"></div>
+    `;
+    
+    // Add action buttons based on current user role
+    const currentUser = getCurrentUser();
+    const actionsDiv = document.getElementById('prompt-actions');
+    
+    if (currentUser && currentUser.uid === promptState.playerId) {
+        // Player attempting the prompt
+        const completeButton = document.createElement('button');
+        completeButton.textContent = 'I\'m Done!';
+        completeButton.style.cssText = `
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 5px;
+        `;
+        completeButton.addEventListener('click', () => completePromptChallenge(promptState.sessionId, currentUser.uid));
+        actionsDiv.appendChild(completeButton);
+    }
+    
+    // Check if current user is referee
+    const session = gameManager.gameSessions[promptState.sessionId];
+    if (currentUser && session && session.referee === currentUser.uid) {
+        // Show referee controls (initially hidden until prompt is completed)
+        const refereeDiv = document.createElement('div');
+        refereeDiv.id = 'referee-controls';
+        refereeDiv.style.display = 'none';
+        refereeDiv.innerHTML = `
+            <p style="margin-top: 20px; font-weight: bold;">Referee Judgment:</p>
+            <button id="judge-success" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">Successful</button>
+            <button id="judge-fail" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">Unsuccessful</button>
+        `;
+        actionsDiv.appendChild(refereeDiv);
+        
+        // Add event listeners for referee buttons
+        document.getElementById('judge-success').addEventListener('click', () => judgePrompt(promptState.sessionId, currentUser.uid, true));
+        document.getElementById('judge-fail').addEventListener('click', () => judgePrompt(promptState.sessionId, currentUser.uid, false));
+    }
+}
+
+/**
+ * Start the prompt timer
+ * @param {string} sessionId - The session ID
+ * @param {number} timeLimit - Time limit in milliseconds
+ */
+function startPromptTimer(sessionId, timeLimit) {
+    const timerElement = document.getElementById('prompt-timer');
+    if (!timerElement) return;
+    
+    let timeRemaining = Math.floor(timeLimit / 1000); // Convert to seconds
+    
+    const timerInterval = setInterval(() => {
+        timerElement.textContent = timeRemaining;
+        
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            handlePromptTimeout(sessionId);
+        }
+        
+        timeRemaining--;
+    }, 1000);
+    
+    // Store interval ID for cleanup
+    window.currentPromptTimer = timerInterval;
+}
+
+/**
+ * Complete a prompt challenge
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player ID
+ */
+function completePromptChallenge(sessionId, playerId) {
+    console.log('[PROMPT] Player completed prompt challenge');
+    
+    const result = gameManager.completePrompt(sessionId, playerId);
+    
+    if (!result.success) {
+        console.error('[PROMPT] Failed to complete prompt:', result.error);
+        showNotification(result.error, 'Prompt Error');
+        return;
+    }
+    
+    // Clear timer
+    if (window.currentPromptTimer) {
+        clearInterval(window.currentPromptTimer);
+        window.currentPromptTimer = null;
+    }
+    
+    // Update UI to show waiting for referee
+    const timerElement = document.getElementById('prompt-timer');
+    if (timerElement) {
+        timerElement.textContent = 'Awaiting Referee...';
+        timerElement.style.color = '#ffc107';
+    }
+    
+    // Show referee controls
+    const refereeControls = document.getElementById('referee-controls');
+    if (refereeControls) {
+        refereeControls.style.display = 'block';
+    }
+    
+    // Hide player complete button
+    const actionsDiv = document.getElementById('prompt-actions');
+    const completeButton = actionsDiv.querySelector('button');
+    if (completeButton && completeButton.textContent === 'I\'m Done!') {
+        completeButton.style.display = 'none';
+    }
+    
+    showNotification('Prompt completed! Waiting for referee judgment.', 'Prompt Complete');
+}
+
+/**
+ * Handle prompt timeout
+ * @param {string} sessionId - The session ID
+ */
+function handlePromptTimeout(sessionId) {
+    console.log('[PROMPT] Prompt timed out');
+    
+    const result = gameManager.handlePromptTimeout(sessionId);
+    
+    if (result.success) {
+        // Update UI
+        const timerElement = document.getElementById('prompt-timer');
+        if (timerElement) {
+            timerElement.textContent = 'Time\'s Up!';
+            timerElement.style.color = '#dc3545';
+        }
+        
+        // Show referee controls
+        const refereeControls = document.getElementById('referee-controls');
+        if (refereeControls) {
+            refereeControls.style.display = 'block';
+        }
+        
+        showNotification('Time\'s up! Waiting for referee judgment.', 'Prompt Timeout');
+    }
+}
+
+/**
+ * Judge a prompt (referee only)
+ * @param {string} sessionId - The session ID
+ * @param {string} refereeId - The referee ID
+ * @param {boolean} successful - Whether the prompt was successful
+ */
+function judgePrompt(sessionId, refereeId, successful) {
+    console.log('[PROMPT] Referee judging prompt:', successful ? 'successful' : 'unsuccessful');
+    
+    const result = gameManager.judgePrompt(sessionId, refereeId, successful);
+    
+    if (!result.success) {
+        console.error('[PROMPT] Failed to judge prompt:', result.error);
+        showNotification(result.error, 'Judgment Error');
+        return;
+    }
+    
+    // Hide prompt UI
+    hidePromptUI();
+    
+    // Show result notification
+    const playerName = getPlayerDisplayName(result.result.playerId);
+    if (successful) {
+        showNotification(
+            `${playerName} successfully completed the prompt and earned ${result.result.pointsAwarded} points!`,
+            'Prompt Successful'
+        );
+        
+        if (result.result.requiresCardDiscard) {
+            showNotification(
+                `${playerName} may now discard one of their rule cards.`,
+                'Card Discard Available'
+            );
+        }
+    } else {
+        showNotification(
+            `${playerName} did not successfully complete the prompt.`,
+            'Prompt Unsuccessful'
+        );
+    }
+    
+    // Update UI displays
+    updateTurnUI();
+    updateActiveRulesDisplay();
+}
+
+/**
+ * Hide the prompt UI
+ */
+function hidePromptUI() {
+    const promptContainer = document.getElementById('prompt-container');
+    if (promptContainer) {
+        promptContainer.remove();
+    }
+    
+    // Clear timer
+    if (window.currentPromptTimer) {
+        clearInterval(window.currentPromptTimer);
+        window.currentPromptTimer = null;
+    }
+}
+
+/**
+ * Get player display name
+ * @param {string} playerId - The player ID
+ * @returns {string} - The display name
+ */
+function getPlayerDisplayName(playerId) {
+    const player = gameManager.players[playerId];
+    return player ? player.displayName || `Player ${playerId.slice(-4)}` : 'Unknown Player';
+}
+
 // Expose functions globally for testing and integration
 window.getCurrentUser = getCurrentUser;
 window.showNotification = showNotification;
@@ -1321,3 +1611,9 @@ window.updateTurnUI = updateTurnUI;
 window.drawCardWithErrorHandling = drawCardWithErrorHandling;
 window.handlePlayerDisconnection = handlePlayerDisconnection;
 window.simulatePlayerDisconnect = simulatePlayerDisconnect;
+
+// Expose prompt functions
+window.activatePromptChallenge = activatePromptChallenge;
+window.completePromptChallenge = completePromptChallenge;
+window.judgePrompt = judgePrompt;
+window.hidePromptUI = hidePromptUI;
