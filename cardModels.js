@@ -10,7 +10,7 @@
  * - isFlipped: Boolean indicating if the card has been flipped from its default state
  */
 class GameCard {
-    constructor({ type, sideA, sideB = null, isClone = false, cloneSource = null }) {
+    constructor({ type, sideA, sideB = null, isClone = false, cloneSource = null, id = null, name = null, description = null, rules_for_referee = null, point_value = null, discard_rule_on_success = null }) {
         this.type = type; // 'rule', 'prompt', 'modifier'
         
         // Front/Back rule properties for clear distinction
@@ -23,11 +23,23 @@ class GameCard {
         
         this.currentSide = 'front'; // 'front' or 'back' (maps to 'A' or 'B' internally)
         this.isFlipped = false; // boolean - true when showing back rule
-        this.id = this.generateId(); // unique identifier
+        this.id = id || this.generateId(); // unique identifier
 
         // Clone tracking
         this.isClone = isClone; // boolean - true if this card is a clone of another card
         this.cloneSource = cloneSource; // { cardId, ownerId } of original
+
+        // Prompt card specific properties
+        if (type === 'prompt') {
+            this.name = name || sideA;
+            this.description = description || sideA;
+            this.rules_for_referee = rules_for_referee || '';
+            this.point_value = point_value || 1;
+            this.discard_rule_on_success = discard_rule_on_success || false;
+            // Alternative naming for compatibility
+            this.pointValue = this.point_value;
+            this.discardRuleOnSuccess = this.discard_rule_on_success;
+        }
     }
 
     /**
@@ -150,7 +162,7 @@ function parseCSVLine(line) {
 // Helper to parse CSV and map to card objects
 function parseCardsCSV(csv) {
     const lines = csv.split(/\r?\n/).filter(line => line.trim().length > 0);
-    const header = lines[0].split(',');
+    const header = parseCSVLine(lines[0]);
     const cards = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -167,12 +179,25 @@ function parseCardsCSV(csv) {
             continue;
         }
 
-        // Create the card
-        cards.push(new GameCard({
+        // Create base card data
+        const cardData = {
             type: cardType,
             sideA: sideA,
             sideB: sideB
-        }));
+        };
+
+        // For prompt cards, add additional fields
+        if (cardType === 'prompt' && row.length >= 9) {
+            cardData.id = row[3]?.trim() || '';
+            cardData.name = row[4]?.trim() || '';
+            cardData.description = row[5]?.trim() || sideA; // fallback to sideA
+            cardData.rules_for_referee = row[6]?.trim() || '';
+            cardData.point_value = parseInt(row[7]) || 1;
+            cardData.discard_rule_on_success = row[8]?.trim().toLowerCase() === 'true';
+        }
+
+        // Create the card
+        cards.push(new GameCard(cardData));
     }
     
     console.log(`[CARD_PARSER] Parsed ${cards.length} cards from CSV`);
