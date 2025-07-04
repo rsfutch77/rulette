@@ -627,6 +627,247 @@ class GameManager {
         return errorMessages[errorCode] || 'An unknown error occurred while flipping the card.';
     }
 
+    /**
+     * Handle drawing and activating a Prompt Card
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who drew the prompt card
+     * @param {Object} promptCard - The prompt card object
+     * @returns {object} - {success: boolean, promptState?: object, error?: string}
+     */
+    activatePromptCard(sessionId, playerId, promptCard) {
+        console.log(`[GAME_MANAGER] Activating prompt card for player ${playerId} in session ${sessionId}`);
+        
+        // Validate session and player
+        const validation = this.validatePlayerAction(sessionId, playerId, 'prompt');
+        if (!validation.valid) {
+            return {
+                success: false,
+                error: validation.error,
+                errorCode: validation.errorCode
+            };
+        }
+
+        // Validate prompt card structure
+        if (!promptCard || promptCard.type !== 'prompt') {
+            return {
+                success: false,
+                error: 'Invalid prompt card provided',
+                errorCode: 'INVALID_PROMPT_CARD'
+            };
+        }
+
+        // Create prompt state
+        const promptState = {
+            sessionId: sessionId,
+            playerId: playerId,
+            promptCard: promptCard,
+            status: 'active', // active, completed, judging, finished
+            startTime: Date.now(),
+            timeLimit: 60000, // 60 seconds default
+            endTime: null,
+            refereeJudgment: null // Will be set by referee
+        };
+
+        // Store active prompt state
+        if (!this.activePrompts) {
+            this.activePrompts = {};
+        }
+        this.activePrompts[sessionId] = promptState;
+
+        console.log(`[GAME_MANAGER] Prompt card activated: ${promptCard.description || promptCard.getCurrentText()}`);
+        
+        return {
+            success: true,
+            promptState: promptState
+        };
+    }
+
+    /**
+     * Complete a prompt (when time runs out or player indicates completion)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who attempted the prompt
+     * @returns {object} - {success: boolean, promptState?: object, error?: string}
+     */
+    completePrompt(sessionId, playerId) {
+        console.log(`[GAME_MANAGER] Completing prompt for player ${playerId} in session ${sessionId}`);
+        
+        const promptState = this.activePrompts?.[sessionId];
+        if (!promptState) {
+            return {
+                success: false,
+                error: 'No active prompt found for this session',
+                errorCode: 'NO_ACTIVE_PROMPT'
+            };
+        }
+
+        if (promptState.playerId !== playerId) {
+            return {
+                success: false,
+                error: 'You are not the player attempting this prompt',
+                errorCode: 'NOT_PROMPT_PLAYER'
+            };
+        }
+
+        if (promptState.status !== 'active') {
+            return {
+                success: false,
+                error: 'Prompt is not currently active',
+                errorCode: 'PROMPT_NOT_ACTIVE'
+            };
+        }
+
+        // Mark prompt as completed and ready for judgment
+        promptState.status = 'judging';
+        promptState.endTime = Date.now();
+
+        console.log(`[GAME_MANAGER] Prompt completed, awaiting referee judgment`);
+        
+        return {
+            success: true,
+            promptState: promptState
+        };
+    }
+
+    /**
+     * Handle referee judgment of a prompt
+     * @param {string} sessionId - The session ID
+     * @param {string} refereeId - The referee player ID
+     * @param {boolean} successful - Whether the prompt was successful
+     * @returns {object} - {success: boolean, result?: object, error?: string}
+     */
+    judgePrompt(sessionId, refereeId, successful) {
+        console.log(`[GAME_MANAGER] Referee ${refereeId} judging prompt in session ${sessionId}: ${successful ? 'successful' : 'unsuccessful'}`);
+        
+        // Validate referee
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return {
+                success: false,
+                error: 'Session not found',
+                errorCode: 'SESSION_NOT_FOUND'
+            };
+        }
+
+        if (session.referee !== refereeId) {
+            return {
+                success: false,
+                error: 'Only the referee can judge prompts',
+                errorCode: 'NOT_REFEREE'
+            };
+        }
+
+        const promptState = this.activePrompts?.[sessionId];
+        if (!promptState) {
+            return {
+                success: false,
+                error: 'No active prompt found for this session',
+                errorCode: 'NO_ACTIVE_PROMPT'
+            };
+        }
+
+        if (promptState.status !== 'judging') {
+            return {
+                success: false,
+                error: 'Prompt is not ready for judgment',
+                errorCode: 'PROMPT_NOT_READY'
+            };
+        }
+
+        // Apply judgment
+        promptState.status = 'finished';
+        promptState.refereeJudgment = {
+            successful: successful,
+            refereeId: refereeId,
+            judgmentTime: Date.now()
+        };
+
+        const result = {
+            playerId: promptState.playerId,
+            successful: successful,
+            pointsAwarded: 0,
+            cardDiscarded: false
+        };
+
+        // If successful, award points and handle card discard
+        if (successful) {
+            const promptCard = promptState.promptCard;
+            const pointValue = promptCard.point_value || promptCard.pointValue || 1;
+            
+            // Award points to player
+            const player = this.players[promptState.playerId];
+            if (player) {
+                player.points += pointValue;
+                result.pointsAwarded = pointValue;
+                console.log(`[GAME_MANAGER] Awarded ${pointValue} points to player ${promptState.playerId}`);
+            }
+
+            // Handle card discard if required
+            const discardRule = promptCard.discard_rule_on_success || promptCard.discardRuleOnSuccess;
+            if (discardRule) {
+                result.requiresCardDiscard = true;
+                console.log(`[GAME_MANAGER] Player ${promptState.playerId} may discard a rule card`);
+            }
+        }
+
+        // Clean up active prompt
+        delete this.activePrompts[sessionId];
+
+        console.log(`[GAME_MANAGER] Prompt judgment completed:`, result);
+        
+        return {
+            success: true,
+            result: result
+        };
+    }
+
+    /**
+     * Get the current active prompt for a session
+     * @param {string} sessionId - The session ID
+     * @returns {object|null} - The active prompt state or null
+     */
+    getActivePrompt(sessionId) {
+        return this.activePrompts?.[sessionId] || null;
+    }
+
+    /**
+     * Check if a prompt has timed out
+     * @param {string} sessionId - The session ID
+     * @returns {boolean} - True if prompt has timed out
+     */
+    isPromptTimedOut(sessionId) {
+        const promptState = this.activePrompts?.[sessionId];
+        if (!promptState || promptState.status !== 'active') {
+            return false;
+        }
+
+        const elapsed = Date.now() - promptState.startTime;
+        return elapsed >= promptState.timeLimit;
+    }
+
+    /**
+     * Handle prompt timeout
+     * @param {string} sessionId - The session ID
+     * @returns {object} - {success: boolean, promptState?: object}
+     */
+    handlePromptTimeout(sessionId) {
+        const promptState = this.activePrompts?.[sessionId];
+        if (!promptState) {
+            return { success: false };
+        }
+
+        console.log(`[GAME_MANAGER] Prompt timed out for player ${promptState.playerId} in session ${sessionId}`);
+        
+        // Mark as completed due to timeout
+        promptState.status = 'judging';
+        promptState.endTime = Date.now();
+        promptState.timedOut = true;
+
+        return {
+            success: true,
+            promptState: promptState
+        };
+    }
+
     // #TODO Implement logic to assign player to a session
     // #TODO Implement lobby and ready system
     // #TODO Implement game start and state transition
