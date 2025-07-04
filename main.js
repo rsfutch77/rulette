@@ -134,6 +134,10 @@ function getCurrentUser() {
     deckType5,
     deckType6
   });
+
+  if (gameManager && gameManager.setCardManager) {
+    gameManager.setCardManager(cardManager);
+  }
   
   // Set the initialization flag to true
   cardManagerInitialized = true;
@@ -793,11 +797,50 @@ function displayDrawnCard(card, cardType) {
             
             acceptButton.addEventListener('click', () => {
                 console.log('[CARD_DRAW] Card accepted:', card.getCurrentText());
-                // TODO: Add card to player's hand/active rules
+                const currentUser = getCurrentUser();
+                if (currentUser && gameManager) {
+                    const player = gameManager.players[currentUser.uid];
+                    if (player) {
+                        player.hand.push(card);
+                        updateActiveRulesDisplay();
+                    }
+                }
                 closeCardModal();
             });
-            
+
             choices.appendChild(acceptButton);
+        } else if (card.type === 'clone') {
+            const useButton = document.createElement('button');
+            useButton.textContent = 'Use Clone Card';
+            useButton.style.cssText = `
+                display: block;
+                width: 100%;
+                margin: 0.5rem 0;
+                padding: 0.7rem;
+                background: #6c63ff;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1rem;
+                transition: all 0.2s;
+            `;
+            useButton.addEventListener('click', () => {
+                const targetPlayerId = prompt('Enter target player ID to clone from:');
+                const targetCardId = prompt('Enter card ID to clone:');
+                const currentUser = getCurrentUser();
+                if (currentUser && targetPlayerId && targetCardId) {
+                    const result = gameManager.cloneCard(window.currentSessionId, currentUser.uid, targetPlayerId, targetCardId);
+                    if (result.success) {
+                        showNotification('Cloned card successfully', 'Clone Card');
+                        updateActiveRulesDisplay();
+                    } else {
+                        showNotification(result.error, 'Clone Failed');
+                    }
+                }
+                closeCardModal();
+            });
+            choices.appendChild(useButton);
         }
         
         // Show modal
@@ -978,6 +1021,30 @@ function updateCardDisplaysAfterFlip(card) {
     console.log('[CARD_FLIP] UI displays updated for card:', card.id);
 }
 
+// Display player's current hand/active rules, including cloned cards
+function updateActiveRulesDisplay() {
+    const container = document.getElementById('active-rules-display');
+    if (!container || !gameManager) return;
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+    const player = gameManager.players[currentUser.uid];
+    if (!player) return;
+
+    container.innerHTML = '';
+    player.hand.forEach(card => {
+        const div = document.createElement('div');
+        let text = card.getCurrentRule ? card.getCurrentRule() : card.sideA;
+        if (card.isClone && card.cloneSource) {
+            const sourcePlayer = gameManager.players[card.cloneSource.ownerId];
+            const sourceName = sourcePlayer ? sourcePlayer.displayName || `Player ${card.cloneSource.ownerId.slice(-4)}` : 'Unknown';
+            div.style.opacity = sourcePlayer ? '1' : '0.5';
+            text += ` (Cloned from ${sourceName})`;
+        }
+        div.textContent = text;
+        container.appendChild(div);
+    });
+}
+
 // Expose card draw functions for testing and game integration
 window.initializeCardDrawMechanism = initializeCardDrawMechanism;
 window.handleCardDraw = handleCardDraw;
@@ -990,6 +1057,27 @@ window.flipCardInUI = flipCardInUI;
 window.flipCardById = flipCardById;
 window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
 window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
+window.updateActiveRulesDisplay = updateActiveRulesDisplay;
+
+// Test function for clone card mechanic
+window.testCloneCard = function(targetPlayerId, targetCardId) {
+    if (!gameManager || !window.currentSessionId) {
+        console.error('Game manager or session not ready');
+        return;
+    }
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.error('No current user');
+        return;
+    }
+    const result = gameManager.cloneCard(window.currentSessionId, currentUser.uid, targetPlayerId, targetCardId);
+    if (result.success) {
+        showNotification('Cloned card successfully', 'Clone Card');
+        updateActiveRulesDisplay();
+    } else {
+        showNotification(result.error, 'Clone Failed');
+    }
+};
 
 // Test function for card draw mechanism
 window.testCardDraw = function(cardTypeName = 'Rule') {

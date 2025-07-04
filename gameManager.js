@@ -11,6 +11,7 @@ import {
     getFirestorePlayersInSession,
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
 } from './main.js';
+import { GameCard } from './cardModels.js';
 
 class GameManager {
     constructor() {
@@ -18,6 +19,12 @@ class GameManager {
         this.players = {}; // Stores all connected players
         this.currentTurn = {}; // Tracks current turn for each session
         this.turnOrder = {}; // Tracks turn order for each session
+        this.cloneMap = {}; // Maps original card ID to cloned card references
+        this.cardManager = null; // Reference to CardManager for cloning
+    }
+
+    setCardManager(manager) {
+        this.cardManager = manager;
     }
 
     /**
@@ -526,6 +533,75 @@ class GameManager {
                 errorCode: 'FLIP_ERROR'
             };
         }
+    }
+
+    /**
+     * Clone another player's card for the requesting player
+     * @param {string} sessionId
+     * @param {string} playerId - player performing the clone
+     * @param {string} targetPlayerId - owner of the card to clone
+     * @param {string} targetCardId - ID of the card to clone
+     */
+    cloneCard(sessionId, playerId, targetPlayerId, targetCardId) {
+        const validation = this.validatePlayerAction(sessionId, playerId, 'clone');
+        if (!validation.valid) {
+            return { success: false, error: validation.error, errorCode: validation.errorCode };
+        }
+
+        const targetPlayer = this.players[targetPlayerId];
+        if (!targetPlayer) {
+            return { success: false, error: 'Target player not found', errorCode: 'TARGET_NOT_FOUND' };
+        }
+
+        const originalCard = targetPlayer.hand.find(c => c.id === targetCardId);
+        if (!originalCard) {
+            return { success: false, error: 'Card not found for target player', errorCode: 'CARD_NOT_FOUND' };
+        }
+
+        const clone = this.cardManager
+            ? this.cardManager.createCloneCard(originalCard, targetPlayerId)
+            : GameCard.createClone(originalCard, targetPlayerId);
+        this.players[playerId].hand.push(clone);
+
+        if (!this.cloneMap[originalCard.id]) this.cloneMap[originalCard.id] = [];
+        this.cloneMap[originalCard.id].push({ ownerId: playerId, cloneId: clone.id });
+
+        console.log(`[GAME_MANAGER] Player ${playerId} cloned card ${originalCard.id} from ${targetPlayerId}`);
+        return { success: true, clone };
+    }
+
+    /**
+     * Remove a card from a player's hand and clean up any related clones
+     */
+    removeCardFromPlayer(sessionId, playerId, cardId) {
+        const player = this.players[playerId];
+        if (!player) return false;
+        const index = player.hand.findIndex(c => c.id === cardId);
+        if (index === -1) return false;
+
+        const [removed] = player.hand.splice(index, 1);
+
+        // If this card has clones, remove them as well
+        if (this.cloneMap[removed.id]) {
+            this.cloneMap[removed.id].forEach(ref => {
+                this.removeCardFromPlayer(sessionId, ref.ownerId, ref.cloneId);
+            });
+            delete this.cloneMap[removed.id];
+        }
+
+        // If this card is a clone, remove from mapping
+        if (removed.isClone && removed.cloneSource) {
+            const list = this.cloneMap[removed.cloneSource.cardId];
+            if (list) {
+                this.cloneMap[removed.cloneSource.cardId] = list.filter(ref => ref.cloneId !== removed.id);
+                if (this.cloneMap[removed.cloneSource.cardId].length === 0) {
+                    delete this.cloneMap[removed.cloneSource.cardId];
+                }
+            }
+        }
+
+        console.log(`[GAME_MANAGER] Removed card ${cardId} from player ${playerId}`);
+        return true;
     }
 
     /**

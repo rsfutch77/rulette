@@ -10,7 +10,7 @@
  * - isFlipped: Boolean indicating if the card has been flipped from its default state
  */
 class GameCard {
-    constructor({ type, sideA, sideB = null }) {
+    constructor({ type, sideA, sideB = null, isClone = false, cloneSource = null }) {
         this.type = type; // 'rule', 'prompt', 'modifier'
         
         // Front/Back rule properties for clear distinction
@@ -24,6 +24,10 @@ class GameCard {
         this.currentSide = 'front'; // 'front' or 'back' (maps to 'A' or 'B' internally)
         this.isFlipped = false; // boolean - true when showing back rule
         this.id = this.generateId(); // unique identifier
+
+        // Clone tracking
+        this.isClone = isClone; // boolean - true if this card is a clone of another card
+        this.cloneSource = cloneSource; // { cardId, ownerId } of original
     }
 
     /**
@@ -82,6 +86,25 @@ class GameCard {
     }
 
     /**
+     * Create a cloned copy of a card linking back to the original
+     * @param {GameCard} card - The card to clone
+     * @param {string} ownerId - The player ID of the original card's owner
+     * @returns {GameCard} - New cloned card
+     */
+    static createClone(card, ownerId) {
+        const clone = new GameCard({
+            type: card.type,
+            sideA: card.frontRule,
+            sideB: card.backRule,
+            isClone: true,
+            cloneSource: { cardId: card.id, ownerId }
+        });
+        clone.currentSide = card.currentSide;
+        clone.isFlipped = card.isFlipped;
+        return clone;
+    }
+
+    /**
      * Get display information for the card
      */
     getDisplayInfo() {
@@ -94,6 +117,8 @@ class GameCard {
             backRule: this.backRule,
             currentSide: this.currentSide,
             isFlipped: this.isFlipped,
+            isClone: this.isClone,
+            cloneSource: this.cloneSource,
             hasBackRule: this.backRule !== null,
             // Legacy compatibility
             hasFlipSide: this.sideB !== null
@@ -137,7 +162,7 @@ function parseCardsCSV(csv) {
         const sideB = row[2]?.trim() || null; // Side B is optional (null for prompt cards)
 
         // Validate card type
-        if (!['rule', 'prompt', 'modifier'].includes(cardType)) {
+        if (!['rule', 'prompt', 'modifier', 'clone'].includes(cardType)) {
             console.warn(`Unknown card type: ${cardType}, skipping card`);
             continue;
         }
@@ -170,9 +195,9 @@ async function loadCardData() {
     const ruleCards = filterCards('rule');
     const promptCards = filterCards('prompt');
     const modifierCards = filterCards('modifier');
-    
-    // Create placeholder arrays for new card types (to be implemented)
-    const cloneCards = []; // TODO: Implement clone cards
+
+    // Clone cards replicate other cards' effects
+    const cloneCards = filterCards('clone');
     const flipCards = []; // TODO: Implement flip cards
     const swapCards = []; // TODO: Implement swap cards
     

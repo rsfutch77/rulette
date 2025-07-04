@@ -123,3 +123,7 @@ flowchart TD
     H --> J
     I --> J
     J --> C
+
+### Progress Tracker
+- [x] 3.a Flip Card Mechanic
+- [x] 3.b Clone Card Mechanic
