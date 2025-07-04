@@ -36,8 +36,8 @@
         - [ ] 3.1 Card Type Definitions - Specify data structure and properties for each card type
         - [ ] 3.a.1 Flip Card Data Structure - Extend the `Card` data structure to include properties for a "flipped" state.
         - [ ] 3.a.1 Flip Card Data Structure - Ensure clear differentiation between the "front" and "back" rules.
-        - [ ] 3.b.1 Clone Card Data Structure - Extend the `Card` data structure or create a new mechanism to represent a "cloned" card, linking it to the original card and its active rule.
-        - [ ] 3.b.1 Clone Card Data Structure - Ensure the cloned card can inherit relevant properties without duplicating the actual rule instance.
+        - [x] 3.b.1 Clone Card Data Structure - Extend the `Card` data structure or create a new mechanism to represent a "cloned" card, linking it to the original card and its active rule.
+        - [x] 3.b.1 Clone Card Data Structure - Ensure the cloned card can inherit relevant properties without duplicating the actual rule instance.
         - [ ] 3.c.1 Prompt Card Data Structure - Define a data structure for "Prompt" cards.
         - [ ] 3.c.1 Prompt Card Data Structure - Ensure the structure clearly defines the purpose of each field.
 - **`rulette/cardManager.js`**: Manages decks, card drawing, and card effects.
@@ -45,10 +45,10 @@
         - [ ] 2.3 Card Draw Mechanism - Draw a card from the appropriate deck based on the wheel segment
         - [ ] 3.a.2 Flip Card Interaction Logic - Implement game logic to handle a player "flipping" a card.
         - [ ] 3.a.2 Flip Card Interaction Logic - This should involve switching the active rule/effect associated with the card from its front to its back.
-        - [ ] 3.b.2 Clone Card Interaction Logic - Implement game logic for a player to activate a Clone Card.
-        - [ ] 3.b.2 Clone Card Interaction Logic - Allow the player to select a target player's active card to clone.
-        - [ ] 3.b.2 Clone Card Interaction Logic - Apply the target card's active rule/effect to the cloning player.
-        - [ ] 3.b.2 Clone Card Interaction Logic - Define how the cloned effect is managed.
+        - [x] 3.b.2 Clone Card Interaction Logic - Implement game logic for a player to activate a Clone Card.
+        - [x] 3.b.2 Clone Card Interaction Logic - Allow the player to select a target player's active card to clone.
+        - [x] 3.b.2 Clone Card Interaction Logic - Apply the target card's active rule/effect to the cloning player.
+        - [x] 3.b.2 Clone Card Interaction Logic - Define how the cloned effect is managed.
         - [ ] 3.c.2 Prompt Card Play Logic - Implement game logic for a player drawing and activating a Prompt Card.
         - [ ] 3.c.2 Prompt Card Play Logic - The prompt should be clearly presented to all players.
         - [ ] 3.c.2 Prompt Card Play Logic - The player is given a defined amount of time to complete the prompt.
@@ -99,9 +99,9 @@
         - [ ] 2.5 Edge Cases and Error Handling - Provide user feedback for invalid actions
         - [ ] 3.a.3 UI Representation of Flipped Cards - Visually represent the flipped state of a card in the player's hand and when active on the board.
         - [ ] 3.a.3 UI Representation of Flipped Cards - Clearly display the currently active rule/effect of a flipped card.
-        - [ ] 3.b.3 UI Representation of Cloned Cards - Visually represent cloned cards in the cloning player's hand/active rules display.
-        - [ ] 3.b.3 UI Representation of Cloned Cards - Display the source of the cloned effect.
-        - [ ] 3.b.3 UI Representation of Cloned Cards - Ensure the UI dynamically updates if the original card's status changes.
+        - [x] 3.b.3 UI Representation of Cloned Cards - Visually represent cloned cards in the cloning player's hand/active rules display.
+        - [x] 3.b.3 UI Representation of Cloned Cards - Display the source of the cloned effect.
+        - [x] 3.b.3 UI Representation of Cloned Cards - Ensure the UI dynamically updates if the original card's status changes.
         - [ ] 3.c.3 Referee Judgment Interface & Logic - Develop a specific UI for the referee to review the prompt and the player's attempt.
         - [ ] 3.c.3 Referee Judgment Interface & Logic - The referee UI should display the prompt text and the `rules_for_referee` for assessment.
         - [ ] 3.c.3 Referee Judgment Interface & Logic - Options for the referee to declare the prompt "Successful" or "Unsuccessful".

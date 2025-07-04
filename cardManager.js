@@ -115,13 +115,23 @@ export class CardManager {
             if (!canDraw.canDraw) {
                 return { success: false, error: canDraw.reason };
             }
-            
+
             const card = this.draw(deckType);
             return { success: true, card };
         } catch (error) {
             console.error('[CARD_MANAGER] Error during safe draw:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    /**
+     * Create a cloned card instance from an existing card
+     * @param {GameCard} card - Card to clone
+     * @param {string} ownerId - Owner of the original card
+     * @returns {GameCard}
+     */
+    createCloneCard(card, ownerId) {
+        return GameCard.createClone(card, ownerId);
     }
 
     // Determines which deck to draw from based on game context (e.g., player row)
