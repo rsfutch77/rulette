@@ -23,6 +23,7 @@ class GameManager {
         this.cloneMap = {}; // Maps original card ID to cloned card references
         this.cardManager = null; // Reference to CardManager for cloning
         this.ruleEngine = new RuleEngine(this); // Initialize RuleEngine with reference to GameManager
+        this.activePrompts = {}; // Track active prompts by session
     }
 
     setCardManager(manager) {
@@ -1108,6 +1109,734 @@ class GameManager {
             success: true,
             promptState: promptState
         };
+    }
+
+    /**
+     * Apply card effects to players or the game state
+     * Core implementation for requirement 3.3.1
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player applying the card effect
+     * @param {Object} card - The card whose effect is being applied
+     * @param {Object} effectContext - Additional context for the effect
+     * @returns {object} - {success: boolean, effects?: Array, error?: string}
+     */
+    async applyCardEffect(sessionId, playerId, card, effectContext = {}) {
+        console.log(`[GAME_MANAGER] Applying card effect for player ${playerId} in session ${sessionId}: ${card.name || card.id}`);
+        
+        try {
+            // Validate session and player
+            const validation = this.validatePlayerAction(sessionId, playerId, 'apply_effect');
+            if (!validation.valid) {
+                return {
+                    success: false,
+                    error: validation.error,
+                    errorCode: validation.errorCode
+                };
+            }
+
+            // Validate card
+            if (!card || !card.type) {
+                return {
+                    success: false,
+                    error: 'Invalid card provided',
+                    errorCode: 'INVALID_CARD'
+                };
+            }
+
+            let result = { success: true, effects: [] };
+
+            // Apply effects based on card type
+            switch (card.type.toLowerCase()) {
+                case 'rule':
+                    result = await this.applyRuleCardEffect(sessionId, playerId, card, effectContext);
+                    break;
+                
+                case 'modifier':
+                    result = await this.applyModifierCardEffect(sessionId, playerId, card, effectContext);
+                    break;
+                
+                case 'prompt':
+                    result = await this.applyPromptCardEffect(sessionId, playerId, card, effectContext);
+                    break;
+                
+                case 'clone':
+                    result = await this.applyCloneCardEffect(sessionId, playerId, card, effectContext);
+                    break;
+                
+                case 'flip':
+                    result = await this.applyFlipCardEffect(sessionId, playerId, card, effectContext);
+                    break;
+                
+                case 'swap':
+                    result = await this.applySwapCardEffect(sessionId, playerId, card, effectContext);
+                    break;
+                
+                default:
+                    return {
+                        success: false,
+                        error: `Unknown card type: ${card.type}`,
+                        errorCode: 'UNKNOWN_CARD_TYPE'
+                    };
+            }
+
+            // Log the effect application
+            if (result.success) {
+                console.log(`[GAME_MANAGER] Successfully applied ${card.type} card effect: ${card.id}`);
+            }
+
+            return result;
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error applying card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply card effect',
+                errorCode: 'EFFECT_APPLICATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply rule card effects - activates new rules in the game
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player applying the rule
+     * @param {Object} ruleCard - The rule card
+     * @param {Object} effectContext - Additional context
+     * @returns {object} - Effect application result
+     */
+    async applyRuleCardEffect(sessionId, playerId, ruleCard, effectContext = {}) {
+        try {
+            // Get the active rule text (front or back side)
+            const ruleText = ruleCard.getCurrentRule ? ruleCard.getCurrentRule() : ruleCard.frontRule || ruleCard.sideA;
+            
+            if (!ruleText) {
+                return {
+                    success: false,
+                    error: 'Rule card has no rule text',
+                    errorCode: 'NO_RULE_TEXT'
+                };
+            }
+
+            // Activate the rule through the rule engine
+            const activationResult = await this.ruleEngine.activateRule(sessionId, {
+                id: ruleCard.id,
+                ruleText: ruleText,
+                type: 'rule',
+                ...ruleCard
+            }, playerId, effectContext);
+
+            if (activationResult) {
+                // Add card to player's hand if not already there
+                const player = this.players[playerId];
+                if (player && !player.hand.find(c => c.id === ruleCard.id)) {
+                    player.hand.push(ruleCard);
+                    await this.assignPlayerHand(sessionId, playerId, player.hand);
+                }
+
+                return {
+                    success: true,
+                    effects: [{
+                        type: 'rule_activated',
+                        ruleId: activationResult.id,
+                        ruleText: ruleText,
+                        playerId: playerId
+                    }],
+                    activeRule: activationResult
+                };
+            }
+
+            return {
+                success: false,
+                error: 'Failed to activate rule',
+                errorCode: 'RULE_ACTIVATION_FAILED'
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error applying rule card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply rule card effect',
+                errorCode: 'RULE_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply modifier card effects - modifies existing rules or game mechanics
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player applying the modifier
+     * @param {Object} modifierCard - The modifier card
+     * @param {Object} effectContext - Additional context
+     * @returns {object} - Effect application result
+     */
+    async applyModifierCardEffect(sessionId, playerId, modifierCard, effectContext = {}) {
+        try {
+            const modifierText = modifierCard.getCurrentRule ? modifierCard.getCurrentRule() : modifierCard.frontRule || modifierCard.sideA;
+            
+            if (!modifierText) {
+                return {
+                    success: false,
+                    error: 'Modifier card has no modifier text',
+                    errorCode: 'NO_MODIFIER_TEXT'
+                };
+            }
+
+            // Apply modifier through rule engine
+            const modifierResult = await this.ruleEngine.activateRule(sessionId, {
+                id: modifierCard.id,
+                ruleText: modifierText,
+                type: 'modifier',
+                ...modifierCard
+            }, playerId, effectContext);
+
+            if (modifierResult) {
+                return {
+                    success: true,
+                    effects: [{
+                        type: 'modifier_applied',
+                        modifierId: modifierResult.id,
+                        modifierText: modifierText,
+                        playerId: playerId
+                    }],
+                    activeModifier: modifierResult
+                };
+            }
+
+            return {
+                success: false,
+                error: 'Failed to apply modifier',
+                errorCode: 'MODIFIER_APPLICATION_FAILED'
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error applying modifier card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply modifier card effect',
+                errorCode: 'MODIFIER_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply prompt card effects - initiates prompt challenges
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who drew the prompt
+     * @param {Object} promptCard - The prompt card
+     * @param {Object} effectContext - Additional context
+     * @returns {object} - Effect application result
+     */
+    async applyPromptCardEffect(sessionId, playerId, promptCard, effectContext = {}) {
+        try {
+            // Use existing activatePromptCard method
+            const promptResult = this.activatePromptCard(sessionId, playerId, promptCard);
+            
+            if (promptResult.success) {
+                return {
+                    success: true,
+                    effects: [{
+                        type: 'prompt_activated',
+                        promptId: promptCard.id,
+                        promptText: promptCard.description || promptCard.name || promptCard.frontRule,
+                        playerId: playerId,
+                        pointValue: promptCard.point_value || promptCard.pointValue || 1
+                    }],
+                    promptState: promptResult.promptState
+                };
+            }
+
+            return promptResult;
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error applying prompt card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply prompt card effect',
+                errorCode: 'PROMPT_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply clone card effects - duplicates another player's card effect
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player using the clone card
+     * @param {Object} cloneCard - The clone card
+     * @param {Object} effectContext - Additional context including target info
+     * @returns {object} - Effect application result
+     */
+    async applyCloneCardEffect(sessionId, playerId, cloneCard, effectContext = {}) {
+        try {
+            const { targetPlayerId, targetCardId } = effectContext;
+            
+            if (!targetPlayerId || !targetCardId) {
+                return {
+                    success: false,
+                    error: 'Clone card requires target player and card ID',
+                    errorCode: 'MISSING_CLONE_TARGET'
+                };
+            }
+
+            // Use existing cloneCard method
+            const cloneResult = this.cloneCard(sessionId, playerId, targetPlayerId, targetCardId);
+            
+            if (cloneResult.success) {
+                return {
+                    success: true,
+                    effects: [{
+                        type: 'card_cloned',
+                        cloneId: cloneResult.clone.id,
+                        originalCardId: targetCardId,
+                        originalOwnerId: targetPlayerId,
+                        cloneOwnerId: playerId
+                    }],
+                    clonedCard: cloneResult.clone
+                };
+            }
+
+            return cloneResult;
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error applying clone card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply clone card effect',
+                errorCode: 'CLONE_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply flip card effects - flips a target card to its alternate side
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player using the flip card
+     * @param {Object} flipCard - The flip card
+     * @param {Object} effectContext - Additional context including target info
+     * @returns {object} - Effect application result
+     */
+    async applyFlipCardEffect(sessionId, playerId, flipCard, effectContext = {}) {
+        try {
+            const { targetCardId, targetPlayerId } = effectContext;
+            
+            // If no target specified, allow player to flip their own cards
+            const actualTargetPlayerId = targetPlayerId || playerId;
+            const actualTargetCardId = targetCardId;
+            
+            if (!actualTargetCardId) {
+                return {
+                    success: false,
+                    error: 'Flip card requires target card ID',
+                    errorCode: 'MISSING_FLIP_TARGET'
+                };
+            }
+
+            // Use existing flipCard method
+            const flipResult = this.flipCard(sessionId, actualTargetPlayerId, actualTargetCardId);
+            
+            if (flipResult.success) {
+                return {
+                    success: true,
+                    effects: [{
+                        type: 'card_flipped',
+                        flippedCardId: actualTargetCardId,
+                        targetPlayerId: actualTargetPlayerId,
+                        newSide: flipResult.newSide,
+                        newRule: flipResult.newRule
+                    }],
+                    flippedCard: flipResult.card
+                };
+            }
+
+            return flipResult;
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error applying flip card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply flip card effect',
+                errorCode: 'FLIP_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply swap card effects - exchanges cards or roles between players
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player using the swap card
+     * @param {Object} swapCard - The swap card
+     * @param {Object} effectContext - Additional context including swap targets
+     * @returns {object} - Effect application result
+     */
+    async applySwapCardEffect(sessionId, playerId, swapCard, effectContext = {}) {
+        try {
+            const { swapType, targetPlayerId, sourceCardId, targetCardId } = effectContext;
+            
+            if (!swapType) {
+                return {
+                    success: false,
+                    error: 'Swap card requires swap type specification',
+                    errorCode: 'MISSING_SWAP_TYPE'
+                };
+            }
+
+            const effects = [];
+
+            switch (swapType) {
+                case 'cards':
+                    // Swap specific cards between players
+                    if (!targetPlayerId || !sourceCardId || !targetCardId) {
+                        return {
+                            success: false,
+                            error: 'Card swap requires target player and both card IDs',
+                            errorCode: 'MISSING_CARD_SWAP_PARAMS'
+                        };
+                    }
+
+                    const cardSwapResult = await this.swapCards(sessionId, playerId, targetPlayerId, sourceCardId, targetCardId);
+                    if (cardSwapResult.success) {
+                        effects.push({
+                            type: 'cards_swapped',
+                            player1: playerId,
+                            player2: targetPlayerId,
+                            card1: sourceCardId,
+                            card2: targetCardId
+                        });
+                    } else {
+                        return cardSwapResult;
+                    }
+                    break;
+
+                case 'referee':
+                    // Swap referee role
+                    if (!targetPlayerId) {
+                        return {
+                            success: false,
+                            error: 'Referee swap requires target player ID',
+                            errorCode: 'MISSING_REFEREE_SWAP_TARGET'
+                        };
+                    }
+
+                    const refereeSwapResult = await this.swapRefereeRole(sessionId, playerId, targetPlayerId);
+                    if (refereeSwapResult.success) {
+                        effects.push({
+                            type: 'referee_swapped',
+                            oldReferee: playerId,
+                            newReferee: targetPlayerId
+                        });
+                    } else {
+                        return refereeSwapResult;
+                    }
+                    break;
+
+                default:
+                    return {
+                        success: false,
+                        error: `Unknown swap type: ${swapType}`,
+                        errorCode: 'UNKNOWN_SWAP_TYPE'
+                    };
+            }
+
+            return {
+                success: true,
+                effects: effects
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error applying swap card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply swap card effect',
+                errorCode: 'SWAP_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Modify player state (points, status, etc.)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player to modify
+     * @param {Object} modifications - The modifications to apply
+     * @returns {object} - Modification result
+     */
+    async modifyPlayerState(sessionId, playerId, modifications) {
+        try {
+            const player = this.players[playerId];
+            if (!player) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            const appliedModifications = [];
+
+            // Apply point changes
+            if (modifications.pointChange !== undefined) {
+                const oldPoints = player.points;
+                player.points = Math.max(0, player.points + modifications.pointChange);
+                appliedModifications.push({
+                    type: 'points_changed',
+                    oldValue: oldPoints,
+                    newValue: player.points,
+                    change: modifications.pointChange
+                });
+            }
+
+            // Apply status changes
+            if (modifications.status) {
+                const oldStatus = player.status;
+                player.status = modifications.status;
+                await this.trackPlayerStatus(sessionId, playerId, modifications.status);
+                appliedModifications.push({
+                    type: 'status_changed',
+                    oldValue: oldStatus,
+                    newValue: modifications.status
+                });
+            }
+
+            // Apply hand modifications
+            if (modifications.handChanges) {
+                for (const change of modifications.handChanges) {
+                    if (change.action === 'add' && change.card) {
+                        player.hand.push(change.card);
+                        appliedModifications.push({
+                            type: 'card_added_to_hand',
+                            cardId: change.card.id
+                        });
+                    } else if (change.action === 'remove' && change.cardId) {
+                        const index = player.hand.findIndex(c => c.id === change.cardId);
+                        if (index !== -1) {
+                            const [removedCard] = player.hand.splice(index, 1);
+                            appliedModifications.push({
+                                type: 'card_removed_from_hand',
+                                cardId: removedCard.id
+                            });
+                        }
+                    }
+                }
+                await this.assignPlayerHand(sessionId, playerId, player.hand);
+            }
+
+            return {
+                success: true,
+                modifications: appliedModifications
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error modifying player state:`, error);
+            return {
+                success: false,
+                error: 'Failed to modify player state',
+                errorCode: 'PLAYER_MODIFICATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Modify game state (session status, turn order, etc.)
+     * @param {string} sessionId - The session ID
+     * @param {Object} modifications - The modifications to apply
+     * @returns {object} - Modification result
+     */
+    async modifyGameState(sessionId, modifications) {
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            const appliedModifications = [];
+
+            // Apply session status changes
+            if (modifications.status) {
+                const oldStatus = session.status;
+                session.status = modifications.status;
+                appliedModifications.push({
+                    type: 'session_status_changed',
+                    oldValue: oldStatus,
+                    newValue: modifications.status
+                });
+            }
+
+            // Apply turn order changes
+            if (modifications.turnOrderChanges) {
+                const oldOrder = [...(this.turnOrder[sessionId] || [])];
+                this.turnOrder[sessionId] = modifications.turnOrderChanges;
+                appliedModifications.push({
+                    type: 'turn_order_changed',
+                    oldOrder: oldOrder,
+                    newOrder: modifications.turnOrderChanges
+                });
+            }
+
+            // Apply referee changes
+            if (modifications.newReferee) {
+                const oldReferee = session.referee;
+                session.referee = modifications.newReferee;
+                if (this.players[oldReferee]) {
+                    this.players[oldReferee].hasRefereeCard = false;
+                }
+                if (this.players[modifications.newReferee]) {
+                    this.players[modifications.newReferee].hasRefereeCard = true;
+                }
+                await updateFirestoreRefereeCard(sessionId, modifications.newReferee);
+                appliedModifications.push({
+                    type: 'referee_changed',
+                    oldReferee: oldReferee,
+                    newReferee: modifications.newReferee
+                });
+            }
+
+            return {
+                success: true,
+                modifications: appliedModifications
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error modifying game state:`, error);
+            return {
+                success: false,
+                error: 'Failed to modify game state',
+                errorCode: 'GAME_MODIFICATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Swap cards between two players
+     * @param {string} sessionId - The session ID
+     * @param {string} player1Id - First player ID
+     * @param {string} player2Id - Second player ID
+     * @param {string} card1Id - Card ID from player 1
+     * @param {string} card2Id - Card ID from player 2
+     * @returns {object} - Swap result
+     */
+    async swapCards(sessionId, player1Id, player2Id, card1Id, card2Id) {
+        try {
+            const player1 = this.players[player1Id];
+            const player2 = this.players[player2Id];
+
+            if (!player1 || !player2) {
+                return {
+                    success: false,
+                    error: 'One or both players not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Find cards in respective hands
+            const card1Index = player1.hand.findIndex(c => c.id === card1Id);
+            const card2Index = player2.hand.findIndex(c => c.id === card2Id);
+
+            if (card1Index === -1 || card2Index === -1) {
+                return {
+                    success: false,
+                    error: 'One or both cards not found in player hands',
+                    errorCode: 'CARD_NOT_FOUND'
+                };
+            }
+
+            // Perform the swap
+            const card1 = player1.hand[card1Index];
+            const card2 = player2.hand[card2Index];
+
+            player1.hand[card1Index] = card2;
+            player2.hand[card2Index] = card1;
+
+            // Update Firebase
+            await this.assignPlayerHand(sessionId, player1Id, player1.hand);
+            await this.assignPlayerHand(sessionId, player2Id, player2.hand);
+
+            // Notify rule engine of card transfers
+            await this.ruleEngine.handleCardTransfer(sessionId, player1Id, player2Id, card1Id);
+            await this.ruleEngine.handleCardTransfer(sessionId, player2Id, player1Id, card2Id);
+
+            return {
+                success: true,
+                swappedCards: {
+                    player1: { playerId: player1Id, cardId: card2Id },
+                    player2: { playerId: player2Id, cardId: card1Id }
+                }
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error swapping cards:`, error);
+            return {
+                success: false,
+                error: 'Failed to swap cards',
+                errorCode: 'CARD_SWAP_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Swap referee role between players
+     * @param {string} sessionId - The session ID
+     * @param {string} currentRefereeId - Current referee player ID
+     * @param {string} newRefereeId - New referee player ID
+     * @returns {object} - Swap result
+     */
+    async swapRefereeRole(sessionId, currentRefereeId, newRefereeId) {
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            const currentReferee = this.players[currentRefereeId];
+            const newReferee = this.players[newRefereeId];
+
+            if (!currentReferee || !newReferee) {
+                return {
+                    success: false,
+                    error: 'One or both players not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Verify current referee
+            if (session.referee !== currentRefereeId) {
+                return {
+                    success: false,
+                    error: 'Player is not the current referee',
+                    errorCode: 'NOT_CURRENT_REFEREE'
+                };
+            }
+
+            // Perform the swap
+            currentReferee.hasRefereeCard = false;
+            newReferee.hasRefereeCard = true;
+            session.referee = newRefereeId;
+
+            // Transfer referee card if it exists
+            if (session.initialRefereeCard) {
+                const refereeCardIndex = currentReferee.hand.findIndex(c => c.id === session.initialRefereeCard.id);
+                if (refereeCardIndex !== -1) {
+                    const [refereeCard] = currentReferee.hand.splice(refereeCardIndex, 1);
+                    newReferee.hand.push(refereeCard);
+                    
+                    await this.assignPlayerHand(sessionId, currentRefereeId, currentReferee.hand);
+                    await this.assignPlayerHand(sessionId, newRefereeId, newReferee.hand);
+                }
+            }
+
+            // Update Firebase
+            await updateFirestoreRefereeCard(sessionId, newRefereeId);
+
+            return {
+                success: true,
+                refereeSwap: {
+                    oldReferee: currentRefereeId,
+                    newReferee: newRefereeId
+                }
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error swapping referee role:`, error);
+            return {
+                success: false,
+                error: 'Failed to swap referee role',
+                errorCode: 'REFEREE_SWAP_ERROR'
+            };
+        }
     }
 
     // #TODO Implement logic to assign player to a session
