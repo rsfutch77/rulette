@@ -549,6 +549,25 @@
         </div>
       </div>
       
+      <!-- Card Transfer UI (only visible to caller after valid callout) -->
+      <div id="card-transfer-panel" style="display:none; margin-bottom:1rem; padding:1rem; background:#e8f4fd; border:2px solid #007bff; border-radius:6px;">
+        <div style="font-weight:bold; color:#004085; margin-bottom:1rem;">🎴 Card Transfer Available</div>
+        <div style="margin-bottom:0.5rem; color:#004085;">You may transfer one of your cards to the accused player:</div>
+        <div id="card-transfer-details" style="margin-bottom:1rem; padding:0.5rem; background:#fff; border-radius:4px; font-size:0.9rem;"></div>
+        
+        <div style="margin-bottom:1rem;">
+          <label for="card-transfer-select" style="display:block; margin-bottom:0.5rem; font-weight:bold; color:#004085;">Select a card to transfer:</label>
+          <select id="card-transfer-select" style="padding:0.5rem; border:1px solid #007bff; border-radius:4px; background:#fff; width:100%; max-width:400px;">
+            <option value="">Choose a card...</option>
+          </select>
+        </div>
+        
+        <div style="display:flex; gap:1rem; justify-content:center;">
+          <button id="confirm-card-transfer-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; cursor:pointer; font-weight:bold;" disabled>Transfer Card</button>
+          <button id="skip-card-transfer-btn" style="background:#6c757d; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; cursor:pointer; font-weight:bold;">Skip Transfer</button>
+        </div>
+      </div>
+      
       <!-- Callout History -->
       <div id="callout-history" style="margin-top:1rem;">
         <div style="font-weight:bold; color:#b8860b; margin-bottom:0.5rem; cursor:pointer;" onclick="toggleCalloutHistory()">

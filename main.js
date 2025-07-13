@@ -265,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNotificationElements();
   initRuleDisplayManager();
   initCalloutEventHandlers();
+  initCardTransferEventHandlers();
 });
 
 // Initialize callout event handlers
@@ -412,6 +413,11 @@ async function handleRefereeDecision(isValid) {
       updateCalloutUI(sessionId);
       updatePlayerScores(sessionId);
       
+      // Show card transfer UI if callout was valid and card transfer is available
+      if (isValid && result.cardTransferAvailable) {
+        showCardTransferUI(sessionId, result.effects);
+      }
+      
     } else {
       showNotification(result.message, "❌ Adjudication Failed");
       
@@ -543,6 +549,11 @@ function updateCalloutUI(sessionId) {
     }
   }
   
+  // Hide card transfer panel when no active callout
+  if (!currentCallout || currentCallout.status !== 'pending_referee_decision') {
+    hideCardTransferUI();
+  }
+  
   // Update callout history
   updateCalloutHistory(sessionId);
 }
@@ -610,6 +621,166 @@ function updateCalloutHistory(sessionId) {
     item.textContent = `${callerName} → ${accusedName}${reasonText} - ${statusText}`;
     historyList.appendChild(item);
   });
+}
+
+// Show card transfer UI for the caller after a valid callout
+function showCardTransferUI(sessionId, effects) {
+  console.log("DEBUG: Showing card transfer UI");
+  
+  if (!currentUser) return;
+  
+  // Find the callout decision effect to get caller and accused info
+  const calloutEffect = effects.find(effect => effect.type === 'callout_decision');
+  if (!calloutEffect || calloutEffect.callerId !== currentUser.uid) {
+    return; // Only show to the caller
+  }
+  
+  const cardTransferPanel = document.getElementById('card-transfer-panel');
+  const cardTransferDetails = document.getElementById('card-transfer-details');
+  const cardTransferSelect = document.getElementById('card-transfer-select');
+  
+  if (!cardTransferPanel || !cardTransferDetails || !cardTransferSelect) return;
+  
+  // Get player names
+  const callerName = getPlayerDisplayName(calloutEffect.callerId);
+  const accusedName = getPlayerDisplayName(calloutEffect.accusedPlayerId);
+  
+  // Update details
+  cardTransferDetails.textContent = `Transfer a card from ${callerName} to ${accusedName}`;
+  
+  // Populate card selection dropdown with caller's cards
+  const callerPlayer = gameManager.players[calloutEffect.callerId];
+  cardTransferSelect.innerHTML = '<option value="">Choose a card...</option>';
+  
+  if (callerPlayer && callerPlayer.hand && callerPlayer.hand.length > 0) {
+    callerPlayer.hand.forEach(card => {
+      const option = document.createElement('option');
+      option.value = card.id;
+      option.textContent = `${card.name || card.type || 'Unknown Card'} (${card.type || 'Unknown Type'})`;
+      cardTransferSelect.appendChild(option);
+    });
+  } else {
+    const option = document.createElement('option');
+    option.value = "";
+    option.textContent = "No cards available to transfer";
+    option.disabled = true;
+    cardTransferSelect.appendChild(option);
+  }
+  
+  // Show the panel
+  cardTransferPanel.style.display = 'block';
+  
+  // Store the callout info for later use
+  cardTransferPanel.dataset.callerId = calloutEffect.callerId;
+  cardTransferPanel.dataset.accusedPlayerId = calloutEffect.accusedPlayerId;
+  cardTransferPanel.dataset.sessionId = sessionId;
+}
+
+// Initialize card transfer event handlers
+function initCardTransferEventHandlers() {
+  console.log("DEBUG: Initializing card transfer event handlers");
+  
+  const cardTransferSelect = document.getElementById('card-transfer-select');
+  const confirmTransferBtn = document.getElementById('confirm-card-transfer-btn');
+  const skipTransferBtn = document.getElementById('skip-card-transfer-btn');
+  
+  if (cardTransferSelect) {
+    cardTransferSelect.addEventListener('change', function() {
+      if (confirmTransferBtn) {
+        confirmTransferBtn.disabled = !this.value;
+      }
+    });
+  }
+  
+  if (confirmTransferBtn) {
+    confirmTransferBtn.addEventListener('click', handleCardTransfer);
+  }
+  
+  if (skipTransferBtn) {
+    skipTransferBtn.addEventListener('click', hideCardTransferUI);
+  }
+}
+
+// Handle card transfer confirmation
+async function handleCardTransfer() {
+  console.log("DEBUG: Handling card transfer");
+  
+  const cardTransferPanel = document.getElementById('card-transfer-panel');
+  const cardTransferSelect = document.getElementById('card-transfer-select');
+  
+  if (!cardTransferPanel || !cardTransferSelect) return;
+  
+  const sessionId = cardTransferPanel.dataset.sessionId;
+  const callerId = cardTransferPanel.dataset.callerId;
+  const accusedPlayerId = cardTransferPanel.dataset.accusedPlayerId;
+  const selectedCardId = cardTransferSelect.value;
+  
+  if (!selectedCardId) {
+    showNotification("Please select a card to transfer.", "❌ No Card Selected");
+    return;
+  }
+  
+  try {
+    // Disable buttons during processing
+    const confirmBtn = document.getElementById('confirm-card-transfer-btn');
+    const skipBtn = document.getElementById('skip-card-transfer-btn');
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (skipBtn) skipBtn.disabled = true;
+    
+    const result = await gameManager.transferCard(sessionId, callerId, accusedPlayerId, selectedCardId);
+    
+    if (result.success) {
+      const callerName = getPlayerDisplayName(callerId);
+      const accusedName = getPlayerDisplayName(accusedPlayerId);
+      const cardName = result.transferredCard.name || result.transferredCard.type || 'Unknown Card';
+      
+      showNotification(
+        `${callerName} transferred "${cardName}" to ${accusedName}.`,
+        "🎴 Card Transfer Complete"
+      );
+      
+      // Update UI
+      updatePlayerHands(sessionId);
+      hideCardTransferUI();
+      
+    } else {
+      showNotification(result.message, "❌ Card Transfer Failed");
+      
+      // Re-enable buttons on failure
+      if (confirmBtn) confirmBtn.disabled = false;
+      if (skipBtn) skipBtn.disabled = false;
+    }
+    
+  } catch (error) {
+    console.error("Error transferring card:", error);
+    showNotification("Failed to transfer card. Please try again.", "❌ System Error");
+    
+    // Re-enable buttons on error
+    const confirmBtn = document.getElementById('confirm-card-transfer-btn');
+    const skipBtn = document.getElementById('skip-card-transfer-btn');
+    if (confirmBtn) confirmBtn.disabled = false;
+    if (skipBtn) skipBtn.disabled = false;
+  }
+}
+
+// Hide card transfer UI
+function hideCardTransferUI() {
+  const cardTransferPanel = document.getElementById('card-transfer-panel');
+  if (cardTransferPanel) {
+    cardTransferPanel.style.display = 'none';
+    
+    // Clear stored data
+    delete cardTransferPanel.dataset.callerId;
+    delete cardTransferPanel.dataset.accusedPlayerId;
+    delete cardTransferPanel.dataset.sessionId;
+  }
+}
+
+// Update player hands display (placeholder - implement based on existing UI)
+function updatePlayerHands(sessionId) {
+  console.log("DEBUG: Updating player hands display");
+  // TODO: Implement based on existing player hand UI
+  // This would update any UI elements that show player card counts or hands
 }
 
 // Helper function to get player display name

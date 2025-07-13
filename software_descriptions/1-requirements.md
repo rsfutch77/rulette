@@ -126,11 +126,11 @@ Roles and responsibilities:
 [x] 4.2 Referee Adjudication (4 Points)
 [x] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
 [x] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
-[ ] 4.3 Point and Card Transfer Logic (3 Points)
-[ ] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller (2 Points)
-[ ] 4.3.2 Allow the caller to transfer one of their cards to the failed player (1 Point)
-[ ] 4.3.3 Card transfer scenarios include:
-    - Referee awards card transfer after a callout
+[x] 4.3 Point and Card Transfer Logic (3 Points)
+[x] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller (2 Points)
+[x] 4.3.2 Allow the caller to transfer one of their cards to the failed player (1 Point)
+[x] 4.3.3 Card transfer scenarios include:
+    - Referee awards card transfer after a callout ✓
     - Swap card is played (roles or cards exchanged)
     - Clone or flip card is played (card duplicated or reversed)
     - Prompt card requires a transfer as part of its effect

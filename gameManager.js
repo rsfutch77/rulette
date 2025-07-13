@@ -2485,9 +2485,33 @@ class GameManager {
             };
 
             if (isValid) {
-                // NOTE: Point transfer and card transfer logic will be implemented in a separate subtask
-                // For now, we only record the decision and update the callout status
-                console.log(`[GAME_MANAGER] Callout ruled valid - effects will be applied in future implementation`);
+                // Apply point transfer: deduct from accused, add to caller
+                const callerPlayer = this.players[callout.callerId];
+                const accusedPlayer = this.players[callout.accusedPlayerId];
+                
+                if (callerPlayer && accusedPlayer) {
+                    // Deduct point from accused player
+                    accusedPlayer.points = Math.max(0, accusedPlayer.points - 1);
+                    // Add point to caller
+                    callerPlayer.points += 1;
+                    
+                    console.log(`[GAME_MANAGER] Point transfer: ${accusedPlayer.displayName} (${accusedPlayer.points + 1} -> ${accusedPlayer.points}), ${callerPlayer.displayName} (${callerPlayer.points - 1} -> ${callerPlayer.points})`);
+                    
+                    // TODO: Sync point changes with Firebase
+                    // await updateFirestorePlayerPoints(sessionId, callout.callerId, callerPlayer.points);
+                    // await updateFirestorePlayerPoints(sessionId, callout.accusedPlayerId, accusedPlayer.points);
+                    
+                    result.effects.push({
+                        type: 'point_transfer',
+                        fromPlayerId: callout.accusedPlayerId,
+                        toPlayerId: callout.callerId,
+                        pointsTransferred: 1,
+                        newPoints: {
+                            [callout.callerId]: callerPlayer.points,
+                            [callout.accusedPlayerId]: accusedPlayer.points
+                        }
+                    });
+                }
                 
                 result.effects.push({
                     type: 'callout_decision',
@@ -2496,6 +2520,9 @@ class GameManager {
                     accusedPlayerId: callout.accusedPlayerId,
                     ruleViolated: callout.ruleViolated
                 });
+                
+                // Set flag to indicate card transfer is available
+                result.cardTransferAvailable = true;
             } else {
                 console.log(`[GAME_MANAGER] Callout ruled invalid - no effects applied`);
                 
@@ -2527,6 +2554,67 @@ class GameManager {
         } catch (error) {
             console.error(`[GAME_MANAGER] Error adjudicating callout:`, error);
             return { success: false, message: "Failed to adjudicate callout." };
+        }
+    }
+
+    /**
+     * Transfer a card from one player to another
+     * @param {string} sessionId - The game session ID
+     * @param {string} fromPlayerId - ID of the player giving the card
+     * @param {string} toPlayerId - ID of the player receiving the card
+     * @param {string} cardId - ID of the card to transfer
+     * @returns {Promise<object>} - Result object with success status
+     */
+    async transferCard(sessionId, fromPlayerId, toPlayerId, cardId) {
+        console.log(`[GAME_MANAGER] Transferring card ${cardId} from ${fromPlayerId} to ${toPlayerId}`);
+        
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session) {
+                return { success: false, message: "Game session not found." };
+            }
+
+            const fromPlayer = this.players[fromPlayerId];
+            const toPlayer = this.players[toPlayerId];
+
+            if (!fromPlayer || !toPlayer) {
+                return { success: false, message: "One or both players not found." };
+            }
+
+            // Find the card in the sender's hand
+            const cardIndex = fromPlayer.hand.findIndex(card => card.id === cardId);
+            if (cardIndex === -1) {
+                return { success: false, message: "Card not found in sender's hand." };
+            }
+
+            // Remove card from sender's hand
+            const [transferredCard] = fromPlayer.hand.splice(cardIndex, 1);
+            
+            // Add card to receiver's hand
+            toPlayer.hand.push(transferredCard);
+
+            console.log(`[GAME_MANAGER] Card ${cardId} transferred successfully`);
+
+            // TODO: Sync hand changes with Firebase
+            // await updateFirestorePlayerHand(sessionId, fromPlayerId, fromPlayer.hand);
+            // await updateFirestorePlayerHand(sessionId, toPlayerId, toPlayer.hand);
+
+            return {
+                success: true,
+                transferredCard: transferredCard,
+                fromPlayer: {
+                    id: fromPlayerId,
+                    handSize: fromPlayer.hand.length
+                },
+                toPlayer: {
+                    id: toPlayerId,
+                    handSize: toPlayer.hand.length
+                }
+            };
+
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error transferring card:`, error);
+            return { success: false, message: "Failed to transfer card." };
         }
     }
 
