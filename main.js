@@ -2433,3 +2433,243 @@ window.activatePromptChallenge = activatePromptChallenge;
 window.completePromptChallenge = completePromptChallenge;
 window.judgePrompt = judgePrompt;
 window.hidePromptUI = hidePromptUI;
+// ===== REFEREE SWAP NOTIFICATION SYSTEM =====
+
+/**
+ * Notify all players of a referee change
+ * @param {string} sessionId - The session ID
+ * @param {string} oldRefereeId - The previous referee's ID
+ * @param {string} newRefereeId - The new referee's ID
+ * @param {string} message - The notification message
+ */
+function notifyRefereeChange(sessionId, oldRefereeId, newRefereeId, message) {
+    console.log('[REFEREE] Notifying referee change:', { sessionId, oldRefereeId, newRefereeId });
+    
+    // Show notification to all players
+    showNotification(message, 'Referee Changed', () => {
+        // Update referee status display after notification is closed
+        updateRefereeStatusDisplay(sessionId, newRefereeId);
+    });
+    
+    // Update any referee-specific UI elements immediately
+    updateRefereeStatusDisplay(sessionId, newRefereeId);
+    
+    // Log the change for debugging
+    console.log(`[REFEREE] Referee role changed from ${oldRefereeId} to ${newRefereeId} in session ${sessionId}`);
+}
+
+/**
+ * Update the referee status display in the UI
+ * @param {string} sessionId - The session ID
+ * @param {string} newRefereeId - The new referee's ID
+ */
+function updateRefereeStatusDisplay(sessionId, newRefereeId) {
+    try {
+        // Find or create referee status display element
+        let refereeStatusElement = document.getElementById('referee-status');
+        if (!refereeStatusElement) {
+            refereeStatusElement = document.createElement('div');
+            refereeStatusElement.id = 'referee-status';
+            refereeStatusElement.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: #fff3cd;
+                border: 2px solid #ffeaa7;
+                border-radius: 8px;
+                padding: 10px 15px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                z-index: 999;
+                font-weight: bold;
+                color: #856404;
+                min-width: 200px;
+                text-align: center;
+            `;
+            document.body.appendChild(refereeStatusElement);
+        }
+        
+        // Get referee display name
+        const referee = gameManager.players[newRefereeId];
+        const refereeName = referee ? referee.displayName : 'Unknown';
+        const currentUser = getCurrentUser();
+        const isCurrentUserReferee = currentUser && currentUser.uid === newRefereeId;
+        
+        // Update the display
+        refereeStatusElement.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center;">
+                <span style="margin-right: 8px;">🏛️</span>
+                <div>
+                    <div style="font-size: 0.9em; margin-bottom: 2px;">Current Referee:</div>
+                    <div style="font-size: 1.1em; ${isCurrentUserReferee ? 'color: #d63384; text-decoration: underline;' : ''}">${refereeName}</div>
+                    ${isCurrentUserReferee ? '<div style="font-size: 0.8em; color: #d63384; margin-top: 2px;">(You)</div>' : ''}
+                </div>
+            </div>
+        `;
+        
+        // Add a brief highlight animation
+        refereeStatusElement.style.animation = 'refereeChangeHighlight 2s ease-in-out';
+        
+        console.log(`[REFEREE] Updated referee status display for ${refereeName}`);
+    } catch (error) {
+        console.error('[REFEREE] Error updating referee status display:', error);
+    }
+}
+
+/**
+ * Initialize referee status display for a session
+ * @param {string} sessionId - The session ID
+ */
+function initializeRefereeStatusDisplay(sessionId) {
+    try {
+        const session = gameManager.gameSessions[sessionId];
+        if (session && session.referee) {
+            updateRefereeStatusDisplay(sessionId, session.referee);
+        }
+    } catch (error) {
+        console.error('[REFEREE] Error initializing referee status display:', error);
+    }
+}
+
+// Make the function available globally for GameManager to call
+window.notifyRefereeChange = notifyRefereeChange;
+window.updateRefereeStatusDisplay = updateRefereeStatusDisplay;
+window.initializeRefereeStatusDisplay = initializeRefereeStatusDisplay;
+
+// Add CSS animation for referee change highlight
+const refereeAnimationStyle = document.createElement('style');
+refereeAnimationStyle.textContent = `
+    @keyframes refereeChangeHighlight {
+        0% { transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        50% { transform: scale(1.05); box-shadow: 0 4px 16px rgba(255, 234, 167, 0.8); }
+        100% { transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    }
+`;
+document.head.appendChild(refereeAnimationStyle);
+
+// ===== REFEREE SWAP TESTING FUNCTIONS =====
+
+/**
+ * Test function for referee card swapping
+ */
+window.testRefereeSwap = function() {
+    console.log('[TEST] Testing referee card swapping...');
+    
+    if (!gameManager) {
+        console.error('[TEST] Game manager not available');
+        showNotification('Game manager not available. Please refresh the page.', 'Test Error');
+        return;
+    }
+    
+    // Check if we have a current session
+    if (!window.currentSessionId) {
+        console.error('[TEST] No current session available');
+        showNotification('No active game session. Please start a game first.', 'Test Error');
+        return;
+    }
+    
+    const sessionId = window.currentSessionId;
+    const session = gameManager.gameSessions[sessionId];
+    
+    if (!session) {
+        console.error('[TEST] Session not found');
+        showNotification('Game session not found.', 'Test Error');
+        return;
+    }
+    
+    if (!session.referee) {
+        console.error('[TEST] No referee assigned');
+        showNotification('No referee assigned to this session.', 'Test Error');
+        return;
+    }
+    
+    console.log(`[TEST] Current referee: ${session.referee}`);
+    
+    // Test the swap functionality
+    gameManager.swapRefereeRole(sessionId, session.referee)
+        .then(result => {
+            if (result.success) {
+                console.log('[TEST] Referee swap successful:', result);
+                showNotification(
+                    `Referee swap test successful! New referee: ${result.refereeSwap.newRefereeName}`,
+                    'Test Successful'
+                );
+            } else {
+                console.error('[TEST] Referee swap failed:', result);
+                showNotification(
+                    `Referee swap test failed: ${result.error}`,
+                    'Test Failed'
+                );
+            }
+        })
+        .catch(error => {
+            console.error('[TEST] Error during referee swap test:', error);
+            showNotification(
+                'Error during referee swap test. Check console for details.',
+                'Test Error'
+            );
+        });
+};
+
+/**
+ * Test function for swap card effect
+ */
+window.testSwapCardEffect = function() {
+    console.log('[TEST] Testing swap card effect...');
+    
+    if (!gameManager || !cardManager) {
+        console.error('[TEST] Game or card manager not available');
+        showNotification('Game system not available. Please refresh the page.', 'Test Error');
+        return;
+    }
+    
+    if (!window.currentSessionId) {
+        console.error('[TEST] No current session available');
+        showNotification('No active game session. Please start a game first.', 'Test Error');
+        return;
+    }
+    
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.error('[TEST] No current user');
+        showNotification('No user logged in.', 'Test Error');
+        return;
+    }
+    
+    // Create a mock swap card
+    const mockSwapCard = {
+        id: 'test-swap-card',
+        name: 'Test Swap Card',
+        type: 'swap',
+        description: 'Test card for referee swapping'
+    };
+    
+    // Test applying swap card effect with referee swap
+    const effectContext = {
+        swapType: 'referee'
+        // No targetPlayerId specified - should trigger random selection
+    };
+    
+    gameManager.applyCardEffect(window.currentSessionId, currentUser.uid, mockSwapCard, effectContext)
+        .then(result => {
+            if (result.success) {
+                console.log('[TEST] Swap card effect successful:', result);
+                showNotification(
+                    'Swap card effect test successful! Check the referee status.',
+                    'Test Successful'
+                );
+            } else {
+                console.error('[TEST] Swap card effect failed:', result);
+                showNotification(
+                    `Swap card effect test failed: ${result.error}`,
+                    'Test Failed'
+                );
+            }
+        })
+        .catch(error => {
+            console.error('[TEST] Error during swap card effect test:', error);
+            showNotification(
+                'Error during swap card effect test. Check console for details.',
+                'Test Error'
+            );
+        });
+};

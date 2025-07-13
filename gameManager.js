@@ -1885,7 +1885,7 @@ class GameManager {
      * @param {string} newRefereeId - New referee player ID
      * @returns {object} - Swap result
      */
-    async swapRefereeRole(sessionId, currentRefereeId, newRefereeId) {
+    async swapRefereeRole(sessionId, currentRefereeId, newRefereeId = null) {
         try {
             const session = this.gameSessions[sessionId];
             if (!session) {
@@ -1894,6 +1894,25 @@ class GameManager {
                     error: 'Session not found',
                     errorCode: 'SESSION_NOT_FOUND'
                 };
+            }
+
+            // If no new referee specified, randomly select one (excluding current referee)
+            if (!newRefereeId) {
+                const activePlayersInSession = (await getFirestorePlayersInSession(sessionId))
+                    .filter(player => player.status === 'active' && player.uid !== currentRefereeId);
+                
+                if (activePlayersInSession.length === 0) {
+                    return {
+                        success: false,
+                        error: 'No other active players available for referee swap',
+                        errorCode: 'NO_AVAILABLE_PLAYERS'
+                    };
+                }
+
+                // Randomly select new referee
+                const randomIndex = Math.floor(Math.random() * activePlayersInSession.length);
+                newRefereeId = activePlayersInSession[randomIndex].uid;
+                console.log(`[GAME_MANAGER] Randomly selected new referee: ${newRefereeId}`);
             }
 
             const currentReferee = this.players[currentRefereeId];
@@ -1936,11 +1955,18 @@ class GameManager {
             // Update Firebase
             await updateFirestoreRefereeCard(sessionId, newRefereeId);
 
+            // Notify all players of the referee change
+            await this.notifyRefereeChange(sessionId, currentRefereeId, newRefereeId);
+
+            console.log(`[GAME_MANAGER] Referee role swapped from ${currentReferee.displayName} to ${newReferee.displayName}`);
+
             return {
                 success: true,
                 refereeSwap: {
                     oldReferee: currentRefereeId,
-                    newReferee: newRefereeId
+                    newReferee: newRefereeId,
+                    oldRefereeName: currentReferee.displayName,
+                    newRefereeName: newReferee.displayName
                 }
             };
         } catch (error) {
@@ -1950,6 +1976,35 @@ class GameManager {
                 error: 'Failed to swap referee role',
                 errorCode: 'REFEREE_SWAP_ERROR'
             };
+        }
+    }
+
+    /**
+     * Notify all players of a referee change
+     * @param {string} sessionId - The session ID
+     * @param {string} oldRefereeId - The previous referee's ID
+     * @param {string} newRefereeId - The new referee's ID
+     */
+    async notifyRefereeChange(sessionId, oldRefereeId, newRefereeId) {
+        try {
+            const oldReferee = this.players[oldRefereeId];
+            const newReferee = this.players[newRefereeId];
+            
+            if (!oldReferee || !newReferee) {
+                console.warn(`[GAME_MANAGER] Could not find player data for referee change notification`);
+                return;
+            }
+
+            const message = `Referee role has been swapped! ${oldReferee.displayName} is no longer the referee. ${newReferee.displayName} is now the referee.`;
+            
+            // Import and call the notification function from main.js
+            if (typeof window !== 'undefined' && window.notifyRefereeChange) {
+                window.notifyRefereeChange(sessionId, oldRefereeId, newRefereeId, message);
+            } else {
+                console.log(`[GAME_MANAGER] Referee change notification: ${message}`);
+            }
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error notifying referee change:`, error);
         }
     }
 
