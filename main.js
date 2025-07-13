@@ -11,6 +11,10 @@ let cardManagerInitialized = false; // Flag to track initialization status
 import { loadCardData } from './cardModels.js';
 import { WheelComponent } from './wheelComponent.js';
 import { gameManager } from './gameManager.js';
+import { RuleDisplayManager } from './ruleDisplayManager.js';
+
+// Global rule display manager instance
+let ruleDisplayManager = null;
 
 // FIXME: DEV ONLY - Helper for managing a local dev UID for localhost testing
 function getDevUID() {
@@ -217,6 +221,21 @@ const inspirationResult = document.getElementById("inspiration-card-result");
 // FIXME: These elements might not be available when the script runs initially
 let notificationModal, notificationTitle, notificationMessage, notificationCloseBtn;
 
+// Function to initialize rule display manager
+function initRuleDisplayManager() {
+  console.log("DEBUG: Initializing rule display manager");
+  try {
+    if (gameManager) {
+      ruleDisplayManager = new RuleDisplayManager(gameManager);
+      console.log("DEBUG: Rule display manager initialized successfully");
+    } else {
+      console.warn("DEBUG: Game manager not available, rule display manager initialization delayed");
+    }
+  } catch (error) {
+    console.error("ERROR: Failed to initialize rule display manager:", error);
+  }
+}
+
 // Function to initialize notification elements
 function initNotificationElements() {
   console.log("DEBUG: Initializing notification elements");
@@ -241,8 +260,11 @@ function initNotificationElements() {
   }
 }
 
-// Initialize notification elements when DOM is fully loaded
-document.addEventListener('DOMContentLoaded', initNotificationElements);
+// Initialize notification elements and rule display manager when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+  initNotificationElements();
+  initRuleDisplayManager();
+});
 
 // Function to show in-app notification
 function showNotification(message, title = "Notification", callback = null) {
@@ -282,6 +304,29 @@ window.testNotification = function(message = "Test notification", title = "Test"
   console.log("DEBUG: Manual test notification triggered");
   showNotification(message, title);
 };
+// Rule display control functions
+function startRuleDisplay(sessionId) {
+  console.log("[RULE_DISPLAY] Starting rule display for session:", sessionId);
+  if (ruleDisplayManager) {
+    ruleDisplayManager.startDisplayForSession(sessionId);
+  } else {
+    console.warn("[RULE_DISPLAY] Rule display manager not initialized");
+  }
+}
+
+function stopRuleDisplay() {
+  console.log("[RULE_DISPLAY] Stopping rule display");
+  if (ruleDisplayManager) {
+    ruleDisplayManager.stopDisplay();
+  }
+}
+
+function refreshRuleDisplay() {
+  console.log("[RULE_DISPLAY] Refreshing rule display");
+  if (ruleDisplayManager) {
+    ruleDisplayManager.forceRefresh();
+  }
+}
 
 // Wheel control functions
 function showWheel() {
@@ -302,6 +347,19 @@ function hideWheel() {
 
 // Enhanced wheel control with turn management and comprehensive error handling
 function spinWheelForPlayer(sessionId, playerId) {
+// Combined game start function
+function startGameDisplay(sessionId) {
+  console.log("[GAME] Starting game display for session:", sessionId);
+  showWheel();
+  startRuleDisplay(sessionId);
+}
+
+// Combined game stop function  
+function stopGameDisplay() {
+  console.log("[GAME] Stopping game display");
+  hideWheel();
+  stopRuleDisplay();
+}
   if (!window.wheelComponent || !gameManager) {
     console.error("[GAME] Wheel component or game manager not available");
     showNotification("Game components not ready. Please refresh the page.", "System Error");
@@ -517,6 +575,13 @@ function completeTurn(sessionId) {
 window.showWheel = showWheel;
 window.hideWheel = hideWheel;
 window.spinWheelForPlayer = spinWheelForPlayer;
+
+// Expose rule display functions for testing and game integration
+window.startRuleDisplay = startRuleDisplay;
+window.stopRuleDisplay = stopRuleDisplay;
+window.refreshRuleDisplay = refreshRuleDisplay;
+window.startGameDisplay = startGameDisplay;
+window.stopGameDisplay = stopGameDisplay;
 window.initializeWheelForSession = initializeWheelForSession;
 window.advanceTurn = advanceTurn;
 
@@ -851,7 +916,7 @@ function displayDrawnCard(card, cardType) {
                     const player = gameManager.players[currentUser.uid];
                     if (player) {
                         player.hand.push(card);
-                        updateActiveRulesDisplay();
+                        refreshRuleDisplay();
                     }
                 }
                 closeCardModal();

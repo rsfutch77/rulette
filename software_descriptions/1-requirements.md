@@ -115,9 +115,9 @@ Roles and responsibilities:
 [x] 3.3 Card Effect Resolution (4 Points)
 [x] 3.3.1 Implement logic for applying card effects to players or the game state (2 Points)
 [x] 3.3.2 Handle special actions (swap, clone, flip, etc.) and their interactions (2 Points)
-[ ] 3.4 Rule Display and Tracking (3 Points)
-[ ] 3.4.1 Display all active rules and their owners in the UI (2 Points)
-[ ] 3.4.2 Indicate which rules are persistent, temporary, or transferable (1 Point)
+[x] 3.4 Rule Display and Tracking (3 Points)
+[x] 3.4.1 Display all active rules and their owners in the UI (2 Points)
+[x] 3.4.2 Indicate which rules are persistent, temporary, or transferable (1 Point)
 [ ] 3.5 Edge Cases and Rule Conflicts (2 Points)
 [ ] 3.5.1 Handle the following rule conflicts:
     - Conflicting or mutually exclusive rules

@@ -201,6 +201,182 @@
       font-weight: bold;
       margin-top: -20px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    
+    /* Active Rules Display Styles */
+    .rule-item {
+      background: #fff;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+    }
+    
+    .rule-item:hover {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      transform: translateY(-1px);
+    }
+    
+    .rule-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    
+    .rule-title {
+      font-weight: bold;
+      font-size: 1.1rem;
+      color: #495057;
+      margin: 0;
+    }
+    
+    .rule-owner {
+      font-size: 0.9rem;
+      color: #6c757d;
+      font-style: italic;
+    }
+    
+    .rule-description {
+      color: #495057;
+      margin: 0.5rem 0;
+      line-height: 1.4;
+    }
+    
+    .rule-metadata {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+    
+    .rule-type-badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Rule Type Colors */
+    .rule-type-persistent {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .rule-type-temporary {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    
+    .rule-type-transferable {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    .rule-duration-badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      background: #f8f9fa;
+      color: #495057;
+      border: 1px solid #dee2e6;
+    }
+    
+    .rule-priority-badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    
+    .rule-priority-low {
+      background: #f8f9fa;
+      color: #6c757d;
+      border: 1px solid #dee2e6;
+    }
+    
+    .rule-priority-normal {
+      background: #e2e3e5;
+      color: #495057;
+      border: 1px solid #ced4da;
+    }
+    
+    .rule-priority-high {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    
+    .rule-priority-critical {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .rule-state-badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    
+    .rule-state-active {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .rule-state-suspended {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .rule-state-pending {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    /* Clone rule indicators */
+    .rule-clone-indicator {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      background: #e7f3ff;
+      color: #0066cc;
+      border: 1px solid #b3d9ff;
+    }
+    
+    .rule-clone-indicator::before {
+      content: "🔗";
+      margin-right: 4px;
+    }
+    
+    /* Flip rule indicators */
+    .rule-flip-indicator {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      background: #fff0e6;
+      color: #cc6600;
+      border: 1px solid #ffcc99;
+    }
+    
+    .rule-flip-indicator::before {
+      content: "🔄";
+      margin-right: 4px;
+    }
     }
   </style>
 </head>
@@ -283,7 +459,19 @@
       </div>
       <button id="spin-wheel-btn" style="background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; font-size:1.1rem; cursor:pointer; margin-top:1.5rem;" disabled>Spin Wheel</button>
       <div id="wheel-result" style="margin-top:1rem; font-weight:bold; font-size:1.2rem; color:#333;"></div>
-      <div id="active-rules-display" style="margin-top:1rem; font-size:1rem; color:#333;"></div>
+      <!-- Active Rules Display Panel -->
+      <div id="active-rules-panel" style="margin-top:2rem; padding:1.5rem; background:#f8f9fa; border:2px solid #dee2e6; border-radius:10px; display:none;">
+        <h3 style="margin-top:0; margin-bottom:1rem; color:#495057; display:flex; align-items:center;">
+          <span style="margin-right:0.5rem;">📋</span>
+          Active Rules
+          <span id="rules-count-badge" style="background:#6c757d; color:white; border-radius:12px; padding:2px 8px; font-size:0.8rem; margin-left:0.5rem;">0</span>
+        </h3>
+        <div id="active-rules-container">
+          <div id="no-rules-message" style="text-align:center; color:#6c757d; font-style:italic; padding:1rem;">
+            No active rules yet. Draw cards to activate rules!
+          </div>
+        </div>
+      </div>
     </div>
     
     <button id="roll-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; font-size:1.1rem; cursor:pointer; margin-top:1.5rem;" disabled>Roll</button>
