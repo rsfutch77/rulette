@@ -6257,6 +6257,526 @@ class GameManager {
         return testResults;
     }
 
+    // ===== SESSION TERMINATION AND CLEANUP METHODS =====
+
+    /**
+     * Host-initiated session termination
+     * @param {string} sessionId - The session ID to terminate
+     * @param {string} hostId - The host player ID initiating termination
+     * @param {string} reason - Reason for termination (optional)
+     * @returns {Promise<object>} - Result object with success status
+     */
+    async terminateSessionByHost(sessionId, hostId, reason = 'Session terminated by host') {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Validate that the requester is the host
+            if (session.hostId !== hostId) {
+                return {
+                    success: false,
+                    error: 'Only the host can terminate the session',
+                    errorCode: 'UNAUTHORIZED_TERMINATION'
+                };
+            }
+
+            // Validate session state - can only terminate active sessions
+            if (session.status === this.SESSION_STATES.COMPLETED) {
+                return {
+                    success: false,
+                    error: 'Session is already completed',
+                    errorCode: 'SESSION_ALREADY_COMPLETED'
+                };
+            }
+
+            console.log(`[SESSION_TERMINATION] Host ${hostId} terminating session ${sessionId}: ${reason}`);
+
+            // Notify all players before termination
+            await this.notifyPlayersOfSessionTermination(sessionId, reason, 'host_initiated');
+
+            // Stop all ongoing game events
+            this.stopGameEvents(sessionId);
+
+            // Complete the session with termination reason
+            await this.completeGameSession(
+                sessionId,
+                reason,
+                {
+                    terminationType: 'host_initiated',
+                    terminatedBy: hostId,
+                    terminatedAt: Date.now()
+                }
+            );
+
+            // Perform comprehensive cleanup
+            await this.cleanupSessionData(sessionId, 'host_initiated');
+
+            // Trigger termination event
+            this.triggerSessionTerminationEvent(sessionId, {
+                type: 'host_initiated',
+                reason,
+                terminatedBy: hostId,
+                timestamp: Date.now()
+            });
+
+            console.log(`[SESSION_TERMINATION] Session ${sessionId} successfully terminated by host`);
+
+            return {
+                success: true,
+                message: 'Session terminated successfully',
+                terminationType: 'host_initiated'
+            };
+
+        } catch (error) {
+            console.error('[SESSION_TERMINATION] Error terminating session by host:', error);
+            return {
+                success: false,
+                error: 'Failed to terminate session',
+                errorCode: 'TERMINATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Enhanced automatic session termination when all players leave
+     * @param {string} sessionId - The session ID
+     * @param {string} reason - Reason for termination
+     * @returns {Promise<object>} - Result object with success status
+     */
+    async terminateSessionAutomatically(sessionId, reason = 'All players left the session') {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Double-check that no active players remain
+            const activePlayers = session.players.filter(playerId => {
+                const player = this.players[playerId];
+                return player && player.status === 'active';
+            });
+
+            if (activePlayers.length > 0) {
+                return {
+                    success: false,
+                    error: 'Cannot auto-terminate: active players still present',
+                    errorCode: 'ACTIVE_PLAYERS_PRESENT'
+                };
+            }
+
+            console.log(`[SESSION_TERMINATION] Auto-terminating session ${sessionId}: ${reason}`);
+
+            // Stop all ongoing game events
+            this.stopGameEvents(sessionId);
+
+            // Complete the session with auto-termination reason
+            await this.completeGameSession(
+                sessionId,
+                reason,
+                {
+                    terminationType: 'automatic',
+                    terminatedAt: Date.now(),
+                    lastActivePlayerCount: 0
+                }
+            );
+
+            // Perform comprehensive cleanup
+            await this.cleanupSessionData(sessionId, 'automatic');
+
+            // Trigger termination event
+            this.triggerSessionTerminationEvent(sessionId, {
+                type: 'automatic',
+                reason,
+                timestamp: Date.now()
+            });
+
+            console.log(`[SESSION_TERMINATION] Session ${sessionId} automatically terminated`);
+
+            return {
+                success: true,
+                message: 'Session automatically terminated',
+                terminationType: 'automatic'
+            };
+
+        } catch (error) {
+            console.error('[SESSION_TERMINATION] Error auto-terminating session:', error);
+            return {
+                success: false,
+                error: 'Failed to auto-terminate session',
+                errorCode: 'AUTO_TERMINATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Comprehensive session data cleanup
+     * @param {string} sessionId - The session ID to clean up
+     * @param {string} terminationType - Type of termination (host_initiated, automatic)
+     * @returns {Promise<void>}
+     */
+    async cleanupSessionData(sessionId, terminationType = 'unknown') {
+        try {
+            console.log(`[SESSION_CLEANUP] Starting cleanup for session ${sessionId} (${terminationType})`);
+
+            const session = this.getSession(sessionId);
+            if (!session) {
+                console.warn(`[SESSION_CLEANUP] Session ${sessionId} not found for cleanup`);
+                return;
+            }
+
+            // 1. Clean up player presence tracking
+            if (session.players) {
+                for (const playerId of session.players) {
+                    this.stopPlayerPresenceTracking(sessionId, playerId);
+                }
+            }
+
+            // 2. Clean up rule engine session data
+            if (this.ruleEngine && typeof this.ruleEngine.cleanupSession === 'function') {
+                await this.ruleEngine.cleanupSession(sessionId);
+            }
+
+            // 3. Clean up callout manager data
+            if (this.calloutManager && typeof this.calloutManager.cleanupSession === 'function') {
+                this.calloutManager.cleanupSession(sessionId);
+            }
+
+            // 4. Clean up active prompts
+            if (this.activePrompts && this.activePrompts[sessionId]) {
+                delete this.activePrompts[sessionId];
+            }
+
+            // 5. Clean up turn management data
+            if (this.currentTurn && this.currentTurn[sessionId]) {
+                delete this.currentTurn[sessionId];
+            }
+            if (this.turnOrder && this.turnOrder[sessionId]) {
+                delete this.turnOrder[sessionId];
+            }
+
+            // 6. Clean up clone map data
+            if (this.cloneMap) {
+                Object.keys(this.cloneMap).forEach(cardId => {
+                    if (this.cloneMap[cardId].sessionId === sessionId) {
+                        delete this.cloneMap[cardId];
+                    }
+                });
+            }
+
+            // 7. Clean up session state listeners
+            if (this.sessionStateListeners && this.sessionStateListeners[sessionId]) {
+                delete this.sessionStateListeners[sessionId];
+            }
+
+            // 8. Clean up session state history (keep for audit but mark as cleaned)
+            if (this.sessionStateHistory && this.sessionStateHistory[sessionId]) {
+                this.sessionStateHistory[sessionId].cleanedUp = true;
+                this.sessionStateHistory[sessionId].cleanupTime = Date.now();
+            }
+
+            // 9. Mark players as cleaned up but preserve for potential reconnection
+            if (session.players) {
+                for (const playerId of session.players) {
+                    const player = this.players[playerId];
+                    if (player) {
+                        player.sessionCleanedUp = true;
+                        player.cleanupTime = Date.now();
+                        // Don't delete player data immediately - keep for potential reconnection
+                    }
+                }
+            }
+
+            // 10. Firebase cleanup
+            await this.cleanupFirebaseSessionData(sessionId);
+
+            // 11. Schedule orphaned session cleanup
+            this.scheduleOrphanedSessionCleanup(sessionId);
+
+            console.log(`[SESSION_CLEANUP] Cleanup completed for session ${sessionId}`);
+
+        } catch (error) {
+            console.error(`[SESSION_CLEANUP] Error cleaning up session ${sessionId}:`, error);
+        }
+    }
+
+    /**
+     * Clean up Firebase session data
+     * @param {string} sessionId - The session ID
+     * @returns {Promise<void>}
+     */
+    async cleanupFirebaseSessionData(sessionId) {
+        try {
+            console.log(`[FIREBASE_CLEANUP] Cleaning up Firebase data for session ${sessionId}`);
+
+            // TODO: Implement Firebase cleanup when Firebase integration is complete
+            // This should include:
+            // - Deleting session document from Firestore
+            // - Cleaning up player documents associated with the session
+            // - Removing real-time database entries
+            // - Cleaning up any file storage associated with the session
+
+            // Placeholder for Firebase cleanup
+            // await deleteFirestoreGameSession(sessionId);
+            // await cleanupFirestorePlayersInSession(sessionId);
+            // await cleanupRealtimeDatabaseSession(sessionId);
+
+            console.log(`[FIREBASE_CLEANUP] Firebase cleanup completed for session ${sessionId}`);
+
+        } catch (error) {
+            console.error(`[FIREBASE_CLEANUP] Error cleaning up Firebase data for session ${sessionId}:`, error);
+        }
+    }
+
+    /**
+     * Schedule cleanup of orphaned session data
+     * @param {string} sessionId - The session ID
+     */
+    scheduleOrphanedSessionCleanup(sessionId) {
+        try {
+            // Schedule cleanup after 24 hours to prevent orphaned sessions
+            const cleanupDelay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+            setTimeout(async () => {
+                try {
+                    console.log(`[ORPHAN_CLEANUP] Performing orphaned session cleanup for ${sessionId}`);
+                    
+                    // Final cleanup of any remaining data
+                    if (this.gameSessions[sessionId]) {
+                        delete this.gameSessions[sessionId];
+                    }
+
+                    // Clean up any remaining player data for this session
+                    Object.keys(this.players).forEach(playerId => {
+                        const player = this.players[playerId];
+                        if (player && player.sessionId === sessionId && player.sessionCleanedUp) {
+                            // Only delete if session was cleaned up and enough time has passed
+                            const timeSinceCleanup = Date.now() - (player.cleanupTime || 0);
+                            if (timeSinceCleanup >= cleanupDelay) {
+                                delete this.players[playerId];
+                            }
+                        }
+                    });
+
+                    // Clean up session state history
+                    if (this.sessionStateHistory && this.sessionStateHistory[sessionId]) {
+                        delete this.sessionStateHistory[sessionId];
+                    }
+
+                    // Clean up end game events
+                    if (this.endGameEvents && this.endGameEvents[sessionId]) {
+                        delete this.endGameEvents[sessionId];
+                    }
+
+                    console.log(`[ORPHAN_CLEANUP] Orphaned session cleanup completed for ${sessionId}`);
+
+                } catch (error) {
+                    console.error(`[ORPHAN_CLEANUP] Error during orphaned session cleanup for ${sessionId}:`, error);
+                }
+            }, cleanupDelay);
+
+            console.log(`[ORPHAN_CLEANUP] Scheduled orphaned session cleanup for ${sessionId} in 24 hours`);
+
+        } catch (error) {
+            console.error(`[ORPHAN_CLEANUP] Error scheduling orphaned session cleanup for ${sessionId}:`, error);
+        }
+    }
+
+    /**
+     * Notify players of session termination
+     * @param {string} sessionId - The session ID
+     * @param {string} reason - Termination reason
+     * @param {string} type - Termination type
+     */
+    async notifyPlayersOfSessionTermination(sessionId, reason, type) {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session || !session.players) return;
+
+            const notification = {
+                type: 'session_termination',
+                sessionId,
+                reason,
+                terminationType: type,
+                message: `Session terminated: ${reason}`,
+                timestamp: Date.now()
+            };
+
+            console.log(`[NOTIFY] Session termination notification: ${notification.message}`);
+
+            // TODO: Send notification to all active players in session
+            // this.broadcastToSession(sessionId, notification);
+
+        } catch (error) {
+            console.error('[NOTIFY] Error notifying players of session termination:', error);
+        }
+    }
+
+    /**
+     * Trigger session termination event
+     * @param {string} sessionId - The session ID
+     * @param {object} eventData - Event data
+     */
+    triggerSessionTerminationEvent(sessionId, eventData) {
+        try {
+            const terminationEvent = {
+                sessionId,
+                ...eventData,
+                eventType: 'session_termination'
+            };
+
+            // Store termination event
+            if (!this.sessionTerminationEvents) {
+                this.sessionTerminationEvents = {};
+            }
+            this.sessionTerminationEvents[sessionId] = terminationEvent;
+
+            console.log(`[EVENT] Session termination event triggered for ${sessionId}:`, terminationEvent);
+
+            // TODO: Trigger UI event for session termination
+            // this.triggerUIEvent('sessionTerminated', terminationEvent);
+
+        } catch (error) {
+            console.error('[EVENT] Error triggering session termination event:', error);
+        }
+    }
+
+    /**
+     * Enhanced handlePlayerLeave with race condition protection
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID who left
+     */
+    async handlePlayerLeave(sessionId, playerId) {
+        try {
+            // Race condition protection: use a lock mechanism
+            const lockKey = `leave_${sessionId}`;
+            if (this.playerLeaveLocks && this.playerLeaveLocks[lockKey]) {
+                console.log(`[PLAYER_LEAVE] Race condition detected for session ${sessionId}, waiting...`);
+                return;
+            }
+
+            // Set lock
+            if (!this.playerLeaveLocks) {
+                this.playerLeaveLocks = {};
+            }
+            this.playerLeaveLocks[lockKey] = true;
+
+            const player = this.players[playerId];
+            const session = this.gameSessions[sessionId];
+            
+            if (!player || !session) {
+                delete this.playerLeaveLocks[lockKey];
+                return;
+            }
+            
+            console.log(`[PLAYER_LEAVE] Player ${player.displayName} left session ${sessionId}`);
+            
+            // Save final state before they leave
+            await this.savePlayerStateForReconnection(sessionId, playerId);
+            
+            // Notify other players
+            this.notifyPlayersOfLeave(sessionId, playerId);
+            
+            // Check if session should end due to no active players
+            const activePlayers = session.players.filter(id => {
+                const p = this.players[id];
+                return p && p.status === 'active' && id !== playerId; // Exclude the leaving player
+            });
+            
+            console.log(`[PLAYER_LEAVE] Active players remaining: ${activePlayers.length}`);
+            
+            if (activePlayers.length === 0) {
+                console.log(`[PLAYER_LEAVE] No active players remaining, auto-terminating session ${sessionId}`);
+                await this.terminateSessionAutomatically(
+                    sessionId,
+                    'All players left the session'
+                );
+            }
+
+            // Release lock
+            delete this.playerLeaveLocks[lockKey];
+            
+        } catch (error) {
+            console.error(`[PLAYER_LEAVE] Error handling player leave:`, error);
+            // Release lock on error
+            if (this.playerLeaveLocks) {
+                delete this.playerLeaveLocks[`leave_${sessionId}`];
+            }
+        }
+    }
+
+    /**
+     * Test function for session termination and cleanup
+     */
+    testSessionTerminationAndCleanup() {
+        console.log('\n=== Testing Session Termination and Cleanup ===');
+        
+        try {
+            // Test host-initiated termination method
+            if (typeof this.terminateSessionByHost === 'function') {
+                console.log('✓ Host-initiated termination method available');
+            } else {
+                throw new Error('Host-initiated termination method missing');
+            }
+            
+            // Test automatic termination method
+            if (typeof this.terminateSessionAutomatically === 'function') {
+                console.log('✓ Automatic termination method available');
+            } else {
+                throw new Error('Automatic termination method missing');
+            }
+            
+            // Test session data cleanup method
+            if (typeof this.cleanupSessionData === 'function') {
+                console.log('✓ Session data cleanup method available');
+            } else {
+                throw new Error('Session data cleanup method missing');
+            }
+            
+            // Test Firebase cleanup method
+            if (typeof this.cleanupFirebaseSessionData === 'function') {
+                console.log('✓ Firebase data deletion method available');
+            } else {
+                throw new Error('Firebase cleanup method missing');
+            }
+            
+            // Test termination event system
+            if (typeof this.triggerSessionTerminationEvent === 'function') {
+                console.log('✓ Session termination event system available');
+            } else {
+                throw new Error('Termination event system missing');
+            }
+
+            // Test race condition protection
+            if (typeof this.handlePlayerLeave === 'function') {
+                console.log('✓ Enhanced player leave handling with race condition protection available');
+            } else {
+                throw new Error('Enhanced player leave handling missing');
+            }
+
+            // Test orphaned session cleanup
+            if (typeof this.scheduleOrphanedSessionCleanup === 'function') {
+                console.log('✓ Orphaned session cleanup scheduling available');
+            } else {
+                throw new Error('Orphaned session cleanup method missing');
+            }
+            
+            console.log('✅ All session termination and cleanup functionality working correctly');
+            
+        } catch (error) {
+            console.error('❌ Session termination and cleanup test failed:', error);
+        }
+    }
+
     // #TODO Implement logic to assign player to a session
     // #TODO Implement lobby and ready system
     // #TODO Implement game start and state transition

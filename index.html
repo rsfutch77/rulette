@@ -702,7 +702,36 @@
     <div id="game-header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
       <div id="game-join-code" style="font-size:1.2rem; font-weight:bold; color:#4285F4;"></div>
       <div id="players-scores" style="display:flex; gap:2rem;"></div>
-      <button id="game-logout-btn" style="background:#d9534f; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer;">Logout</button>
+      <div style="display:flex; gap:1rem; align-items:center;">
+        <button id="terminate-session-btn" style="background:#dc3545; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer; display:none;" title="End session for all players">🛑 End Session</button>
+        <button id="game-logout-btn" style="background:#d9534f; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer;">Logout</button>
+      </div>
+    </div>
+
+    <!-- Session Termination Confirmation Modal -->
+    <div id="session-termination-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; align-items:center; justify-content:center;">
+      <div style="background:#fff; border-radius:12px; padding:2rem; max-width:500px; width:90%; box-shadow:0 10px 30px rgba(0,0,0,0.3); text-align:center; position:relative;">
+        <div style="font-size:3rem; margin-bottom:1rem;">⚠️</div>
+        <h3 style="color:#dc3545; margin-bottom:1rem; font-size:1.5rem;">End Session</h3>
+        <p style="color:#666; margin-bottom:1.5rem; line-height:1.5;">
+          Are you sure you want to end this session? This will terminate the game for all players and cannot be undone.
+        </p>
+        
+        <div style="margin-bottom:1.5rem;">
+          <label for="termination-reason" style="display:block; margin-bottom:0.5rem; font-weight:bold; color:#333;">Reason (optional):</label>
+          <input type="text" id="termination-reason" placeholder="e.g., Technical issues, Game completed early..."
+                 style="width:100%; padding:0.75rem; border:1px solid #ddd; border-radius:6px; font-size:1rem;">
+        </div>
+        
+        <div style="display:flex; gap:1rem; justify-content:center;">
+          <button id="confirm-terminate-btn" style="background:#dc3545; color:#fff; border:none; border-radius:6px; padding:0.75rem 1.5rem; font-size:1rem; cursor:pointer; font-weight:bold;">
+            End Session
+          </button>
+          <button id="cancel-terminate-btn" style="background:#6c757d; color:#fff; border:none; border-radius:6px; padding:0.75rem 1.5rem; font-size:1rem; cursor:pointer; font-weight:bold;">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
     
     <!-- Player Cards and Points Display Panel -->

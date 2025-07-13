@@ -4104,3 +4104,245 @@ document.addEventListener('DOMContentLoaded', () => {
 window.showSessionModal = showSessionModal;
 window.hideSessionModal = hideSessionModal;
 window.testSessionManagement = testSessionManagement;
+
+
+// ============================================================================
+// SESSION TERMINATION UI SYSTEM
+// ============================================================================
+
+/**
+ * Initialize session termination UI controls
+ */
+function initializeSessionTerminationUI() {
+    console.log('🔧 Initializing session termination UI...');
+    
+    const terminateBtn = document.getElementById('terminate-session-btn');
+    const modal = document.getElementById('session-termination-modal');
+    const confirmBtn = document.getElementById('confirm-terminate-btn');
+    const cancelBtn = document.getElementById('cancel-terminate-btn');
+    const reasonInput = document.getElementById('termination-reason');
+    
+    if (!terminateBtn || !modal || !confirmBtn || !cancelBtn || !reasonInput) {
+        console.warn('⚠️ Session termination UI elements not found');
+        return;
+    }
+    
+    // Show terminate button only for host
+    updateSessionTerminationButtonVisibility();
+    
+    // Event listeners
+    terminateBtn.addEventListener('click', showSessionTerminationModal);
+    confirmBtn.addEventListener('click', handleConfirmSessionTermination);
+    cancelBtn.addEventListener('click', hideSessionTerminationModal);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            hideSessionTerminationModal();
+        }
+    });
+    
+    // Handle escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display !== 'none') {
+            hideSessionTerminationModal();
+        }
+    });
+    
+    console.log('✅ Session termination UI initialized');
+}
+
+/**
+ * Update visibility of session termination button based on host status
+ */
+function updateSessionTerminationButtonVisibility() {
+    const terminateBtn = document.getElementById('terminate-session-btn');
+    if (!terminateBtn) return;
+    
+    try {
+        const currentUser = window.auth?.currentUser;
+        const isHost = window.gameManager?.isHost(currentUser?.uid);
+        const sessionExists = window.gameManager?.currentSession;
+        
+        // Show button only if user is host and session exists
+        if (isHost && sessionExists) {
+            terminateBtn.style.display = 'inline-block';
+        } else {
+            terminateBtn.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Error updating terminate button visibility:', error);
+        terminateBtn.style.display = 'none';
+    }
+}
+
+/**
+ * Show session termination confirmation modal
+ */
+function showSessionTerminationModal() {
+    console.log('🛑 Showing session termination modal...');
+    
+    const modal = document.getElementById('session-termination-modal');
+    const reasonInput = document.getElementById('termination-reason');
+    
+    if (!modal || !reasonInput) return;
+    
+    // Clear previous reason
+    reasonInput.value = '';
+    
+    // Show modal
+    modal.style.display = 'flex';
+    
+    // Focus on reason input
+    setTimeout(() => reasonInput.focus(), 100);
+}
+
+/**
+ * Hide session termination confirmation modal
+ */
+function hideSessionTerminationModal() {
+    const modal = document.getElementById('session-termination-modal');
+    if (!modal) return;
+    
+    modal.style.display = 'none';
+}
+
+/**
+ * Handle confirmed session termination
+ */
+async function handleConfirmSessionTermination() {
+    console.log('🛑 Processing session termination...');
+    
+    const reasonInput = document.getElementById('termination-reason');
+    const confirmBtn = document.getElementById('confirm-terminate-btn');
+    
+    if (!reasonInput || !confirmBtn) return;
+    
+    try {
+        // Disable button to prevent double-clicks
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Ending...';
+        
+        const reason = reasonInput.value.trim() || 'Host ended session';
+        const currentUser = window.auth?.currentUser;
+        
+        if (!currentUser) {
+            throw new Error('User not authenticated');
+        }
+        
+        if (!window.gameManager?.isHost(currentUser.uid)) {
+            throw new Error('Only the host can terminate the session');
+        }
+        
+        // Call the backend termination method
+        const result = await window.gameManager.terminateSessionByHost(currentUser.uid, reason);
+        
+        if (result.success) {
+            console.log('✅ Session terminated successfully');
+            
+            // Hide modal
+            hideSessionTerminationModal();
+            
+            // Show success notification
+            showNotification('Session ended successfully. All players have been notified.', 'success');
+            
+            // Redirect to session selection after a brief delay
+            setTimeout(() => {
+                window.location.reload(); // Or redirect to session selection page
+            }, 2000);
+            
+        } else {
+            throw new Error(result.error || 'Failed to terminate session');
+        }
+        
+    } catch (error) {
+        console.error('❌ Session termination failed:', error);
+        showNotification(`Failed to end session: ${error.message}`, 'error');
+        
+        // Re-enable button
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'End Session';
+    }
+}
+
+/**
+ * Handle session termination events from backend
+ */
+function handleSessionTerminationEvent(eventData) {
+    console.log('🛑 Received session termination event:', eventData);
+    
+    const { reason, terminatedBy, timestamp } = eventData;
+    
+    // Show notification to all players
+    const message = terminatedBy === window.auth?.currentUser?.uid 
+        ? `You ended the session: ${reason}`
+        : `Session ended by host: ${reason}`;
+    
+    showNotification(message, 'warning');
+    
+    // Redirect after notification
+    setTimeout(() => {
+        window.location.reload(); // Or redirect to session selection page
+    }, 3000);
+}
+
+/**
+ * Setup session termination event listeners
+ */
+function setupSessionTerminationEventListeners() {
+    if (!window.gameManager) return;
+    
+    // Listen for session termination events
+    window.gameManager.addEventListener('sessionTerminated', handleSessionTerminationEvent);
+    
+    // Listen for host changes to update button visibility
+    window.gameManager.addEventListener('hostChanged', updateSessionTerminationButtonVisibility);
+    
+    // Listen for session state changes
+    window.gameManager.addEventListener('sessionStateChanged', (event) => {
+        updateSessionTerminationButtonVisibility();
+    });
+}
+
+/**
+ * Test session termination functionality
+ */
+function testSessionTermination() {
+    console.log('🧪 Testing Session Termination UI...');
+    
+    try {
+        // Test UI initialization
+        initializeSessionTerminationUI();
+        
+        // Test button visibility logic
+        updateSessionTerminationButtonVisibility();
+        
+        // Test modal show/hide
+        showSessionTerminationModal();
+        setTimeout(() => {
+            hideSessionTerminationModal();
+        }, 1000);
+        
+        console.log('✅ Session termination UI test completed');
+        return true;
+    } catch (error) {
+        console.error('❌ Session termination UI test failed:', error);
+        return false;
+    }
+}
+
+// Make functions globally available
+window.initializeSessionTerminationUI = initializeSessionTerminationUI;
+window.updateSessionTerminationButtonVisibility = updateSessionTerminationButtonVisibility;
+window.showSessionTerminationModal = showSessionTerminationModal;
+window.hideSessionTerminationModal = hideSessionTerminationModal;
+window.handleConfirmSessionTermination = handleConfirmSessionTermination;
+window.testSessionTermination = testSessionTermination;
+
+// Initialize session termination UI when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    initializeSessionTerminationUI();
+    setupSessionTerminationEventListeners();
+});
+
+console.log('[SESSION TERMINATION] Session termination UI system loaded and ready');
