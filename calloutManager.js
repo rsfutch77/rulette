@@ -242,6 +242,18 @@ class CalloutManager {
 
         return { valid: true };
     }
+
+    /**
+     * Clear all pending callouts for a session (used when game ends)
+     * @param {string} sessionId - The session ID
+     */
+    clearPendingCallouts(sessionId) {
+        const session = this.gameManager.gameSessions[sessionId];
+        if (session && session.currentCallout) {
+            console.log(`[CALLOUT_MANAGER] Clearing pending callouts for session ${sessionId}`);
+            session.currentCallout = null;
+        }
+    }
 }
 
 export { CalloutManager };
