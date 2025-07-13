@@ -29,12 +29,12 @@
         - [ ] 3.c.3.3 Options for the referee to declare the prompt "Successful" or "Unsuccessful".
         - [ ] 3.c.3.4 If "Successful": Award the `point_value` to the player.
         - [ ] 3.c.3.5 If "Successful" and `discard_rule_on_success` is true, prompt the player to choose one of their rule/modifier cards to discard.
-        - [ ] 4.1.1 Allow players to call out others for failing to follow a rule
-        - [ ] 4.2.1 Notify the referee of a callout and present evidence/context
-        - [ ] 4.2.2 Allow the referee to decide if the callout is valid or not
-        - [ ] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller
-        - [ ] 4.3.2 Allow the caller to transfer one of their cards to the failed player
-        - [ ] 4.4.1 Enable the referee card to be swapped if a swap card is played
+        - [x] 4.1.1 Allow players to call out others for failing to follow a rule
+        - [x] 4.2.1 Notify the referee of a callout and present evidence/context
+        - [x] 4.2.2 Allow the referee to decide if the callout is valid or not
+        - [x] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller
+        - [x] 4.3.2 Allow the caller to transfer one of their cards to the failed player
+        - [x] 4.4.1 Enable the referee card to be swapped if a swap card is played
         - [ ] 5.1.1 Track each player's current points
         - [ ] 5.1.2 Update points in real time as game events occur
         - [ ] 5.2.1 Track which cards are held by each player
