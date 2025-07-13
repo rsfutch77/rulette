@@ -84,12 +84,15 @@ class GameManager {
         const newPlayer = {
             playerId: playerId,
             displayName: displayName,
-            points: 20,
+            points: 0, // Will be set by initializePlayerPoints
             status: 'active', // active, disconnected
             hasRefereeCard: false,
             hand: [], // Player's hand of cards
         };
         this.players[playerId] = newPlayer;
+
+        // Initialize points using the new tracking system
+        this.initializePlayerPoints(playerId, 20);
 
         // Synchronize with Firebase (false for isHost, as this is for joining players)
         await initializeFirestorePlayer(sessionId, playerId, displayName, false);
@@ -98,6 +101,388 @@ class GameManager {
     }
 
     // #TODO Implement logic to assign player to a session (this will likely involve `main.js`'s join game logic)
+
+    // ===== POINTS TRACKING SYSTEM =====
+
+    /**
+     * Initialize player points (called during player creation)
+     * @param {string} playerId - The player ID
+     * @param {number} initialPoints - Initial points (default: 20)
+     * @returns {boolean} - Success status
+     */
+    initializePlayerPoints(playerId, initialPoints = 20) {
+        const player = this.players[playerId];
+        if (!player) {
+            console.error(`[POINTS] Cannot initialize points: Player ${playerId} not found`);
+            return false;
+        }
+
+        player.points = initialPoints;
+        console.log(`[POINTS] Initialized ${player.displayName} with ${initialPoints} points`);
+        return true;
+    }
+
+    /**
+     * Get current points for a player
+     * @param {string} playerId - The player ID
+     * @returns {number|null} - Current points or null if player not found
+     */
+    getPlayerPoints(playerId) {
+        const player = this.players[playerId];
+        return player ? player.points : null;
+    }
+
+    /**
+     * Set player points to a specific value
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {number} newPoints - New point total
+     * @param {string} reason - Reason for the change (for logging)
+     * @returns {object} - Result object with success status and details
+     */
+    async setPlayerPoints(sessionId, playerId, newPoints, reason = 'Manual adjustment') {
+        const player = this.players[playerId];
+        if (!player) {
+            return {
+                success: false,
+                error: 'Player not found',
+                errorCode: 'PLAYER_NOT_FOUND'
+            };
+        }
+
+        // Validate points value
+        if (typeof newPoints !== 'number' || newPoints < 0) {
+            return {
+                success: false,
+                error: 'Invalid points value',
+                errorCode: 'INVALID_POINTS'
+            };
+        }
+
+        const oldPoints = player.points;
+        player.points = newPoints;
+
+        const pointChange = {
+            playerId,
+            sessionId,
+            oldPoints,
+            newPoints,
+            change: newPoints - oldPoints,
+            reason,
+            timestamp: Date.now()
+        };
+
+        console.log(`[POINTS] ${player.displayName}: ${oldPoints} -> ${newPoints} (${reason})`);
+
+        // Trigger point change event for UI updates
+        this.triggerPointChangeEvent(sessionId, pointChange);
+
+        // TODO: Sync with Firebase
+        // await updateFirestorePlayerPoints(sessionId, playerId, newPoints);
+
+        return {
+            success: true,
+            pointChange
+        };
+    }
+
+    /**
+     * Add points to a player
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {number} pointsToAdd - Points to add (positive number)
+     * @param {string} reason - Reason for the change
+     * @returns {object} - Result object with success status and details
+     */
+    async addPlayerPoints(sessionId, playerId, pointsToAdd, reason = 'Points awarded') {
+        if (typeof pointsToAdd !== 'number' || pointsToAdd <= 0) {
+            return {
+                success: false,
+                error: 'Points to add must be a positive number',
+                errorCode: 'INVALID_POINTS'
+            };
+        }
+
+        const player = this.players[playerId];
+        if (!player) {
+            return {
+                success: false,
+                error: 'Player not found',
+                errorCode: 'PLAYER_NOT_FOUND'
+            };
+        }
+
+        const newPoints = player.points + pointsToAdd;
+        return await this.setPlayerPoints(sessionId, playerId, newPoints, reason);
+    }
+
+    /**
+     * Deduct points from a player
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {number} pointsToDeduct - Points to deduct (positive number)
+     * @param {string} reason - Reason for the change
+     * @returns {object} - Result object with success status and details
+     */
+    async deductPlayerPoints(sessionId, playerId, pointsToDeduct, reason = 'Points deducted') {
+        if (typeof pointsToDeduct !== 'number' || pointsToDeduct <= 0) {
+            return {
+                success: false,
+                error: 'Points to deduct must be a positive number',
+                errorCode: 'INVALID_POINTS'
+            };
+        }
+
+        const player = this.players[playerId];
+        if (!player) {
+            return {
+                success: false,
+                error: 'Player not found',
+                errorCode: 'PLAYER_NOT_FOUND'
+            };
+        }
+
+        // Ensure points don't go below 0
+        const newPoints = Math.max(0, player.points - pointsToDeduct);
+        return await this.setPlayerPoints(sessionId, playerId, newPoints, reason);
+    }
+
+    /**
+     * Transfer points between two players
+     * @param {string} sessionId - The session ID
+     * @param {string} fromPlayerId - Player losing points
+     * @param {string} toPlayerId - Player gaining points
+     * @param {number} pointsToTransfer - Number of points to transfer
+     * @param {string} reason - Reason for the transfer
+     * @returns {object} - Result object with success status and details
+     */
+    async transferPlayerPoints(sessionId, fromPlayerId, toPlayerId, pointsToTransfer, reason = 'Point transfer') {
+        if (typeof pointsToTransfer !== 'number' || pointsToTransfer <= 0) {
+            return {
+                success: false,
+                error: 'Points to transfer must be a positive number',
+                errorCode: 'INVALID_POINTS'
+            };
+        }
+
+        const fromPlayer = this.players[fromPlayerId];
+        const toPlayer = this.players[toPlayerId];
+
+        if (!fromPlayer || !toPlayer) {
+            return {
+                success: false,
+                error: 'One or both players not found',
+                errorCode: 'PLAYER_NOT_FOUND'
+            };
+        }
+
+        // Check if fromPlayer has enough points
+        if (fromPlayer.points < pointsToTransfer) {
+            return {
+                success: false,
+                error: 'Insufficient points for transfer',
+                errorCode: 'INSUFFICIENT_POINTS'
+            };
+        }
+
+        // Perform the transfer
+        const deductResult = await this.deductPlayerPoints(sessionId, fromPlayerId, pointsToTransfer, `${reason} (to ${toPlayer.displayName})`);
+        if (!deductResult.success) {
+            return deductResult;
+        }
+
+        const addResult = await this.addPlayerPoints(sessionId, toPlayerId, pointsToTransfer, `${reason} (from ${fromPlayer.displayName})`);
+        if (!addResult.success) {
+            // Rollback the deduction if adding fails
+            await this.addPlayerPoints(sessionId, fromPlayerId, pointsToTransfer, 'Rollback failed transfer');
+            return addResult;
+        }
+
+        const transferResult = {
+            success: true,
+            transfer: {
+                fromPlayerId,
+                toPlayerId,
+                pointsTransferred: pointsToTransfer,
+                reason,
+                timestamp: Date.now(),
+                newPoints: {
+                    [fromPlayerId]: fromPlayer.points,
+                    [toPlayerId]: toPlayer.points
+                }
+            }
+        };
+
+        console.log(`[POINTS] Transfer: ${fromPlayer.displayName} -> ${toPlayer.displayName} (${pointsToTransfer} points, ${reason})`);
+
+        return transferResult;
+    }
+
+    /**
+     * Trigger point change event for UI updates
+     * @param {string} sessionId - The session ID
+     * @param {object} pointChange - Point change details
+     */
+    triggerPointChangeEvent(sessionId, pointChange) {
+        // This method can be extended to emit events to UI components
+        // For now, we'll just log and store the event
+        
+        if (!this.pointChangeEvents) {
+            this.pointChangeEvents = {};
+        }
+        
+        if (!this.pointChangeEvents[sessionId]) {
+            this.pointChangeEvents[sessionId] = [];
+        }
+        
+        this.pointChangeEvents[sessionId].push(pointChange);
+        
+        // Keep only the last 50 events per session to prevent memory bloat
+        if (this.pointChangeEvents[sessionId].length > 50) {
+            this.pointChangeEvents[sessionId] = this.pointChangeEvents[sessionId].slice(-50);
+        }
+
+        console.log(`[POINTS_EVENT] Session ${sessionId}: Point change event triggered for player ${pointChange.playerId}`);
+        
+        // TODO: Emit to UI components when event system is implemented
+        // this.emit('pointsChanged', { sessionId, pointChange });
+    }
+
+    /**
+     * Get point change history for a session
+     * @param {string} sessionId - The session ID
+     * @param {number} limit - Maximum number of events to return (default: 10)
+     * @returns {array} - Array of point change events
+     */
+    getPointChangeHistory(sessionId, limit = 10) {
+        if (!this.pointChangeEvents || !this.pointChangeEvents[sessionId]) {
+            return [];
+        }
+        
+        return this.pointChangeEvents[sessionId].slice(-limit);
+    }
+
+    /**
+     * Get all players' current points for a session
+     * @param {string} sessionId - The session ID
+     * @returns {object} - Object mapping player IDs to their current points
+     */
+    getAllPlayerPoints(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return {};
+        }
+
+        const playerPoints = {};
+        for (const playerId of session.players) {
+            const player = this.players[playerId];
+            if (player) {
+                playerPoints[playerId] = {
+                    points: player.points,
+                    displayName: player.displayName,
+                    status: player.status
+                };
+            }
+        }
+
+        return playerPoints;
+    }
+
+    /**
+     * Test function for points tracking system
+     * @param {string} sessionId - The session ID to test with
+     * @returns {object} - Test results
+     */
+    async testPointsTracking(sessionId) {
+        console.log(`[POINTS_TEST] Starting points tracking test for session ${sessionId}`);
+        
+        const testResults = {
+            success: true,
+            tests: [],
+            errors: []
+        };
+
+        try {
+            // Get session players
+            const session = this.gameSessions[sessionId];
+            if (!session || session.players.length < 2) {
+                throw new Error('Need at least 2 players in session for testing');
+            }
+
+            const player1Id = session.players[0];
+            const player2Id = session.players[1];
+            const player1 = this.players[player1Id];
+            const player2 = this.players[player2Id];
+
+            // Test 1: Get initial points
+            const initialPoints1 = this.getPlayerPoints(player1Id);
+            const initialPoints2 = this.getPlayerPoints(player2Id);
+            testResults.tests.push({
+                name: 'Get initial points',
+                success: true,
+                result: `${player1.displayName}: ${initialPoints1}, ${player2.displayName}: ${initialPoints2}`
+            });
+
+            // Test 2: Add points
+            const addResult = await this.addPlayerPoints(sessionId, player1Id, 5, 'Test point addition');
+            testResults.tests.push({
+                name: 'Add points',
+                success: addResult.success,
+                result: addResult.success ? `Added 5 points to ${player1.displayName}` : addResult.error
+            });
+
+            // Test 3: Deduct points
+            const deductResult = await this.deductPlayerPoints(sessionId, player2Id, 3, 'Test point deduction');
+            testResults.tests.push({
+                name: 'Deduct points',
+                success: deductResult.success,
+                result: deductResult.success ? `Deducted 3 points from ${player2.displayName}` : deductResult.error
+            });
+
+            // Test 4: Transfer points
+            const transferResult = await this.transferPlayerPoints(sessionId, player1Id, player2Id, 2, 'Test point transfer');
+            testResults.tests.push({
+                name: 'Transfer points',
+                success: transferResult.success,
+                result: transferResult.success ? `Transferred 2 points from ${player1.displayName} to ${player2.displayName}` : transferResult.error
+            });
+
+            // Test 5: Get final points
+            const finalPoints1 = this.getPlayerPoints(player1Id);
+            const finalPoints2 = this.getPlayerPoints(player2Id);
+            testResults.tests.push({
+                name: 'Get final points',
+                success: true,
+                result: `${player1.displayName}: ${finalPoints1}, ${player2.displayName}: ${finalPoints2}`
+            });
+
+            // Test 6: Get point change history
+            const history = this.getPointChangeHistory(sessionId, 5);
+            testResults.tests.push({
+                name: 'Point change history',
+                success: true,
+                result: `Retrieved ${history.length} point change events`
+            });
+
+            // Test 7: Get all player points
+            const allPoints = this.getAllPlayerPoints(sessionId);
+            testResults.tests.push({
+                name: 'Get all player points',
+                success: true,
+                result: `Retrieved points for ${Object.keys(allPoints).length} players`
+            });
+
+        } catch (error) {
+            testResults.success = false;
+            testResults.errors.push(error.message);
+            console.error(`[POINTS_TEST] Error: ${error.message}`);
+        }
+
+        console.log(`[POINTS_TEST] Test completed. Success: ${testResults.success}`);
+        return testResults;
+    }
+
+    // ===== END POINTS TRACKING SYSTEM =====
     /**
      * Updates a player's status and synchronizes with Firebase.
      * @param {string} sessionId - The ID of the session the player is in.
@@ -982,7 +1367,7 @@ class GameManager {
      * @param {boolean} successful - Whether the prompt was successful
      * @returns {object} - {success: boolean, result?: object, error?: string}
      */
-    judgePrompt(sessionId, refereeId, successful) {
+    async judgePrompt(sessionId, refereeId, successful) {
         console.log(`[GAME_MANAGER] Referee ${refereeId} judging prompt in session ${sessionId}: ${successful ? 'successful' : 'unsuccessful'}`);
         
         // Validate referee
@@ -1040,12 +1425,20 @@ class GameManager {
             const promptCard = promptState.promptCard;
             const pointValue = promptCard.point_value || promptCard.pointValue || 1;
             
-            // Award points to player
-            const player = this.players[promptState.playerId];
-            if (player) {
-                player.points += pointValue;
+            // Award points to player using the new tracking system
+            const addResult = await this.addPlayerPoints(
+                sessionId,
+                promptState.playerId,
+                pointValue,
+                `Successful prompt completion: ${promptCard.prompt || 'Unknown prompt'}`
+            );
+            
+            if (addResult.success) {
                 result.pointsAwarded = pointValue;
                 console.log(`[GAME_MANAGER] Awarded ${pointValue} points to player ${promptState.playerId}`);
+            } else {
+                console.error(`[GAME_MANAGER] Failed to award points: ${addResult.error}`);
+                result.pointsAwarded = 0;
             }
 
             // Handle card discard if required
@@ -2561,31 +2954,29 @@ class GameManager {
             };
 
             if (isValid) {
-                // Apply point transfer: deduct from accused, add to caller
-                const callerPlayer = this.players[callout.callerId];
-                const accusedPlayer = this.players[callout.accusedPlayerId];
+                // Apply point transfer using the new tracking system
+                const transferResult = await this.transferPlayerPoints(
+                    sessionId,
+                    callout.accusedPlayerId,
+                    callout.callerId,
+                    1,
+                    `Valid callout by ${this.players[callout.callerId]?.displayName || 'Unknown'}`
+                );
                 
-                if (callerPlayer && accusedPlayer) {
-                    // Deduct point from accused player
-                    accusedPlayer.points = Math.max(0, accusedPlayer.points - 1);
-                    // Add point to caller
-                    callerPlayer.points += 1;
-                    
-                    console.log(`[GAME_MANAGER] Point transfer: ${accusedPlayer.displayName} (${accusedPlayer.points + 1} -> ${accusedPlayer.points}), ${callerPlayer.displayName} (${callerPlayer.points - 1} -> ${callerPlayer.points})`);
-                    
-                    // TODO: Sync point changes with Firebase
-                    // await updateFirestorePlayerPoints(sessionId, callout.callerId, callerPlayer.points);
-                    // await updateFirestorePlayerPoints(sessionId, callout.accusedPlayerId, accusedPlayer.points);
-                    
+                if (transferResult.success) {
                     result.effects.push({
                         type: 'point_transfer',
                         fromPlayerId: callout.accusedPlayerId,
                         toPlayerId: callout.callerId,
                         pointsTransferred: 1,
-                        newPoints: {
-                            [callout.callerId]: callerPlayer.points,
-                            [callout.accusedPlayerId]: accusedPlayer.points
-                        }
+                        newPoints: transferResult.transfer.newPoints
+                    });
+                } else {
+                    console.error(`[GAME_MANAGER] Failed to transfer points for callout: ${transferResult.error}`);
+                    result.effects.push({
+                        type: 'point_transfer_failed',
+                        error: transferResult.error,
+                        errorCode: transferResult.errorCode
                     });
                 }
                 
