@@ -975,12 +975,12 @@ function handlePointsChanged(event) {
   // Show notification for significant point changes
   if (Math.abs(changeAmount) > 0) {
     const playerName = getPlayerDisplayName(playerId);
-    const changeText = changeAmount > 0 ? `+${changeAmount}` : `${changeAmount}`;
+    const changeText = changeAmount > 0 ? '+' + changeAmount : '' + changeAmount;
     const emoji = changeAmount > 0 ? '📈' : '📉';
     
     showNotification(
-      `${playerName} ${changeAmount > 0 ? 'gained' : 'lost'} ${Math.abs(changeAmount)} point${Math.abs(changeAmount) !== 1 ? 's' : ''}`,
-      `${emoji} Points Updated`
+      playerName + ' ' + (changeAmount > 0 ? 'gained' : 'lost') + ' ' + Math.abs(changeAmount) + ' point' + (Math.abs(changeAmount) !== 1 ? 's' : ''),
+      emoji + ' Points Updated'
     );
   }
 }
@@ -1009,7 +1009,7 @@ function handleCardTransferred(event) {
     const cardName = card?.title || card?.type || 'a card';
     
     showNotification(
-      `${fromPlayerName} transferred "${cardName}" to ${toPlayerName}`,
+      fromPlayerName + ' transferred "' + cardName + '" to ' + toPlayerName,
       "🃏 Card Transferred"
     );
   }
@@ -1020,7 +1020,7 @@ function animatePointChange(playerId, changeAmount) {
   console.log("DEBUG: Animating point change for player:", playerId, "amount:", changeAmount);
   
   // Animate header points display
-  const headerPointsElement = document.getElementById(`header-points-${playerId}`);
+  const headerPointsElement = document.getElementById('header-points-' + playerId);
   if (headerPointsElement) {
     headerPointsElement.classList.add('points-changed');
     setTimeout(() => {
@@ -1029,14 +1029,14 @@ function animatePointChange(playerId, changeAmount) {
   }
   
   // Animate detailed points display
-  const pointsDisplayElement = document.getElementById(`points-display-${playerId}`);
+  const pointsDisplayElement = document.getElementById('points-display-' + playerId);
   if (pointsDisplayElement) {
     pointsDisplayElement.classList.add('points-changed');
     
     // Add flying number indicator
     const indicator = document.createElement('div');
-    indicator.className = `points-change-indicator ${changeAmount < 0 ? 'negative' : ''}`;
-    indicator.textContent = changeAmount > 0 ? `+${changeAmount}` : `${changeAmount}`;
+    indicator.className = 'points-change-indicator ' + (changeAmount < 0 ? 'negative' : '');
+    indicator.textContent = changeAmount > 0 ? '+' + changeAmount : '' + changeAmount;
     
     pointsDisplayElement.appendChild(indicator);
     
@@ -1055,8 +1055,8 @@ function animateCardTransfer(cardId, fromPlayerId, toPlayerId) {
   console.log("DEBUG: Animating card transfer:", cardId, "from:", fromPlayerId, "to:", toPlayerId);
   
   // Find card elements in both players' card lists
-  const fromCardsList = document.getElementById(`cards-list-${fromPlayerId}`);
-  const toCardsList = document.getElementById(`cards-list-${toPlayerId}`);
+  const fromCardsList = document.getElementById('cards-list-' + fromPlayerId);
+  const toCardsList = document.getElementById('cards-list-' + toPlayerId);
   
   // Animate cards in from player's list (if any)
   if (fromCardsList) {

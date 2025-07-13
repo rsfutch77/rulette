@@ -1,8 +1,8 @@
 // Test script for Edge Cases and Abuse Prevention
 // This script tests the implemented edge cases for the referee and callout mechanic
 
-import { GameManager } from './gameManager.js';
-import { CalloutManager } from './calloutManager.js';
+import { GameManager } from '../gameManager.js';
+import { CalloutManager } from '../calloutManager.js';
 
 // Mock Firebase functions for testing
 const mockFirebase = {
