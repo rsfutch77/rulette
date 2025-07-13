@@ -1373,6 +1373,34 @@ class GameManager {
                 };
             }
 
+            // Check for special action conflicts and interactions
+            const conflictCheck = await this.validateSpecialActionConflicts(sessionId, 'clone', {
+                playerId,
+                targetPlayerId,
+                targetCardId
+            });
+
+            if (!conflictCheck.canProceed) {
+                return {
+                    success: false,
+                    error: 'Clone action blocked by active rules',
+                    errorCode: 'CLONE_BLOCKED',
+                    conflicts: conflictCheck.conflicts
+                };
+            }
+
+            // Handle clone interactions
+            const interactionResult = await this.handleSpecialActionInteractions(sessionId, 'clone', {
+                playerId,
+                targetPlayerId,
+                targetCardId,
+                cloneCardId: cloneCard.id
+            });
+
+            if (!interactionResult.success) {
+                return interactionResult;
+            }
+
             // Use existing cloneCard method
             const cloneResult = this.cloneCard(sessionId, playerId, targetPlayerId, targetCardId);
             
@@ -1386,7 +1414,9 @@ class GameManager {
                         originalOwnerId: targetPlayerId,
                         cloneOwnerId: playerId
                     }],
-                    clonedCard: cloneResult.clone
+                    clonedCard: cloneResult.clone,
+                    interactions: interactionResult.interactions,
+                    conflicts: conflictCheck.conflicts
                 };
             }
 
@@ -1425,10 +1455,51 @@ class GameManager {
                 };
             }
 
+            // Check for special action conflicts and interactions
+            const conflictCheck = await this.validateSpecialActionConflicts(sessionId, 'flip', {
+                playerId,
+                targetPlayerId: actualTargetPlayerId,
+                targetCardId: actualTargetCardId
+            });
+
+            if (!conflictCheck.canProceed) {
+                return {
+                    success: false,
+                    error: 'Flip action blocked by active rules',
+                    errorCode: 'FLIP_BLOCKED',
+                    conflicts: conflictCheck.conflicts
+                };
+            }
+
+            // Handle flip interactions
+            const interactionResult = await this.handleSpecialActionInteractions(sessionId, 'flip', {
+                playerId,
+                targetPlayerId: actualTargetPlayerId,
+                targetCardId: actualTargetCardId
+            });
+
+            if (!interactionResult.success) {
+                return interactionResult;
+            }
+
             // Use existing flipCard method
             const flipResult = this.flipCard(sessionId, actualTargetPlayerId, actualTargetCardId);
             
             if (flipResult.success) {
+                // Handle clone state propagation if the flipped card has clones
+                const clones = this.cloneMap[actualTargetCardId];
+                const cloneUpdates = [];
+                
+                if (clones && clones.length > 0) {
+                    // Note: Flipping original doesn't affect clones, but we track this interaction
+                    cloneUpdates.push({
+                        type: 'flip_original_with_clones',
+                        originalCardId: actualTargetCardId,
+                        cloneCount: clones.length,
+                        note: 'Clones maintain their current state independently'
+                    });
+                }
+
                 return {
                     success: true,
                     effects: [{
@@ -1438,7 +1509,10 @@ class GameManager {
                         newSide: flipResult.newSide,
                         newRule: flipResult.newRule
                     }],
-                    flippedCard: flipResult.card
+                    flippedCard: flipResult.card,
+                    interactions: interactionResult.interactions,
+                    cloneUpdates: cloneUpdates,
+                    conflicts: conflictCheck.conflicts
                 };
             }
 
@@ -1473,6 +1547,37 @@ class GameManager {
                 };
             }
 
+            // Check for special action conflicts and interactions
+            const conflictCheck = await this.validateSpecialActionConflicts(sessionId, 'swap', {
+                playerId,
+                swapType,
+                targetPlayerId,
+                sourceCardId,
+                targetCardId
+            });
+
+            if (!conflictCheck.canProceed) {
+                return {
+                    success: false,
+                    error: 'Swap action blocked by active rules',
+                    errorCode: 'SWAP_BLOCKED',
+                    conflicts: conflictCheck.conflicts
+                };
+            }
+
+            // Handle swap interactions
+            const interactionResult = await this.handleSpecialActionInteractions(sessionId, 'swap', {
+                playerId,
+                swapType,
+                targetPlayerId,
+                sourceCardId,
+                targetCardId
+            });
+
+            if (!interactionResult.success) {
+                return interactionResult;
+            }
+
             const effects = [];
 
             switch (swapType) {
@@ -1495,6 +1600,9 @@ class GameManager {
                             card1: sourceCardId,
                             card2: targetCardId
                         });
+
+                        // Handle clone map updates for swapped cards
+                        await this.updateCloneMapForSwap(sourceCardId, targetCardId, playerId, targetPlayerId);
                     } else {
                         return cardSwapResult;
                     }
@@ -1532,7 +1640,9 @@ class GameManager {
 
             return {
                 success: true,
-                effects: effects
+                effects: effects,
+                interactions: interactionResult.interactions,
+                conflicts: conflictCheck.conflicts
             };
         } catch (error) {
             console.error(`[GAME_MANAGER] Error applying swap card effect:`, error);
@@ -1837,6 +1947,456 @@ class GameManager {
                 errorCode: 'REFEREE_SWAP_ERROR'
             };
         }
+    }
+
+    /**
+     * Handle special action interactions for requirement 3.3.2
+     * This method manages complex interactions between clone, flip, and swap actions
+     * @param {string} sessionId - The session ID
+     * @param {string} actionType - Type of special action (clone, flip, swap)
+     * @param {Object} actionContext - Context for the action
+     * @returns {object} - Interaction handling result
+     */
+    async handleSpecialActionInteractions(sessionId, actionType, actionContext) {
+        console.log(`[GAME_MANAGER] Handling special action interactions: ${actionType}`);
+        
+        try {
+            switch (actionType) {
+                case 'clone':
+                    return await this.handleCloneInteractions(sessionId, actionContext);
+                case 'flip':
+                    return await this.handleFlipInteractions(sessionId, actionContext);
+                case 'swap':
+                    return await this.handleSwapInteractions(sessionId, actionContext);
+                default:
+                    return {
+                        success: false,
+                        error: `Unknown special action type: ${actionType}`,
+                        errorCode: 'UNKNOWN_SPECIAL_ACTION'
+                    };
+            }
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error handling special action interactions:`, error);
+            return {
+                success: false,
+                error: 'Failed to handle special action interactions',
+                errorCode: 'INTERACTION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Handle clone card interactions and dependencies
+     * @param {string} sessionId - The session ID
+     * @param {Object} cloneContext - Clone action context
+     * @returns {object} - Clone interaction result
+     */
+    async handleCloneInteractions(sessionId, cloneContext) {
+        const { playerId, targetPlayerId, targetCardId, cloneCardId } = cloneContext;
+        
+        // Check if target card is a clone itself
+        const targetPlayer = this.players[targetPlayerId];
+        if (!targetPlayer) {
+            return {
+                success: false,
+                error: 'Target player not found',
+                errorCode: 'TARGET_PLAYER_NOT_FOUND'
+            };
+        }
+
+        const targetCard = targetPlayer.hand.find(c => c.id === targetCardId);
+        if (!targetCard) {
+            return {
+                success: false,
+                error: 'Target card not found',
+                errorCode: 'TARGET_CARD_NOT_FOUND'
+            };
+        }
+
+        const interactions = [];
+
+        // Handle cloning a clone (chain cloning)
+        if (targetCard.isClone) {
+            interactions.push({
+                type: 'clone_chain',
+                description: 'Cloning a cloned card creates a chain dependency',
+                originalSource: targetCard.cloneSource,
+                chainDepth: this.calculateCloneChainDepth(targetCard)
+            });
+
+            // Validate chain depth limits
+            const maxChainDepth = 3; // Prevent infinite clone chains
+            if (interactions[0].chainDepth >= maxChainDepth) {
+                return {
+                    success: false,
+                    error: `Clone chain depth limit exceeded (max: ${maxChainDepth})`,
+                    errorCode: 'CLONE_CHAIN_LIMIT_EXCEEDED'
+                };
+            }
+        }
+
+        // Handle cloning a flipped card
+        if (targetCard.isFlipped) {
+            interactions.push({
+                type: 'clone_flipped',
+                description: 'Cloning a flipped card preserves the flipped state',
+                flippedSide: targetCard.currentSide,
+                activeRule: targetCard.getCurrentRule()
+            });
+        }
+
+        // Check for active rules that might affect cloning
+        const activeRules = await this.ruleEngine.getActiveRules(sessionId);
+        const cloneRestrictions = activeRules.filter(rule =>
+            rule.ruleText && rule.ruleText.toLowerCase().includes('clone')
+        );
+
+        if (cloneRestrictions.length > 0) {
+            interactions.push({
+                type: 'clone_rule_interaction',
+                description: 'Active rules may affect clone behavior',
+                affectingRules: cloneRestrictions.map(r => ({ id: r.id, text: r.ruleText }))
+            });
+        }
+
+        return {
+            success: true,
+            interactions: interactions,
+            canProceed: true
+        };
+    }
+
+    /**
+     * Handle flip card interactions and state propagation
+     * @param {string} sessionId - The session ID
+     * @param {Object} flipContext - Flip action context
+     * @returns {object} - Flip interaction result
+     */
+    async handleFlipInteractions(sessionId, flipContext) {
+        const { playerId, targetCardId, targetPlayerId } = flipContext;
+        const actualTargetPlayerId = targetPlayerId || playerId;
+        
+        const targetPlayer = this.players[actualTargetPlayerId];
+        if (!targetPlayer) {
+            return {
+                success: false,
+                error: 'Target player not found',
+                errorCode: 'TARGET_PLAYER_NOT_FOUND'
+            };
+        }
+
+        const targetCard = targetPlayer.hand.find(c => c.id === targetCardId);
+        if (!targetCard) {
+            return {
+                success: false,
+                error: 'Target card not found',
+                errorCode: 'TARGET_CARD_NOT_FOUND'
+            };
+        }
+
+        const interactions = [];
+
+        // Handle flipping a cloned card
+        if (targetCard.isClone) {
+            interactions.push({
+                type: 'flip_clone',
+                description: 'Flipping a cloned card affects only this instance, not the original',
+                originalCardId: targetCard.cloneSource?.cardId,
+                originalOwnerId: targetCard.cloneSource?.ownerId
+            });
+
+            // Check if other clones of the same card exist
+            const otherClones = this.findOtherClones(targetCard);
+            if (otherClones.length > 0) {
+                interactions.push({
+                    type: 'flip_clone_siblings',
+                    description: 'Other clones of this card remain unaffected',
+                    siblingClones: otherClones.map(c => ({
+                        ownerId: c.ownerId,
+                        cloneId: c.cloneId,
+                        currentSide: c.currentSide
+                    }))
+                });
+            }
+        }
+
+        // Handle flipping a card that has clones
+        const clones = this.cloneMap[targetCardId];
+        if (clones && clones.length > 0) {
+            interactions.push({
+                type: 'flip_original_with_clones',
+                description: 'Flipping original card does not affect existing clones',
+                affectedClones: clones.map(c => ({ ownerId: c.ownerId, cloneId: c.cloneId }))
+            });
+        }
+
+        // Check for active rules that might affect flipping
+        const activeRules = await this.ruleEngine.getActiveRules(sessionId);
+        const flipRestrictions = activeRules.filter(rule =>
+            rule.ruleText && (
+                rule.ruleText.toLowerCase().includes('flip') ||
+                rule.ruleText.toLowerCase().includes('cannot be flipped')
+            )
+        );
+
+        if (flipRestrictions.length > 0) {
+            interactions.push({
+                type: 'flip_rule_interaction',
+                description: 'Active rules may restrict or modify flip behavior',
+                affectingRules: flipRestrictions.map(r => ({ id: r.id, text: r.ruleText }))
+            });
+        }
+
+        return {
+            success: true,
+            interactions: interactions,
+            canProceed: true
+        };
+    }
+
+    /**
+     * Handle swap card interactions and complex scenarios
+     * @param {string} sessionId - The session ID
+     * @param {Object} swapContext - Swap action context
+     * @returns {object} - Swap interaction result
+     */
+    async handleSwapInteractions(sessionId, swapContext) {
+        const { playerId, swapType, targetPlayerId, sourceCardId, targetCardId } = swapContext;
+        
+        const interactions = [];
+
+        if (swapType === 'cards') {
+            const player1 = this.players[playerId];
+            const player2 = this.players[targetPlayerId];
+
+            if (!player1 || !player2) {
+                return {
+                    success: false,
+                    error: 'One or both players not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            const sourceCard = player1.hand.find(c => c.id === sourceCardId);
+            const targetCard = player2.hand.find(c => c.id === targetCardId);
+
+            if (!sourceCard || !targetCard) {
+                return {
+                    success: false,
+                    error: 'One or both cards not found',
+                    errorCode: 'CARD_NOT_FOUND'
+                };
+            }
+
+            // Handle swapping cloned cards
+            if (sourceCard.isClone || targetCard.isClone) {
+                interactions.push({
+                    type: 'swap_clone_cards',
+                    description: 'Swapping cloned cards transfers clone relationships',
+                    sourceCloneInfo: sourceCard.isClone ? sourceCard.cloneSource : null,
+                    targetCloneInfo: targetCard.isClone ? targetCard.cloneSource : null
+                });
+            }
+
+            // Handle swapping flipped cards
+            if (sourceCard.isFlipped || targetCard.isFlipped) {
+                interactions.push({
+                    type: 'swap_flipped_cards',
+                    description: 'Swapping flipped cards preserves their flipped states',
+                    sourceFlipped: sourceCard.isFlipped ? sourceCard.currentSide : null,
+                    targetFlipped: targetCard.isFlipped ? targetCard.currentSide : null
+                });
+            }
+
+            // Handle swapping cards that have clones
+            const sourceClones = this.cloneMap[sourceCardId];
+            const targetClones = this.cloneMap[targetCardId];
+
+            if (sourceClones || targetClones) {
+                interactions.push({
+                    type: 'swap_cards_with_clones',
+                    description: 'Swapping cards with existing clones updates clone ownership tracking',
+                    sourceClones: sourceClones || [],
+                    targetClones: targetClones || []
+                });
+            }
+
+        } else if (swapType === 'referee') {
+            // Handle referee role swap interactions
+            const currentReferee = this.players[playerId];
+            const newReferee = this.players[targetPlayerId];
+
+            if (!currentReferee || !newReferee) {
+                return {
+                    success: false,
+                    error: 'One or both players not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Check if referee has cloned cards
+            const refereeClones = currentReferee.hand.filter(c => c.isClone);
+            if (refereeClones.length > 0) {
+                interactions.push({
+                    type: 'referee_swap_with_clones',
+                    description: 'Referee swap transfers cloned cards to new referee',
+                    clonedCards: refereeClones.map(c => ({
+                        id: c.id,
+                        originalSource: c.cloneSource
+                    }))
+                });
+            }
+
+            // Check for active rules that might affect referee swapping
+            const activeRules = await this.ruleEngine.getActiveRules(sessionId);
+            const refereeRestrictions = activeRules.filter(rule =>
+                rule.ruleText && (
+                    rule.ruleText.toLowerCase().includes('referee') ||
+                    rule.ruleText.toLowerCase().includes('cannot be swapped')
+                )
+            );
+
+            if (refereeRestrictions.length > 0) {
+                interactions.push({
+                    type: 'referee_swap_rule_interaction',
+                    description: 'Active rules may restrict referee swapping',
+                    affectingRules: refereeRestrictions.map(r => ({ id: r.id, text: r.ruleText }))
+                });
+            }
+        }
+
+        return {
+            success: true,
+            interactions: interactions,
+            canProceed: true
+        };
+    }
+
+    /**
+     * Calculate the depth of a clone chain
+     * @param {Object} cloneCard - The clone card to analyze
+     * @returns {number} - Chain depth
+     */
+    calculateCloneChainDepth(cloneCard) {
+        if (!cloneCard.isClone) return 0;
+        
+        let depth = 1;
+        let currentSource = cloneCard.cloneSource;
+        
+        // Traverse the clone chain to find the original
+        while (currentSource && currentSource.isClone) {
+            depth++;
+            currentSource = currentSource.cloneSource;
+            
+            // Prevent infinite loops
+            if (depth > 10) break;
+        }
+        
+        return depth;
+    }
+
+    /**
+     * Find other clones of the same original card
+     * @param {Object} cloneCard - The clone card to find siblings for
+     * @returns {Array} - Array of sibling clone references
+     */
+    findOtherClones(cloneCard) {
+        if (!cloneCard.isClone || !cloneCard.cloneSource) return [];
+        
+        const originalCardId = cloneCard.cloneSource.cardId;
+        const clones = this.cloneMap[originalCardId] || [];
+        
+        return clones.filter(c => c.cloneId !== cloneCard.id);
+    }
+
+    /**
+     * Update clone map when cards are swapped
+     * @param {string} card1Id - First card ID
+     * @param {string} card2Id - Second card ID
+     * @param {string} player1Id - First player ID
+     * @param {string} player2Id - Second player ID
+     */
+    async updateCloneMapForSwap(card1Id, card2Id, player1Id, player2Id) {
+        // Update clone ownership tracking when cards are swapped
+        const card1Clones = this.cloneMap[card1Id];
+        const card2Clones = this.cloneMap[card2Id];
+
+        // Note: When original cards are swapped, the clones remain with their current owners
+        // but we need to update the tracking to reflect the new ownership of the originals
+        
+        if (card1Clones) {
+            console.log(`[GAME_MANAGER] Card ${card1Id} has ${card1Clones.length} clones, now owned by ${player2Id}`);
+        }
+        
+        if (card2Clones) {
+            console.log(`[GAME_MANAGER] Card ${card2Id} has ${card2Clones.length} clones, now owned by ${player1Id}`);
+        }
+
+        // The clone map structure remains the same since it tracks original card IDs
+        // The actual ownership change is handled by the swapCards method
+    }
+
+    /**
+     * Validate special action conflicts and restrictions
+     * @param {string} sessionId - The session ID
+     * @param {string} actionType - Type of special action
+     * @param {Object} actionContext - Action context
+     * @returns {object} - Validation result
+     */
+    async validateSpecialActionConflicts(sessionId, actionType, actionContext) {
+        const activeRules = await this.ruleEngine.getActiveRules(sessionId);
+        const conflicts = [];
+
+        // Check for rules that might conflict with the action
+        for (const rule of activeRules) {
+            if (!rule.ruleText) continue;
+            
+            const ruleText = rule.ruleText.toLowerCase();
+            
+            // Check for action-specific restrictions
+            if (actionType === 'clone' && ruleText.includes('cannot clone')) {
+                conflicts.push({
+                    type: 'clone_restriction',
+                    ruleId: rule.id,
+                    ruleText: rule.ruleText,
+                    severity: 'blocking'
+                });
+            }
+            
+            if (actionType === 'flip' && ruleText.includes('cannot flip')) {
+                conflicts.push({
+                    type: 'flip_restriction',
+                    ruleId: rule.id,
+                    ruleText: rule.ruleText,
+                    severity: 'blocking'
+                });
+            }
+            
+            if (actionType === 'swap' && ruleText.includes('cannot swap')) {
+                conflicts.push({
+                    type: 'swap_restriction',
+                    ruleId: rule.id,
+                    ruleText: rule.ruleText,
+                    severity: 'blocking'
+                });
+            }
+        }
+
+        // Check for player-specific restrictions
+        const player = this.players[actionContext.playerId];
+        if (player && player.status !== 'active') {
+            conflicts.push({
+                type: 'player_status_restriction',
+                description: `Player status '${player.status}' prevents special actions`,
+                severity: 'blocking'
+            });
+        }
+
+        return {
+            hasConflicts: conflicts.length > 0,
+            conflicts: conflicts,
+            canProceed: !conflicts.some(c => c.severity === 'blocking')
+        };
     }
 
     // #TODO Implement logic to assign player to a session
