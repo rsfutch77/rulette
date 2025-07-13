@@ -1,62 +1,56 @@
 # Verification Index
 
 ## Automated Tests (e.g., Unit, Integration, E2E)
-- **`rulette/__tests__/gameLogic.test.js` (Conceptual)**: Unit and integration tests for core game mechanics.
-    - **Verifies Requirements**:
-        - [ ] 1.1.1 Implement logic for creating a new game session (unique session ID, host assignment)
-        - [ ] 1.2.1 Assign each player a unique identifier and display name
-        - [ ] 1.2.2 Initialize each player with 20 points
-        - [ ] 1.2.3 Track player status (active, disconnected, etc.)
-        - [ ] 1.3.1 Randomly assign the referee card to one player at the start of the game
-        - [ ] 1.3.2 Ensure the referee card is treated as a rule card and can be swapped later
-        - [ ] 2.2.1 Ensure spins are random and cannot be manipulated
-        - [ ] 2.2.2 Prevent repeated spins or double actions per turn
-        - [ ] 2.3.1 Link wheel result to card draw logic
-        - [ ] 2.3.2 Draw a card from the appropriate deck based on the wheel segment
-        - [ ] 2.4.1 Enforce turn order and prevent out-of-turn actions
-        - [ ] 2.5.1 Handle various edge cases for game flow and actions
-        - [ ] 3.3.1 Implement logic for applying card effects to players or the game state
-        - [ ] 3.3.2 Handle special actions (swap, clone, flip, etc.) and their interactions
-        - [ ] 3.a.2.1 Implement game logic to handle a player "flipping" a card.
-        - [ ] 3.a.2.2 This should involve switching the active rule/effect associated with the card from its front to its back.
-        - [ ] 3.b.2.1 Implement game logic for a player to activate a Clone Card.
-        - [ ] 3.b.2.2 Allow the player to select a target player's active card to clone.
-        - [ ] 3.b.2.3 Apply the target card's active rule/effect to the cloning player.
-        - [ ] 3.b.2.4 Define how the cloned effect is managed.
-        - [ ] 3.c.2.1 Implement game logic for a player drawing and activating a Prompt Card.
-        - [ ] 3.c.2.3 The player is given a defined amount of time to complete the prompt.
-        - [ ] 3.c.2.4 Upon completion (or time running out), the referee is prompted to make a judgment.
-        - [ ] 3.c.3.3 Options for the referee to declare the prompt "Successful" or "Unsuccessful".
-        - [ ] 3.c.3.4 If "Successful": Award the `point_value` to the player.
-        - [ ] 3.c.3.5 If "Successful" and `discard_rule_on_success` is true, prompt the player to choose one of their rule/modifier cards to discard.
-        - [x] 4.1.1 Allow players to call out others for failing to follow a rule
-        - [x] 4.2.1 Notify the referee of a callout and present evidence/context
-        - [x] 4.2.2 Allow the referee to decide if the callout is valid or not
-        - [x] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller
-        - [x] 4.3.2 Allow the caller to transfer one of their cards to the failed player
-        - [x] 4.4.1 Enable the referee card to be swapped if a swap card is played
-        - [ ] 5.1.1 Track each player's current points
-        - [ ] 5.1.2 Update points in real time as game events occur
-        - [ ] 5.2.1 Track which cards are held by each player
-        - [ ] 5.2.2 Implement logic for transferring cards between players
-        - [ ] 5.4.1 Detect the various end conditions
-        - [ ] 5.4.2 Trigger end-of-game flow and display results
-        - [ ] 6.2.1 Track all players in a session, including their status
-        - [ ] 6.2.2 Handle player disconnects and reconnections gracefully
-        - [ ] 10.3.1 Integrate expansion pack cards/rules into the main game logic and rule engine
+        - [ ] 1.1.1 Implement logic for creating a new game session (unique session ID, host assignment); implemented in __tests__/gameVerifications.test.js
+        - [ ] 1.2.1 Assign each player a unique identifier and display name; implemented in __tests__/gameVerifications.test.js
+        - [ ] 1.2.2 Initialize each player with 20 points; implemented in __tests__/gameVerifications.test.js
+        - [ ] 1.2.3 Track player status (active, disconnected, etc.); implemented in __tests__/gameVerifications.test.js
+        - [ ] 1.3.1 Randomly assign the referee card to one player at the start of the game; implemented in __tests__/gameVerifications.test.js
+        - [ ] 1.3.2 Ensure the referee card is treated as a rule card and can be swapped later; implemented in __tests__/gameVerifications.test.js
+        - [ ] 2.2.1 Ensure spins are random and cannot be manipulated; implemented in __tests__/gameVerifications.test.js
+        - [ ] 2.2.2 Prevent repeated spins or double actions per turn; implemented in __tests__/gameVerifications.test.js
+        - [ ] 2.3.1 Link wheel result to card draw logic; implemented in __tests__/gameVerifications.test.js
+        - [ ] 2.3.2 Draw a card from the appropriate deck based on the wheel segment; implemented in __tests__/gameVerifications.test.js
+        - [ ] 2.4.1 Enforce turn order and prevent out-of-turn actions; implemented in __tests__/gameVerifications.test.js
+        - [ ] 2.5.1 Handle various edge cases for game flow and actions; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.3.1 Implement logic for applying card effects to players or the game state; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.3.2 Handle special actions (swap, clone, flip, etc.) and their interactions; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.a.2.1 Implement game logic to handle a player "flipping" a card.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.a.2.2 This should involve switching the active rule/effect associated with the card from its front to its back.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.b.2.1 Implement game logic for a player to activate a Clone Card.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.b.2.2 Allow the player to select a target player's active card to clone.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.b.2.3 Apply the target card's active rule/effect to the cloning player.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.b.2.4 Define how the cloned effect is managed.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.c.2.1 Implement game logic for a player drawing and activating a Prompt Card.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.c.2.3 The player is given a defined amount of time to complete the prompt.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.c.2.4 Upon completion (or time running out), the referee is prompted to make a judgment.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.c.3.3 Options for the referee to declare the prompt "Successful" or "Unsuccessful".; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.c.3.4 If "Successful": Award the `point_value` to the player.; implemented in __tests__/gameVerifications.test.js
+        - [ ] 3.c.3.5 If "Successful" and `discard_rule_on_success` is true, prompt the player to choose one of their rule/modifier cards to discard.; implemented in __tests__/gameVerifications.test.js
+        - [x] 4.1.1 Allow players to call out others for failing to follow a rule; implemented in __tests__/gameVerifications.test.js
+        - [x] 4.2.1 Notify the referee of a callout and present evidence/context; implemented in __tests__/gameVerifications.test.js
+        - [x] 4.2.2 Allow the referee to decide if the callout is valid or not; implemented in __tests__/gameVerifications.test.js
+        - [x] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller; implemented in __tests__/gameVerifications.test.js
+        - [x] 4.3.2 Allow the caller to transfer one of their cards to the failed player; implemented in __tests__/gameVerifications.test.js
+        - [x] 4.4.1 Enable the referee card to be swapped if a swap card is played; implemented in __tests__/gameVerifications.test.js
+        - [ ] 5.1.1 Track each player's current points; implemented in __tests__/gameVerifications.test.js
+        - [ ] 5.1.2 Update points in real time as game events occur; implemented in __tests__/gameVerifications.test.js
+        - [ ] 5.2.1 Track which cards are held by each player; implemented in __tests__/gameVerifications.test.js
+        - [ ] 5.2.2 Implement logic for transferring cards between players; implemented in __tests__/gameVerifications.test.js
+        - [ ] 5.4.1 Detect the various end conditions; implemented in __tests__/gameVerifications.test.js
+        - [ ] 5.4.2 Trigger end-of-game flow and display results; implemented in __tests__/gameVerifications.test.js
+        - [ ] 6.2.1 Track all players in a session, including their status; implemented in __tests__/gameVerifications.test.js
+        - [ ] 6.2.2 Handle player disconnects and reconnections gracefully; implemented in __tests__/gameVerifications.test.js
+        - [ ] 10.3.1 Integrate expansion pack cards/rules into the main game logic and rule engine; implemented in __tests__/gameVerifications.test.js
 
-- **`rulette/__tests__/ruleEngine.test.js` (Conceptual)**: Unit and integration tests for the rule engine.
-    - **Verifies Requirements**:
-        - [ ] 3.2.1 Implement a rule engine to manage active rules, their triggers, and durations
-        - [ ] 3.2.2 Support stacking and persistence of rules across turns
-        - [ ] 3.5.1 Handle conflicting or mutually exclusive rules
-        - [ ] 3.5.2 Handle stacking rules that exceed allowed limits
-        - [ ] 3.5.2 Handle rules that would cause a player to have negative points
-        - [ ] 3.6.1 Design the system to allow easy addition of new card types and rule logic
-        - [ ] 10.3.2 Ensure compatibility and balance with core cards/rules
+        - [ ] 3.2.1 Implement a rule engine to manage active rules, their triggers, and durations; implemented in __tests__/test-rule-engine.js
+        - [ ] 3.2.2 Support stacking and persistence of rules across turns; implemented in __tests__/test-rule-engine.js
+        - [ ] 3.5.1 Handle conflicting or mutually exclusive rules; implemented in __tests__/test-rule-engine.js
+        - [ ] 3.5.2 Handle stacking rules that exceed allowed limits; implemented in __tests__/test-rule-engine.js
+        - [ ] 3.5.2 Handle rules that would cause a player to have negative points; implemented in __tests__/test-rule-engine.js
+        - [ ] 3.6.1 Design the system to allow easy addition of new card types and rule logic; implemented in __tests__/test-rule-engine.js
+        - [ ] 10.3.2 Ensure compatibility and balance with core cards/rules; implemented in __tests__/test-rule-engine.js
 
-- **`rulette/__tests__/multiplayer.test.js` (Conceptual)**: Integration and E2E tests for multiplayer functionality.
-    - **Verifies Requirements**:
         - [ ] 6.1.1 Allow players to create new multiplayer sessions with unique codes or links
         - [ ] 6.1.2 Enable players to join existing sessions using a code or invitation
         - [ ] 6.3.1 Maintain and synchronize session state across all clients
@@ -73,8 +67,6 @@
         - [ ] 8.4.1 Detect and handle dropped or lagging connections
         - [ ] 8.4.2 Allow players to reconnect and resync their state
 
-- **`rulette/__tests__/cardModels.test.js` (Conceptual)**: Unit tests for card data structures.
-    - **Verifies Requirements**:
         - [ ] 3.1.1 Define all card types: new rule, rule modifier, flip, swap, clone, prompt
         - [ ] 3.1.2 Specify data structure and properties for each card type
         - [ ] 3.a.1.1 Extend the `Card` data structure to include properties for a "flipped" state.
@@ -85,23 +77,15 @@
         - [ ] 3.c.1.2 Ensure the structure clearly defines the purpose of each field.
         - [ ] 15.2.1 Define a data structure to store user-generated card specifications.
 
-- **`rulette/__tests__/ui.test.js` (Conceptual)**: Component and E2E tests for UI interactions.
-    - **Verifies Requirements**:
         - [ ] 9.1.1 Design the main game screens: lobby, game board, player status, card display, referee panel
         - [ ] 9.1.2 Ensure clear navigation between screens and states
 
-- **`rulette/__tests__/deployment.test.js` (Conceptual)**: Automated tests for deployment pipelines.
-    - **Verifies Requirements**:
         - [ ] 12.1.1 Configure automated build and deployment scripts
         - [ ] 12.1.2 Ensure builds are tested and validated before deployment
 
-- **`rulette/__tests__/analytics.test.js` (Conceptual)**: Integration tests for analytics events.
-    - **Verifies Requirements**:
         - [ ] 13.1.1 Integrate analytics tools to track key metrics
         - [ ] 13.1.2 Define and monitor events such as game starts, spins, callouts, and session completions
 
-- **`rulette/__tests__/moderation.test.js` (Conceptual)**: Unit/integration tests for moderation logic.
-    - **Verifies Requirements**:
         - [ ] 14.3.1 Add filters for chat and user-generated content to prevent abuse
         - [ ] 14.3.2 Monitor for repeated offenses and automate warnings or penalties
         - [ ] 15.3.1 Implement basic validation for user-generated card content.
