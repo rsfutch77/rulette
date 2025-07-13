@@ -1,8 +1,8 @@
 // Simple integration test for RuleEngine with GameManager
 // This test focuses on the core integration without Firebase dependencies
 
-import { RuleEngine } from './ruleEngine.js';
-import { GameCard } from './cardModels.js';
+import { RuleEngine } from '../ruleEngine.js';
+import { GameCard } from '../cardModels.js';
 
 // Mock GameManager class for testing
 class MockGameManager {
@@ -173,37 +173,62 @@ class MockGameManager {
     }
 }
 
-async function testRuleEngineIntegration() {
-    console.log('=== Testing RuleEngine Integration (Simple) ===');
-    
-    try {
-        // 1. Test GameManager initialization with RuleEngine
-        console.log('\n1. Testing GameManager initialization...');
-        const gameManager = new MockGameManager();
-        
-        if (!gameManager.ruleEngine) {
-            throw new Error('RuleEngine not initialized in GameManager');
+describe('RuleEngine Integration (Simple)', () => {
+    let gameManager;
+    let session;
+    let player;
+
+    beforeEach(async () => {
+        gameManager = new MockGameManager();
+    });
+
+    afterEach(async () => {
+        if (session) {
+            try {
+                await gameManager.cleanupGameSession(session.sessionId);
+            } catch (error) {
+                // Session might already be cleaned up
+            }
         }
-        console.log('✓ RuleEngine successfully initialized in GameManager');
+    });
+
+    test('should initialize GameManager with RuleEngine', () => {
+        expect(gameManager.ruleEngine).toBeDefined();
+        expect(gameManager.ruleEngine).toBeInstanceOf(RuleEngine);
+    });
+
+    test('should create game session and initialize RuleEngine session', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
         
-        // 2. Test session creation and RuleEngine session initialization
-        console.log('\n2. Testing session creation...');
-        const session = await gameManager.createGameSession('host123', 'TestHost');
-        console.log('✓ Game session created:', session.sessionId);
+        expect(session).toBeDefined();
+        expect(session.sessionId).toBeDefined();
+        expect(session.hostId).toBe('host123');
+        expect(session.status).toBe('lobby');
+    });
+
+    test('should initialize player successfully', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
+        player = await gameManager.initializePlayer(session.sessionId, 'player123', 'TestPlayer');
         
-        // 3. Test player initialization
-        console.log('\n3. Testing player initialization...');
-        const player = await gameManager.initializePlayer(session.sessionId, 'player123', 'TestPlayer');
-        console.log('✓ Player initialized:', player.playerId);
-        
-        // 4. Test turn management with rule expiration
-        console.log('\n4. Testing turn management...');
+        expect(player).toBeDefined();
+        expect(player.playerId).toBe('player123');
+        expect(player.displayName).toBe('TestPlayer');
+        expect(player.points).toBe(20);
+        expect(player.status).toBe('active');
+    });
+
+    test('should manage turns with rule expiration processing', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
         gameManager.initializeTurnOrder(session.sessionId, ['host123', 'player123']);
-        const nextPlayer = await gameManager.nextTurn(session.sessionId);
-        console.log('✓ Turn advanced with rule expiration processing:', nextPlayer);
         
-        // 5. Test card creation and rule activation
-        console.log('\n5. Testing card drawing and rule activation...');
+        const nextPlayer = await gameManager.nextTurn(session.sessionId);
+        expect(nextPlayer).toBeDefined();
+        expect(['host123', 'player123']).toContain(nextPlayer);
+    });
+
+    test('should handle card drawing and rule activation', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
+        
         const testCard = new GameCard({
             id: 'test-rule-card-1',
             name: 'Test Rule Card',
@@ -214,51 +239,76 @@ async function testRuleEngineIntegration() {
         });
         
         const cardResult = await gameManager.handleCardDrawn(
-            session.sessionId, 
-            'player123', 
+            session.sessionId,
+            'player123',
             testCard,
             { testContext: true }
         );
-        console.log('✓ Card drawn and rule activation handled:', cardResult.success);
+        
+        expect(cardResult).toBeDefined();
+        expect(cardResult.success).toBe(true);
         if (cardResult.activeRule) {
-            console.log('  - Active rule created:', cardResult.activeRule.id);
+            expect(cardResult.activeRule.id).toBeDefined();
         }
+    });
+
+    test('should query effective rules for player', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
         
-        // 6. Test effective rules query
-        console.log('\n6. Testing effective rules query...');
         const effectiveRules = gameManager.getEffectiveRulesForPlayer(session.sessionId, 'player123');
-        console.log('✓ Effective rules retrieved:', effectiveRules.allRules.length, 'rules');
         
-        // 7. Test action restrictions
-        console.log('\n7. Testing action restrictions...');
+        expect(effectiveRules).toBeDefined();
+        expect(effectiveRules.allRules).toBeDefined();
+        expect(effectiveRules.globalRules).toBeDefined();
+        expect(effectiveRules.playerRules).toBeDefined();
+        expect(effectiveRules.targetRules).toBeDefined();
+        expect(Array.isArray(effectiveRules.allRules)).toBe(true);
+    });
+
+    test('should check action restrictions', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
+        
         const actionCheck = gameManager.checkActionRestrictions(
-            session.sessionId, 
-            'player123', 
+            session.sessionId,
+            'player123',
             'draw',
             { deckType: 'rule' }
         );
-        console.log('✓ Action restrictions checked:', actionCheck.allowed ? 'allowed' : 'restricted');
         
-        // 8. Test session cleanup
-        console.log('\n8. Testing session cleanup...');
-        await gameManager.cleanupGameSession(session.sessionId);
-        console.log('✓ Session cleanup completed');
-        
-        console.log('\n=== All Integration Tests Passed! ===');
-        return true;
-        
-    } catch (error) {
-        console.error('\n❌ Integration test failed:', error.message);
-        console.error(error.stack);
-        return false;
-    }
-}
+        expect(actionCheck).toBeDefined();
+        expect(actionCheck.allowed).toBeDefined();
+        expect(actionCheck.restrictions).toBeDefined();
+        expect(Array.isArray(actionCheck.restrictions)).toBe(true);
+        expect(typeof actionCheck.allowed).toBe('boolean');
+    });
 
-// Run the test
-testRuleEngineIntegration().then(success => {
-    if (success) {
-        console.log('\n🎉 RuleEngine integration is working correctly!');
-    } else {
-        console.log('\n💥 RuleEngine integration has issues that need to be fixed.');
-    }
+    test('should cleanup session successfully', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
+        
+        await expect(gameManager.cleanupGameSession(session.sessionId)).resolves.not.toThrow();
+        
+        // Clear session reference since it's been cleaned up
+        session = null;
+    });
+
+    test('should handle card without rule', async () => {
+        session = await gameManager.createGameSession('host123', 'TestHost');
+        
+        const testCard = new GameCard({
+            id: 'test-no-rule-card',
+            name: 'Test No Rule Card',
+            type: 'action',
+            hasRule: false
+        });
+        
+        const cardResult = await gameManager.handleCardDrawn(
+            session.sessionId,
+            'player123',
+            testCard
+        );
+        
+        expect(cardResult).toBeDefined();
+        expect(cardResult.success).toBe(true);
+        expect(cardResult.message).toContain('no rule to activate');
+    });
 });

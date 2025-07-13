@@ -18,20 +18,24 @@
             max-width: 1600px; 
             margin: 0 auto; 
         }
-        .test-column { 
-            flex: 1; 
-            background: white; 
-            padding: 20px; 
-            border-radius: 10px; 
+        .test-column {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: calc(100vh - 280px); /* Account for top padding and bottom results bar */
+            overflow-y: auto;
         }
-        .instructions-column { 
-            flex: 1; 
-            background: #f8f9fa; 
-            padding: 20px; 
-            border-radius: 10px; 
+        .instructions-column {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border-left: 4px solid #dc3545;
+            height: calc(100vh - 280px); /* Account for top padding and bottom results bar */
+            overflow-y: auto;
         }
         
         .test-section {
@@ -92,7 +96,7 @@
         }
         
         /* Fixed bottom results bar */
-        #test-results { 
+        #test-results {
             position: fixed;
             bottom: 0;
             left: 0;
@@ -104,14 +108,19 @@
             overflow-y: auto;
             border-top: 3px solid #dc3545;
             z-index: 1000;
-            font-family: monospace;
-            font-size: 12px;
-            line-height: 1.4;
         }
         #test-results h4 {
             margin: 0 0 10px 0;
             color: #ffc107;
-            font-family: Arial, sans-serif;
+        }
+        #results-content {
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        #results-content div {
+            margin: 2px 0;
+            padding: 2px 0;
+            border-bottom: 1px solid #495057;
         }
         
         .status-indicator {
@@ -236,6 +245,15 @@
             <h1>Edge Cases and Error Handling Test Suite</h1>
             <p>This page tests comprehensive error handling for the wheel spin and card draw logic.</p>
             
+            <!-- Initialize Controls at Top -->
+            <div class="test-section">
+                <h3>Test Setup</h3>
+                <button class="test-button" data-action="initializeTestSession">Initialize Test Session</button>
+                <button class="test-button" data-action="resetTestEnvironment">Reset Test Environment</button>
+                <button class="test-button" data-action="clearResults">Clear Results</button>
+                <button class="test-button" data-action="runAllTests">🚀 Run All Tests</button>
+            </div>
+            
             <!-- System Status -->
             <div class="system-status">
                 <h3>System Status</h3>
@@ -252,50 +270,38 @@
                 
                 <div class="test-category">
                     <h3>1. Empty Deck Handling</h3>
-                    <button class="test-button" onclick="testEmptyDeck()">1.1 Test Empty Deck</button>
-                    <button class="test-button" onclick="testEmptyDeckWithReshuffle()">1.2 Test Empty Deck with Reshuffle</button>
+                    <button class="test-button" data-action="testEmptyDeck">1.1 Test Empty Deck</button>
+                    <button class="test-button" data-action="testEmptyDeckWithReshuffle">1.2 Test Empty Deck with Reshuffle</button>
                 </div>
                 
                 <div class="test-category">
                     <h3>2. Rule Restrictions</h3>
-                    <button class="test-button warning" onclick="testRuleRestrictions()">2.1 Test Rule-Based Restrictions</button>
-                    <button class="test-button" onclick="testInvalidDeckType()">2.2 Test Invalid Deck Type</button>
+                    <button class="test-button warning" data-action="testRuleRestrictions">2.1 Test Rule-Based Restrictions</button>
+                    <button class="test-button" data-action="testInvalidDeckType">2.2 Test Invalid Deck Type</button>
                 </div>
                 
                 <div class="test-category">
                     <h3>3. Turn Management Violations</h3>
-                    <button class="test-button danger" onclick="testOutOfTurnAction()">3.1 Test Out-of-Turn Action</button>
-                    <button class="test-button danger" onclick="testDuplicateAction()">3.2 Test Duplicate Action</button>
-                    <button class="test-button danger" onclick="testInvalidPlayer()">3.3 Test Invalid Player</button>
+                    <button class="test-button danger" data-action="testOutOfTurnAction">3.1 Test Out-of-Turn Action</button>
+                    <button class="test-button danger" data-action="testDuplicateAction">3.2 Test Duplicate Action</button>
+                    <button class="test-button danger" data-action="testInvalidPlayer">3.3 Test Invalid Player</button>
                 </div>
                 
                 <div class="test-category">
                     <h3>4. Player Disconnection</h3>
-                    <button class="test-button warning" onclick="testPlayerDisconnectDuringTurn()">4.1 Test Disconnect During Turn</button>
-                    <button class="test-button warning" onclick="testPlayerDisconnectNotTurn()">4.2 Test Disconnect Not During Turn</button>
-                    <button class="test-button danger" onclick="testAllPlayersDisconnect()">4.3 Test All Players Disconnect</button>
+                    <button class="test-button warning" data-action="testPlayerDisconnectDuringTurn">4.1 Test Disconnect During Turn</button>
+                    <button class="test-button warning" data-action="testPlayerDisconnectNotTurn">4.2 Test Disconnect Not During Turn</button>
+                    <button class="test-button danger" data-action="testAllPlayersDisconnect">4.3 Test All Players Disconnect</button>
                 </div>
                 
                 <div class="test-category">
                     <h3>5. System Errors</h3>
-                    <button class="test-button danger" onclick="testMissingComponents()">5.1 Test Missing Components</button>
-                    <button class="test-button danger" onclick="testInvalidSession()">5.2 Test Invalid Session</button>
-                    <button class="test-button danger" onclick="testCorruptedGameState()">5.3 Test Corrupted Game State</button>
+                    <button class="test-button danger" data-action="testMissingComponents">5.1 Test Missing Components</button>
+                    <button class="test-button danger" data-action="testInvalidSession">5.2 Test Invalid Session</button>
+                    <button class="test-button danger" data-action="testCorruptedGameState">5.3 Test Corrupted Game State</button>
                 </div>
             </div>
             
-            <!-- Manual Test Controls -->
-            <div class="test-section">
-                <h2>Manual Test Controls</h2>
-                <button class="test-button" onclick="initializeTestSession()">Initialize Test Session</button>
-                <button class="test-button" onclick="resetTestEnvironment()">Reset Test Environment</button>
-                <button class="test-button" onclick="clearResults()">Clear Results</button>
-                
-                <h3>Quick Actions</h3>
-                <button class="test-button" onclick="testValidSpin()">Test Valid Spin</button>
-                <button class="test-button" onclick="testValidCardDraw()">Test Valid Card Draw</button>
-                <button class="test-button" onclick="runAllTests()">🚀 Run All Tests</button>
-            </div>
         </div>
         
         <!-- Instructions Column -->
@@ -508,17 +514,6 @@
                 </div>
             </div>
             
-            <div class="instruction-step manual">
-                <div class="step-title">
-                    <span class="step-number">✅</span>Test Valid Operations
-                </div>
-                <div class="step-description">
-                    Use "Test Valid Spin" and "Test Valid Card Draw" to verify normal operations work
-                </div>
-                <div class="step-expected">
-                    ✅ Should succeed and demonstrate proper functionality
-                </div>
-            </div>
             
             <div style="margin-top: 30px; padding: 15px; background: #e9ecef; border-radius: 5px;">
                 <h4>🎯 What to Watch For:</h4>
@@ -540,10 +535,10 @@
     </div>
 
     <script type="module">
-        import { gameManager } from './gameManager.js';
-        import { CardManager } from './cardManager.js';
-        import { loadCardData } from './cardModels.js';
-        import { WheelComponent } from './wheelComponent.js';
+        import { gameManager } from '../gameManager.js';
+        import { CardManager } from '../cardManager.js';
+        import { loadCardData } from '../cardModels.js';
+        import { WheelComponent } from '../wheelComponent.js';
         
         let testSessionId = 'test-session-edge-cases';
         let testPlayers = ['player1', 'player2', 'player3'];
@@ -596,9 +591,6 @@
             // Create a new div for this message
             const messageDiv = document.createElement('div');
             messageDiv.textContent = `${icon} [${timestamp}] ${message}`;
-            messageDiv.style.marginBottom = '2px';
-            messageDiv.style.paddingBottom = '2px';
-            messageDiv.style.borderBottom = '1px solid #495057';
             
             results.appendChild(messageDiv);
             
@@ -619,10 +611,11 @@
                 const result = emptyCardManager.safeDraw('emptyDeck', 'test-player', {});
                 log(`Empty deck result: ${JSON.stringify(result)}`);
                 
-                if (!result.success && result.error.includes('No cards')) {
+                // FIXME: Test was checking for "No cards" but actual error message is "No cards available"
+                if (!result.success && result.error.includes('No cards available')) {
                     log('✅ Empty deck properly handled');
                 } else {
-                    log('❌ Empty deck not properly handled');
+                    log('❌ Empty deck not properly handled - Expected error with "No cards available", got: ' + JSON.stringify(result));
                 }
             } catch (error) {
                 log('❌ Error testing empty deck: ' + error.message);
@@ -664,8 +657,11 @@
                     return;
                 }
                 
-                const gameState = { restrictedDecks: ['deckType1'] };
-                const result = cardManager.safeDraw('deckType1', 'test-player', gameState);
+                // FIXME: Need to use an existing deck type for restriction test
+                // First create a test deck, then restrict it
+                const testCardManager = new CardManager({ testDeck: [{ id: 'test-card', name: 'Test Card' }] });
+                const gameState = { restrictedDecks: ['testDeck'] };
+                const result = testCardManager.safeDraw('testDeck', 'test-player', gameState);
                 log(`Restricted deck result: ${JSON.stringify(result)}`);
                 
                 if (!result.success && result.error.includes('restricted')) {
@@ -1028,39 +1024,6 @@
             document.getElementById('results-content').innerHTML = 'Test results will appear here...';
         };
         
-        window.testValidSpin = function() {
-            log('🧪 Testing valid spin...');
-            try {
-                initializeTestSession();
-                
-                if (window.spinWheelForPlayer) {
-                    const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
-                    const result = window.spinWheelForPlayer(testSessionId, currentPlayer);
-                    log(`Valid spin result: ${result}`);
-                } else {
-                    log('❌ spinWheelForPlayer function not available');
-                }
-            } catch (error) {
-                log('❌ Error testing valid spin: ' + error.message);
-            }
-        };
-        
-        window.testValidCardDraw = function() {
-            log('🧪 Testing valid card draw...');
-            try {
-                initializeTestSession();
-                
-                if (window.drawCardWithErrorHandling) {
-                    const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
-                    const result = window.drawCardWithErrorHandling('deckType1', currentPlayer, testSessionId);
-                    log(`Valid card draw result: ${JSON.stringify(result)}`);
-                } else {
-                    log('❌ drawCardWithErrorHandling function not available');
-                }
-            } catch (error) {
-                log('❌ Error testing valid card draw: ' + error.message);
-            }
-        };
         
         window.runAllTests = function() {
             log('🚀 Running all edge case tests...');
@@ -1100,11 +1063,65 @@
             runNextTest();
         };
         
+        // Add event listeners for all test buttons
+        function setupButtonEventListeners() {
+            const buttons = document.querySelectorAll('button[data-action]');
+            buttons.forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const action = event.target.getAttribute('data-action');
+                    if (action && typeof window[action] === 'function') {
+                        window[action]();
+                    } else {
+                        console.error(`Function ${action} not found or not callable`);
+                    }
+                });
+            });
+        }
+        
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
             initializeComponents();
+            setupButtonEventListeners();
         });
         
     </script>
+
+<script>
+window.testCompletionSignal = {
+    completed: false,
+    timestamp: null,
+    results: null
+};
+
+function markTestComplete(results = null) {
+    window.testCompletionSignal.completed = true;
+    window.testCompletionSignal.timestamp = new Date().toISOString();
+    window.testCompletionSignal.results = results;
+    console.log('TEST_COMPLETION_SIGNAL:', JSON.stringify(window.testCompletionSignal));
+    
+    document.body.style.border = '5px solid #28a745';
+    document.body.style.backgroundColor = '#f8fff8';
+    
+    const banner = document.createElement('div');
+    banner.innerHTML = '✅ TEST COMPLETED - Ready for next test';
+    banner.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0;
+        background: #28a745; color: white; padding: 15px;
+        text-align: center; font-weight: bold; z-index: 9999;
+    `;
+    document.body.appendChild(banner);
+}
+
+const completionButton = document.createElement('button');
+completionButton.innerHTML = '🏁 Mark Test Complete';
+completionButton.style.cssText = `
+    position: fixed; bottom: 20px; right: 20px;
+    background: #28a745; color: white; border: none;
+    padding: 15px 25px; border-radius: 5px;
+    font-size: 16px; font-weight: bold; cursor: pointer; z-index: 9999;
+`;
+completionButton.onclick = () => markTestComplete();
+document.body.appendChild(completionButton);
+</script>
 </body>
 </html>

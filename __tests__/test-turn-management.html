@@ -18,20 +18,24 @@
             max-width: 1400px; 
             margin: 0 auto; 
         }
-        .test-column { 
-            flex: 1; 
-            background: white; 
-            padding: 20px; 
-            border-radius: 10px; 
+        .test-column {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: calc(100vh - 280px); /* Account for top padding and bottom results bar */
+            overflow-y: auto;
         }
-        .instructions-column { 
-            flex: 1; 
-            background: #f8f9fa; 
-            padding: 20px; 
-            border-radius: 10px; 
+        .instructions-column {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             border-left: 4px solid #007bff;
+            height: calc(100vh - 280px); /* Account for top padding and bottom results bar */
+            overflow-y: auto;
         }
         .test-section { 
             margin: 20px 0; 
@@ -164,6 +168,7 @@
                 <button class="test-button" onclick="initializeTest()">1. Initialize Test Session</button>
                 <button class="test-button" onclick="showTurnInfo()">2. Show Turn Info</button>
                 <button class="test-button" onclick="resetTest()">Reset Test</button>
+                <button class="test-button" onclick="runAllTests()">🚀 Run All Tests</button>
             </div>
             
             <div class="test-section">
@@ -631,6 +636,71 @@
             logResult("Wheel button state test (mock implementation)", 'success');
             logResult("In real implementation, this would test button enable/disable states", 'info');
         };
+        
+        window.runAllTests = function() {
+            logResult('🚀 Running all turn management tests...', 'info');
+            testResults = [];
+            
+            const tests = [
+                () => { logResult('=== Starting automated test sequence ===', 'info'); },
+                initializeTest,
+                () => { setTimeout(() => testCurrentPlayerSpin(), 500); },
+                () => { setTimeout(() => testWrongPlayerSpin(), 1000); },
+                () => { setTimeout(() => testDoubleSpinPrevention(), 1500); },
+                () => { setTimeout(() => testTurnAdvancement(), 2000); },
+                () => { setTimeout(() => testUIUpdates(), 2500); },
+                () => { setTimeout(() => testWheelButtonState(), 3000); },
+                () => { setTimeout(() => logResult('🏁 All turn management tests completed', 'success'), 3500); }
+            ];
+            
+            tests.forEach((test, index) => {
+                setTimeout(() => {
+                    try {
+                        test();
+                    } catch (error) {
+                        logResult(`❌ Test ${index + 1} failed: ${error.message}`, 'error');
+                    }
+                }, index * 100);
+            });
+        };
     </script>
+
+<script>
+window.testCompletionSignal = {
+    completed: false,
+    timestamp: null,
+    results: null
+};
+
+function markTestComplete(results = null) {
+    window.testCompletionSignal.completed = true;
+    window.testCompletionSignal.timestamp = new Date().toISOString();
+    window.testCompletionSignal.results = results;
+    console.log('TEST_COMPLETION_SIGNAL:', JSON.stringify(window.testCompletionSignal));
+    
+    document.body.style.border = '5px solid #28a745';
+    document.body.style.backgroundColor = '#f8fff8';
+    
+    const banner = document.createElement('div');
+    banner.innerHTML = '✅ TEST COMPLETED - Ready for next test';
+    banner.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0;
+        background: #28a745; color: white; padding: 15px;
+        text-align: center; font-weight: bold; z-index: 9999;
+    `;
+    document.body.appendChild(banner);
+}
+
+const completionButton = document.createElement('button');
+completionButton.innerHTML = '🏁 Mark Test Complete';
+completionButton.style.cssText = `
+    position: fixed; bottom: 20px; right: 20px;
+    background: #28a745; color: white; border: none;
+    padding: 15px 25px; border-radius: 5px;
+    font-size: 16px; font-weight: bold; cursor: pointer; z-index: 9999;
+`;
+completionButton.onclick = () => markTestComplete();
+document.body.appendChild(completionButton);
+</script>
 </body>
 </html>

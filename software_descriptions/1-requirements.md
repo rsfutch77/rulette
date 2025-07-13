@@ -124,7 +124,7 @@ Roles and responsibilities:
 [ ] 4.1.1 Allow players to call out others for failing to follow a rule (2 Points)
 [ ] 4.1.2 Provide UI for initiating a callout and selecting the accused player (2 Points)
 [ ] 4.2 Referee Adjudication (4 Points)
-[ ] 4.2.1 Notify the referee of a callout and present evidence/context (2 Points)
+[ ] 4.2.1 Notify the referee of a callout and present context of who called out who(2 Points)
 [ ] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
 [ ] 4.3 Point and Card Transfer Logic (3 Points)
 [ ] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller (2 Points)

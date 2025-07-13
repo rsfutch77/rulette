@@ -345,8 +345,6 @@ function hideWheel() {
   }
 }
 
-// Enhanced wheel control with turn management and comprehensive error handling
-function spinWheelForPlayer(sessionId, playerId) {
 // Combined game start function
 function startGameDisplay(sessionId) {
   console.log("[GAME] Starting game display for session:", sessionId);
@@ -354,12 +352,15 @@ function startGameDisplay(sessionId) {
   startRuleDisplay(sessionId);
 }
 
-// Combined game stop function  
+// Combined game stop function
 function stopGameDisplay() {
   console.log("[GAME] Stopping game display");
   hideWheel();
   stopRuleDisplay();
 }
+
+// Enhanced wheel control with turn management and comprehensive error handling
+function spinWheelForPlayer(sessionId, playerId) {
   if (!window.wheelComponent || !gameManager) {
     console.error("[GAME] Wheel component or game manager not available");
     showNotification("Game components not ready. Please refresh the page.", "System Error");
@@ -1761,6 +1762,120 @@ function getPlayerDisplayName(playerId) {
     const player = gameManager.players[playerId];
     return player ? player.displayName || `Player ${playerId.slice(-4)}` : 'Unknown Player';
 }
+
+// Firestore game session functions
+async function createFirestoreGameSession(sessionData) {
+  try {
+    const sessionRef = doc(db, 'gameSessions', sessionData.sessionId);
+    await setDoc(sessionRef, sessionData);
+    console.log("[FIRESTORE] Game session created:", sessionData.sessionId);
+    return sessionRef;
+  } catch (error) {
+    console.error("[FIRESTORE] Error creating game session:", error);
+    throw error;
+  }
+}
+
+async function initializeFirestorePlayer(playerId, playerData) {
+  try {
+    const playerRef = doc(db, 'players', playerId);
+    await setDoc(playerRef, playerData);
+    console.log("[FIRESTORE] Player initialized:", playerId);
+    return playerRef;
+  } catch (error) {
+    console.error("[FIRESTORE] Error initializing player:", error);
+    throw error;
+  }
+}
+
+async function updateFirestorePlayerStatus(playerId, status) {
+  try {
+    const playerRef = doc(db, 'players', playerId);
+    await updateDoc(playerRef, { status });
+    console.log("[FIRESTORE] Player status updated:", playerId, status);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating player status:", error);
+    throw error;
+  }
+}
+
+async function updateFirestorePlayerHand(playerId, hand) {
+  try {
+    const playerRef = doc(db, 'players', playerId);
+    await updateDoc(playerRef, { hand });
+    console.log("[FIRESTORE] Player hand updated:", playerId);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating player hand:", error);
+    throw error;
+  }
+}
+
+async function updateFirestoreRefereeCard(sessionId, refereeCard) {
+  try {
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, { refereeCard });
+    console.log("[FIRESTORE] Referee card updated:", sessionId);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating referee card:", error);
+    throw error;
+  }
+}
+
+async function getFirestoreGameSession(sessionId) {
+  try {
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    const sessionDoc = await getDoc(sessionRef);
+    console.log("[FIRESTORE] Game session retrieved:", sessionId);
+    return sessionDoc;
+  } catch (error) {
+    console.error("[FIRESTORE] Error getting game session:", error);
+    throw error;
+  }
+}
+
+async function getFirestorePlayer(playerId) {
+  try {
+    const playerRef = doc(db, 'players', playerId);
+    const playerDoc = await getDoc(playerRef);
+    console.log("[FIRESTORE] Player retrieved:", playerId);
+    return playerDoc;
+  } catch (error) {
+    console.error("[FIRESTORE] Error getting player:", error);
+    throw error;
+  }
+}
+
+async function getFirestorePlayersInSession(sessionId) {
+  try {
+    const playersQuery = query(
+      collection(db, 'players'),
+      where('sessionId', '==', sessionId)
+    );
+    const playersSnapshot = await getDocs(playersQuery);
+    const players = [];
+    playersSnapshot.forEach((doc) => {
+      players.push({ id: doc.id, ...doc.data() });
+    });
+    console.log("[FIRESTORE] Players in session retrieved:", sessionId, players.length);
+    return players;
+  } catch (error) {
+    console.error("[FIRESTORE] Error getting players in session:", error);
+    throw error;
+  }
+}
+
+// Export Firestore functions for gameManager
+export {
+  createFirestoreGameSession,
+  initializeFirestorePlayer,
+  updateFirestorePlayerStatus,
+  updateFirestorePlayerHand,
+  updateFirestoreRefereeCard,
+  getFirestoreGameSession,
+  getFirestorePlayer,
+  getFirestorePlayersInSession,
+  getDevUID
+};
 
 // Expose functions globally for testing and integration
 window.getCurrentUser = getCurrentUser;

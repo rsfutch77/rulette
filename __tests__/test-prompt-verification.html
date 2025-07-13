@@ -7,59 +7,131 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
+            margin: 0;
             padding: 20px;
-            background-color: #f5f5f5;
+            background: #f5f5f5;
+            padding-bottom: 200px; /* Space for fixed bottom bar */
         }
-        .header {
-            background: #007bff;
-            color: white;
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .test-column {
+            flex: 1;
+            background: white;
             padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: calc(100vh - 280px); /* Account for top padding and bottom results bar */
+            overflow-y: auto;
+        }
+        .instructions-column {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+            height: calc(100vh - 280px); /* Account for top padding and bottom results bar */
+            overflow-y: auto;
         }
         .test-section {
-            background: white;
             margin: 20px 0;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
-        button {
-            padding: 12px 20px;
-            margin: 8px;
+        .test-button {
             background: #007bff;
             color: white;
             border: none;
+            padding: 10px 20px;
+            margin: 5px;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
+            display: block;
+            width: 100%;
+            text-align: left;
         }
-        button:hover {
-            background: #0056b3;
+        .test-button:hover { background: #0056b3; }
+        .test-button:disabled { background: #6c757d; cursor: not-allowed; }
+        .success { color: #28a745; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .info { color: #17a2b8; }
+        
+        /* Fixed bottom results bar */
+        #test-results {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #343a40;
+            color: white;
+            padding: 15px;
+            max-height: 180px;
+            overflow-y: auto;
+            border-top: 3px solid #007bff;
+            z-index: 1000;
         }
-        .success {
-            background: #28a745;
+        #test-results h4 {
+            margin: 0 0 10px 0;
+            color: #ffc107;
         }
-        .danger {
-            background: #dc3545;
+        #results-content {
+            font-size: 12px;
+            line-height: 1.4;
         }
-        .warning {
-            background: #ffc107;
-            color: #212529;
+        #results-content div {
+            margin: 2px 0;
+            padding: 2px 0;
+            border-bottom: 1px solid #495057;
         }
-        #test-output {
-            background: #f8f9fa;
+        
+        .test-result {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 5px solid;
+        }
+        .test-pass {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .test-fail {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .requirement {
+            background: #e9ecef;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #6c757d;
+        }
+        .summary {
+            background: #e7f3ff;
+            border: 2px solid #007bff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .prompt-ui-demo {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
             padding: 15px;
             border-radius: 5px;
-            margin-top: 15px;
-            white-space: pre-wrap;
-            max-height: 500px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            border: 1px solid #dee2e6;
+            margin: 10px 0;
+        }
+        .referee-ui-demo {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
         }
         .test-result {
             padding: 15px;
@@ -108,50 +180,78 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🎯 Prompt Card Mechanic Verification</h1>
-        <p>Comprehensive testing of requirements 3.c.2.4, 3.c.3.4, 3.c.3.5, and 3.c.4.2</p>
-    </div>
-    
-    <div class="test-section">
-        <h2>📋 Requirements Being Verified</h2>
-        <div class="requirement">
-            <strong>3.c.2.4:</strong> Referee Judgment Prompt - Upon completion or timeout, referee is prompted to make judgment
+    <div class="main-container">
+        <!-- Test Controls Column -->
+        <div class="test-column">
+            <h1>🎯 Prompt Card Mechanic Verification</h1>
+            <p>Comprehensive testing of requirements 3.c.2.4, 3.c.3.4, 3.c.3.5, and 3.c.4.2</p>
+            
+            <div class="test-section">
+                <h3>🚀 Test Setup</h3>
+                <button class="test-button" onclick="runAllVerifications()">Run All Verifications</button>
+                <button class="test-button" onclick="clearResults()">Clear Results</button>
+                <button class="test-button" onclick="showUIDemo()">Show UI Demo</button>
+            </div>
+
+            <div class="test-section">
+                <h3>🔍 Individual Verifications</h3>
+                <button class="test-button" onclick="verifyRefereeJudgmentPrompt()">Verify Referee Judgment Prompt (3.c.2.4)</button>
+                <button class="test-button" onclick="verifyPointAwarding()">Verify Point Awarding (3.c.3.4)</button>
+                <button class="test-button" onclick="verifyDiscardRuleOnSuccess()">Verify Discard Rule on Success (3.c.3.5)</button>
+                <button class="test-button" onclick="verifyPlayerAndPromptIndication()">Verify Player/Prompt Indication (3.c.4.2)</button>
+            </div>
+
+            <div class="test-section">
+                <h3>📊 Live Verification Results</h3>
+                <div id="verification-results"></div>
+            </div>
         </div>
-        <div class="requirement">
-            <strong>3.c.3.4:</strong> Point Awarding - Correct point_value awarded when referee declares "Successful"
-        </div>
-        <div class="requirement">
-            <strong>3.c.3.5:</strong> Discard Rule on Success - Player prompted to discard rule card when discard_rule_on_success is true
-        </div>
-        <div class="requirement">
-            <strong>3.c.4.2:</strong> Player and Prompt Indication - Clear indication of player and prompt details during active prompt
+        
+        <!-- Instructions Column -->
+        <div class="instructions-column">
+            <h2>📋 Requirements Being Verified</h2>
+            
+            <div class="requirement">
+                <strong>3.c.2.4:</strong> Referee Judgment Prompt - Upon completion or timeout, referee is prompted to make judgment
+            </div>
+            <div class="requirement">
+                <strong>3.c.3.4:</strong> Point Awarding - Correct point_value awarded when referee declares "Successful"
+            </div>
+            <div class="requirement">
+                <strong>3.c.3.5:</strong> Discard Rule on Success - Player prompted to discard rule card when discard_rule_on_success is true
+            </div>
+            <div class="requirement">
+                <strong>3.c.4.2:</strong> Player and Prompt Indication - Clear indication of player and prompt details during active prompt
+            </div>
+            
+            <h3>🎯 Testing Instructions</h3>
+            <div style="background: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                <h4>Step 1: Run All Verifications</h4>
+                <p>Click "Run All Verifications" to execute all tests automatically and see comprehensive results.</p>
+                
+                <h4>Step 2: Individual Testing</h4>
+                <p>Use individual verification buttons to test specific requirements in isolation.</p>
+                
+                <h4>Step 3: Review Results</h4>
+                <p>Check the live results in the left column and detailed output in the bottom results bar.</p>
+            </div>
+            
+            <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                <h4>🔍 What Each Test Verifies:</h4>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong>3.c.2.4:</strong> Referee UI appears after prompt completion/timeout</li>
+                    <li><strong>3.c.3.4:</strong> Correct points awarded on successful judgment</li>
+                    <li><strong>3.c.3.5:</strong> Card discard prompt when discard_rule_on_success=true</li>
+                    <li><strong>3.c.4.2:</strong> Player and prompt details clearly displayed</li>
+                </ul>
+            </div>
         </div>
     </div>
 
-    <div class="test-section">
-        <h2>🚀 Test Controls</h2>
-        <button onclick="runAllVerifications()" class="success">Run All Verifications</button>
-        <button onclick="clearResults()">Clear Results</button>
-        <button onclick="showUIDemo()">Show UI Demo</button>
-    </div>
-
-    <div class="test-section">
-        <h2>🔍 Individual Verifications</h2>
-        <button onclick="verifyRefereeJudgmentPrompt()">Verify Referee Judgment Prompt (3.c.2.4)</button>
-        <button onclick="verifyPointAwarding()">Verify Point Awarding (3.c.3.4)</button>
-        <button onclick="verifyDiscardRuleOnSuccess()">Verify Discard Rule on Success (3.c.3.5)</button>
-        <button onclick="verifyPlayerAndPromptIndication()">Verify Player/Prompt Indication (3.c.4.2)</button>
-    </div>
-
-    <div class="test-section">
-        <h2>📊 Verification Results</h2>
-        <div id="test-results"></div>
-    </div>
-
-    <div class="test-section">
-        <h2>📝 Detailed Output</h2>
-        <div id="test-output"></div>
+    <!-- Fixed Bottom Results Bar -->
+    <div id="test-results">
+        <h4>🔍 Detailed Test Output (Live Updates)</h4>
+        <div id="results-content">Click "Run All Verifications" to begin testing.</div>
     </div>
 
     <script>
@@ -394,8 +494,22 @@
         let testRefereeId = 'test-referee-1';
 
         function log(message) {
-            const output = document.getElementById('test-output');
-            output.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            const results = document.getElementById('results-content');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = message.startsWith('✅') ? '✅' : message.startsWith('❌') ? '❌' : message.startsWith('⚠️') ? '⚠️' : '🔍';
+            
+            // Create a new div for this message
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = `${icon} [${timestamp}] ${message}`;
+            
+            results.appendChild(messageDiv);
+            
+            // Keep only last 15 messages
+            while (results.children.length > 15) {
+                results.removeChild(results.firstChild);
+            }
+            
+            results.scrollTop = results.scrollHeight;
             console.log('[VERIFICATION]', message);
         }
 
@@ -407,7 +521,7 @@
                 timestamp: new Date().toLocaleTimeString()
             });
             
-            const resultsDiv = document.getElementById('test-results');
+            const resultsDiv = document.getElementById('verification-results');
             const resultDiv = document.createElement('div');
             resultDiv.className = `test-result ${passed ? 'test-pass' : 'test-fail'}`;
             resultDiv.innerHTML = `
@@ -416,11 +530,14 @@
                 <small style="color: #6c757d;">Verified at: ${verificationResults[verificationResults.length - 1].timestamp}</small>
             `;
             resultsDiv.appendChild(resultDiv);
+            
+            // Also log to bottom results bar
+            log(`${passed ? '✅' : '❌'} ${requirement}: ${details}`);
         }
 
         function clearResults() {
-            document.getElementById('test-output').textContent = '';
-            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('results-content').innerHTML = 'Click "Run All Verifications" to begin testing.';
+            document.getElementById('verification-results').innerHTML = '';
             verificationResults = [];
             testManager = new PromptCardTestManager();
         }
@@ -711,7 +828,7 @@
                 </div>
             `;
             
-            document.getElementById('test-results').appendChild(demoDiv);
+            document.getElementById('verification-results').appendChild(demoDiv);
             log('UI demonstration added to results section');
         }
 
@@ -759,7 +876,7 @@
                     `;
                 }
                 
-                document.getElementById('test-results').appendChild(summaryDiv);
+                document.getElementById('verification-results').appendChild(summaryDiv);
             }, 500);
         }
 
@@ -768,5 +885,43 @@
             log('Prompt Card Mechanic Verification Suite loaded and ready');
         });
     </script>
+
+<script>
+window.testCompletionSignal = {
+    completed: false,
+    timestamp: null,
+    results: null
+};
+
+function markTestComplete(results = null) {
+    window.testCompletionSignal.completed = true;
+    window.testCompletionSignal.timestamp = new Date().toISOString();
+    window.testCompletionSignal.results = results;
+    console.log('TEST_COMPLETION_SIGNAL:', JSON.stringify(window.testCompletionSignal));
+    
+    document.body.style.border = '5px solid #28a745';
+    document.body.style.backgroundColor = '#f8fff8';
+    
+    const banner = document.createElement('div');
+    banner.innerHTML = '✅ TEST COMPLETED - Ready for next test';
+    banner.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0;
+        background: #28a745; color: white; padding: 15px;
+        text-align: center; font-weight: bold; z-index: 9999;
+    `;
+    document.body.appendChild(banner);
+}
+
+const completionButton = document.createElement('button');
+completionButton.innerHTML = '🏁 Mark Test Complete';
+completionButton.style.cssText = `
+    position: fixed; bottom: 20px; right: 20px;
+    background: #28a745; color: white; border: none;
+    padding: 15px 25px; border-radius: 5px;
+    font-size: 16px; font-weight: bold; cursor: pointer; z-index: 9999;
+`;
+completionButton.onclick = () => markTestComplete();
+document.body.appendChild(completionButton);
+</script>
 </body>
 </html>

@@ -5,6 +5,7 @@ This document lists all current feature and implementation plans for the Rulette
 ## Commands commonly for development:
 - `npm install -g firebase-tools`: Install the Firebase CLI globally.
 - `npx serve .`: Start a local development server to test the software (assuming static files in the root).
+- `node -e "import('./run_all_tests.js').then(module => { const orchestrator = new module.default(); orchestrator.run(); })"`: Run all Jest, console log, and UI tests, consolidating results into a single file.
 
 ## Deployment instructions:
 1. Ensure you have the Firebase CLI installed (`npm install -g firebase-tools`).
