@@ -963,5 +963,469 @@
       </button>
     </div>
   </div>
+
+  <!-- Session Management Modal -->
+  <div id="session-modal" class="modal" style="display: none;">
+    <div class="modal-content session-modal-content">
+      <div class="modal-header">
+        <h2 id="session-modal-title">Multiplayer Session</h2>
+        <span class="close" id="session-modal-close">&times;</span>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Session Creation Panel -->
+        <div id="create-session-panel" class="session-panel">
+          <h3>Create New Session</h3>
+          <p>Start a new multiplayer game and invite friends to join!</p>
+          
+          <div class="session-form">
+            <div class="form-group">
+              <label for="host-display-name">Your Display Name:</label>
+              <input type="text" id="host-display-name" placeholder="Enter your name" maxlength="20">
+            </div>
+            
+            <div class="form-group">
+              <label for="max-players">Maximum Players:</label>
+              <select id="max-players">
+                <option value="2">2 Players</option>
+                <option value="3">3 Players</option>
+                <option value="4">4 Players</option>
+                <option value="5">5 Players</option>
+                <option value="6" selected>6 Players</option>
+              </select>
+            </div>
+            
+            <button id="create-session-btn" class="session-btn primary">Create Session</button>
+          </div>
+          
+          <!-- Session Created Success -->
+          <div id="session-created-info" class="session-info" style="display: none;">
+            <h4>🎉 Session Created Successfully!</h4>
+            <div class="session-details">
+              <div class="session-code-display">
+                <label>Share this code with friends:</label>
+                <div class="code-container">
+                  <span id="session-code-text" class="session-code"></span>
+                  <button id="copy-code-btn" class="copy-btn" title="Copy to clipboard">📋</button>
+                </div>
+              </div>
+              
+              <div class="session-link-display">
+                <label>Or share this link:</label>
+                <div class="link-container">
+                  <input type="text" id="session-link-text" class="session-link" readonly>
+                  <button id="copy-link-btn" class="copy-btn" title="Copy to clipboard">📋</button>
+                </div>
+              </div>
+              
+              <div class="session-actions">
+                <button id="start-lobby-btn" class="session-btn primary">Go to Lobby</button>
+                <button id="create-another-btn" class="session-btn secondary">Create Another</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Session Join Panel -->
+        <div id="join-session-panel" class="session-panel" style="display: none;">
+          <h3>Join Existing Session</h3>
+          <p>Enter a session code to join a friend's game!</p>
+          
+          <div class="session-form">
+            <div class="form-group">
+              <label for="player-display-name">Your Display Name:</label>
+              <input type="text" id="player-display-name" placeholder="Enter your name" maxlength="20">
+            </div>
+            
+            <div class="form-group">
+              <label for="session-code-input">Session Code:</label>
+              <input type="text" id="session-code-input" placeholder="Enter 6-character code" maxlength="6" style="text-transform: uppercase;">
+              <small class="form-help">Enter the 6-character code shared by your friend</small>
+            </div>
+            
+            <button id="join-session-btn" class="session-btn primary">Join Session</button>
+          </div>
+          
+          <!-- Join Status -->
+          <div id="join-status" class="session-status" style="display: none;">
+            <div id="join-loading" class="loading-spinner" style="display: none;">
+              <div class="spinner"></div>
+              <span>Joining session...</span>
+            </div>
+            <div id="join-success" class="status-success" style="display: none;">
+              <h4>✅ Successfully Joined!</h4>
+              <p>Welcome to the session. Redirecting to lobby...</p>
+            </div>
+            <div id="join-error" class="status-error" style="display: none;">
+              <h4>❌ Failed to Join</h4>
+              <p id="join-error-message">Please check the session code and try again.</p>
+              <button id="retry-join-btn" class="session-btn secondary">Try Again</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Panel Toggle -->
+        <div class="panel-toggle">
+          <button id="show-create-panel" class="toggle-btn active">Create Session</button>
+          <button id="show-join-panel" class="toggle-btn">Join Session</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Management Styles -->
+  <style>
+    /* Modal Styles */
+    .modal {
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .session-modal-content {
+      background: #fff;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem;
+      border-bottom: 1px solid #e9ecef;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .close {
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+
+    .close:hover {
+      opacity: 1;
+    }
+
+    .modal-body {
+      padding: 2rem;
+    }
+
+    /* Session Panel Styles */
+    .session-panel {
+      margin-bottom: 2rem;
+    }
+
+    .session-panel h3 {
+      color: #495057;
+      margin-bottom: 0.5rem;
+    }
+
+    .session-panel p {
+      color: #6c757d;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Form Styles */
+    .session-form {
+      margin-bottom: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-help {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.875rem;
+      color: #6c757d;
+    }
+
+    /* Button Styles */
+    .session-btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .session-btn.primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .session-btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .session-btn.secondary {
+      background: #f8f9fa;
+      color: #495057;
+      border: 2px solid #e9ecef;
+    }
+
+    .session-btn.secondary:hover {
+      background: #e9ecef;
+    }
+
+    .session-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* Session Info Styles */
+    .session-info {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .session-info h4 {
+      color: #155724;
+      margin-bottom: 1rem;
+    }
+
+    .session-details {
+      margin-top: 1rem;
+    }
+
+    .session-code-display,
+    .session-link-display {
+      margin-bottom: 1rem;
+    }
+
+    .session-code-display label,
+    .session-link-display label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #155724;
+    }
+
+    .code-container,
+    .link-container {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .session-code {
+      background: #fff;
+      border: 2px solid #c3e6cb;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 1.25rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: #155724;
+      flex: 1;
+      text-align: center;
+    }
+
+    .session-link {
+      background: #fff;
+      border: 2px solid #c3e6cb;
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-size: 0.875rem;
+      color: #155724;
+      flex: 1;
+    }
+
+    .copy-btn {
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.75rem;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: #218838;
+    }
+
+    .session-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .session-actions .session-btn {
+      flex: 1;
+    }
+
+    /* Panel Toggle Styles */
+    .panel-toggle {
+      display: flex;
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 0.25rem;
+      margin-top: 2rem;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 0.75rem;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn.active {
+      background: white;
+      color: #667eea;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    /* Status Styles */
+    .session-status {
+      margin-top: 1rem;
+    }
+
+    .loading-spinner {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: #e3f2fd;
+      border-radius: 8px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e3f2fd;
+      border-top: 2px solid #2196f3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .status-success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .status-success h4 {
+      color: #155724;
+      margin-bottom: 0.5rem;
+    }
+
+    .status-success p {
+      color: #155724;
+      margin: 0;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .status-error h4 {
+      color: #721c24;
+      margin-bottom: 0.5rem;
+    }
+
+    .status-error p {
+      color: #721c24;
+      margin-bottom: 1rem;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 600px) {
+      .session-modal-content {
+        width: 95%;
+        margin: 1rem;
+      }
+
+      .modal-body {
+        padding: 1rem;
+      }
+
+      .session-actions {
+        flex-direction: column;
+      }
+
+      .code-container,
+      .link-container {
+        flex-direction: column;
+      }
+
+      .session-code,
+      .session-link {
+        text-align: center;
+      }
+    }
+  </style>
+
 </body>
 </html>

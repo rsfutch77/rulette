@@ -3670,3 +3670,437 @@ window.handleGameRestart = handleGameRestart;
 window.handleReturnToLobby = handleReturnToLobby;
 
 console.log('[END_GAME] End-game UI system loaded and ready');
+
+// ===== SESSION MANAGEMENT UI =====
+
+/**
+ * Initialize session management UI and event listeners
+ */
+function initializeSessionManagement() {
+    console.log('[SESSION UI] Initializing session management interface...');
+    
+    // Get UI elements
+    const sessionModal = document.getElementById('session-modal');
+    const sessionModalClose = document.getElementById('session-modal-close');
+    const createPanel = document.getElementById('create-session-panel');
+    const joinPanel = document.getElementById('join-session-panel');
+    const showCreateBtn = document.getElementById('show-create-panel');
+    const showJoinBtn = document.getElementById('show-join-panel');
+    
+    // Panel toggle functionality
+    showCreateBtn?.addEventListener('click', () => {
+        showCreatePanel();
+    });
+    
+    showJoinBtn?.addEventListener('click', () => {
+        showJoinPanel();
+    });
+    
+    // Modal close functionality
+    sessionModalClose?.addEventListener('click', () => {
+        hideSessionModal();
+    });
+    
+    // Close modal when clicking outside
+    sessionModal?.addEventListener('click', (e) => {
+        if (e.target === sessionModal) {
+            hideSessionModal();
+        }
+    });
+    
+    // Session creation functionality
+    setupSessionCreation();
+    
+    // Session joining functionality
+    setupSessionJoining();
+    
+    // Check for join code in URL
+    checkForJoinCodeInURL();
+    
+    console.log('[SESSION UI] Session management interface initialized');
+}
+
+/**
+ * Show the session management modal
+ */
+function showSessionModal() {
+    const modal = document.getElementById('session-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // Reset to create panel by default
+        showCreatePanel();
+    }
+}
+
+/**
+ * Hide the session management modal
+ */
+function hideSessionModal() {
+    const modal = document.getElementById('session-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        resetSessionForms();
+    }
+}
+
+/**
+ * Show the create session panel
+ */
+function showCreatePanel() {
+    const createPanel = document.getElementById('create-session-panel');
+    const joinPanel = document.getElementById('join-session-panel');
+    const showCreateBtn = document.getElementById('show-create-panel');
+    const showJoinBtn = document.getElementById('show-join-panel');
+    
+    if (createPanel && joinPanel) {
+        createPanel.style.display = 'block';
+        joinPanel.style.display = 'none';
+        showCreateBtn?.classList.add('active');
+        showJoinBtn?.classList.remove('active');
+    }
+}
+
+/**
+ * Show the join session panel
+ */
+function showJoinPanel() {
+    const createPanel = document.getElementById('create-session-panel');
+    const joinPanel = document.getElementById('join-session-panel');
+    const showCreateBtn = document.getElementById('show-create-panel');
+    const showJoinBtn = document.getElementById('show-join-panel');
+    
+    if (createPanel && joinPanel) {
+        createPanel.style.display = 'none';
+        joinPanel.style.display = 'block';
+        showCreateBtn?.classList.remove('active');
+        showJoinBtn?.classList.add('active');
+    }
+}
+
+/**
+ * Setup session creation functionality
+ */
+function setupSessionCreation() {
+    const createBtn = document.getElementById('create-session-btn');
+    const copyCodeBtn = document.getElementById('copy-code-btn');
+    const copyLinkBtn = document.getElementById('copy-link-btn');
+    const startLobbyBtn = document.getElementById('start-lobby-btn');
+    const createAnotherBtn = document.getElementById('create-another-btn');
+    
+    createBtn?.addEventListener('click', handleCreateSession);
+    copyCodeBtn?.addEventListener('click', () => copyToClipboard('session-code-text'));
+    copyLinkBtn?.addEventListener('click', () => copyToClipboard('session-link-text'));
+    startLobbyBtn?.addEventListener('click', handleStartLobby);
+    createAnotherBtn?.addEventListener('click', handleCreateAnother);
+}
+
+/**
+ * Setup session joining functionality
+ */
+function setupSessionJoining() {
+    const joinBtn = document.getElementById('join-session-btn');
+    const retryBtn = document.getElementById('retry-join-btn');
+    const sessionCodeInput = document.getElementById('session-code-input');
+    
+    joinBtn?.addEventListener('click', handleJoinSession);
+    retryBtn?.addEventListener('click', handleRetryJoin);
+    
+    // Auto-format session code input
+    sessionCodeInput?.addEventListener('input', (e) => {
+        e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+}
+
+/**
+ * Handle session creation
+ */
+async function handleCreateSession() {
+    const hostNameInput = document.getElementById('host-display-name');
+    const maxPlayersSelect = document.getElementById('max-players');
+    const createBtn = document.getElementById('create-session-btn');
+    
+    const hostName = hostNameInput?.value.trim();
+    const maxPlayers = parseInt(maxPlayersSelect?.value) || 6;
+    
+    if (!hostName) {
+        showNotification('Please enter your display name', 'error');
+        return;
+    }
+    
+    try {
+        createBtn.disabled = true;
+        createBtn.textContent = 'Creating...';
+        
+        // Get current user
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not authenticated');
+        }
+        
+        // Create session using GameManager
+        const session = await gameManager.createGameSession(currentUser.uid, hostName);
+        
+        // Update session with max players
+        session.maxPlayers = maxPlayers;
+        
+        // Display session info
+        displaySessionCreated(session);
+        
+        showNotification('Session created successfully!', 'success');
+        
+    } catch (error) {
+        console.error('[SESSION] Error creating session:', error);
+        showNotification('Failed to create session. Please try again.', 'error');
+    } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create Session';
+    }
+}
+
+/**
+ * Handle session joining
+ */
+async function handleJoinSession() {
+    const playerNameInput = document.getElementById('player-display-name');
+    const sessionCodeInput = document.getElementById('session-code-input');
+    const joinBtn = document.getElementById('join-session-btn');
+    
+    const playerName = playerNameInput?.value.trim();
+    const sessionCode = sessionCodeInput?.value.trim();
+    
+    if (!playerName) {
+        showNotification('Please enter your display name', 'error');
+        return;
+    }
+    
+    if (!sessionCode || sessionCode.length !== 6) {
+        showNotification('Please enter a valid 6-character session code', 'error');
+        return;
+    }
+    
+    try {
+        showJoinStatus('loading');
+        joinBtn.disabled = true;
+        
+        // Get current user
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not authenticated');
+        }
+        
+        // Join session using GameManager
+        const result = await gameManager.joinSession(sessionCode, currentUser.uid, playerName);
+        
+        if (result.success) {
+            showJoinStatus('success');
+            showNotification('Successfully joined session!', 'success');
+            
+            // Redirect to lobby after a short delay
+            setTimeout(() => {
+                hideSessionModal();
+                // TODO: Navigate to lobby view
+                console.log('[SESSION] Redirecting to lobby...');
+            }, 2000);
+            
+        } else {
+            showJoinStatus('error', result.error);
+            showNotification(result.error, 'error');
+        }
+        
+    } catch (error) {
+        console.error('[SESSION] Error joining session:', error);
+        showJoinStatus('error', 'Failed to join session. Please try again.');
+        showNotification('Failed to join session. Please try again.', 'error');
+    } finally {
+        joinBtn.disabled = false;
+    }
+}
+
+/**
+ * Display session creation success
+ */
+function displaySessionCreated(session) {
+    const sessionForm = document.querySelector('#create-session-panel .session-form');
+    const sessionInfo = document.getElementById('session-created-info');
+    const sessionCodeText = document.getElementById('session-code-text');
+    const sessionLinkText = document.getElementById('session-link-text');
+    
+    if (sessionForm && sessionInfo && sessionCodeText && sessionLinkText) {
+        sessionForm.style.display = 'none';
+        sessionInfo.style.display = 'block';
+        
+        sessionCodeText.textContent = session.shareableCode;
+        sessionLinkText.value = session.shareableLink;
+        
+        // Store session info for later use
+        window.currentSessionInfo = session;
+    }
+}
+
+/**
+ * Show join status
+ */
+function showJoinStatus(status, message = '') {
+    const joinStatus = document.getElementById('join-status');
+    const loadingDiv = document.getElementById('join-loading');
+    const successDiv = document.getElementById('join-success');
+    const errorDiv = document.getElementById('join-error');
+    const errorMessage = document.getElementById('join-error-message');
+    
+    if (!joinStatus) return;
+    
+    // Hide all status divs first
+    loadingDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    
+    switch (status) {
+        case 'loading':
+            joinStatus.style.display = 'block';
+            loadingDiv.style.display = 'flex';
+            break;
+        case 'success':
+            joinStatus.style.display = 'block';
+            successDiv.style.display = 'block';
+            break;
+        case 'error':
+            joinStatus.style.display = 'block';
+            errorDiv.style.display = 'block';
+            if (errorMessage) {
+                errorMessage.textContent = message;
+            }
+            break;
+        default:
+            joinStatus.style.display = 'none';
+    }
+}
+
+/**
+ * Handle start lobby button
+ */
+function handleStartLobby() {
+    hideSessionModal();
+    // TODO: Navigate to lobby view
+    console.log('[SESSION] Starting lobby...');
+    showNotification('Lobby functionality coming soon!', 'info');
+}
+
+/**
+ * Handle create another session
+ */
+function handleCreateAnother() {
+    resetSessionForms();
+    showCreatePanel();
+}
+
+/**
+ * Handle retry join
+ */
+function handleRetryJoin() {
+    showJoinStatus('');
+    const sessionCodeInput = document.getElementById('session-code-input');
+    sessionCodeInput?.focus();
+}
+
+/**
+ * Copy text to clipboard
+ */
+async function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const text = element.tagName === 'INPUT' ? element.value : element.textContent;
+    
+    try {
+        await navigator.clipboard.writeText(text);
+        showNotification('Copied to clipboard!', 'success');
+    } catch (error) {
+        console.error('[SESSION] Failed to copy to clipboard:', error);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showNotification('Copied to clipboard!', 'success');
+    }
+}
+
+/**
+ * Reset session forms
+ */
+function resetSessionForms() {
+    // Reset create form
+    const hostNameInput = document.getElementById('host-display-name');
+    const maxPlayersSelect = document.getElementById('max-players');
+    const sessionForm = document.querySelector('#create-session-panel .session-form');
+    const sessionInfo = document.getElementById('session-created-info');
+    
+    if (hostNameInput) hostNameInput.value = '';
+    if (maxPlayersSelect) maxPlayersSelect.value = '6';
+    if (sessionForm) sessionForm.style.display = 'block';
+    if (sessionInfo) sessionInfo.style.display = 'none';
+    
+    // Reset join form
+    const playerNameInput = document.getElementById('player-display-name');
+    const sessionCodeInput = document.getElementById('session-code-input');
+    
+    if (playerNameInput) playerNameInput.value = '';
+    if (sessionCodeInput) sessionCodeInput.value = '';
+    
+    showJoinStatus('');
+}
+
+/**
+ * Check for join code in URL parameters
+ */
+function checkForJoinCodeInURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get('join');
+    
+    if (joinCode) {
+        // Auto-fill join form and show join panel
+        const sessionCodeInput = document.getElementById('session-code-input');
+        if (sessionCodeInput) {
+            sessionCodeInput.value = joinCode.toUpperCase();
+        }
+        
+        showSessionModal();
+        showJoinPanel();
+        
+        // Clear URL parameter
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+    }
+}
+
+/**
+ * Test session management functionality
+ */
+function testSessionManagement() {
+    console.log('[SESSION TEST] Testing session management UI...');
+    
+    // Test session ID generation
+    const sessionInfo = gameManager.generateUniqueSessionId();
+    console.log('[SESSION TEST] Generated session info:', sessionInfo);
+    
+    // Test session creation and joining
+    const testResults = gameManager.testSessionCreationAndJoining();
+    console.log('[SESSION TEST] Session functionality test results:', testResults);
+    
+    return {
+        sessionGeneration: sessionInfo,
+        functionalityTests: testResults
+    };
+}
+
+// Initialize session management when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    initializeSessionManagement();
+});
+
+// Make session functions globally available for testing
+window.showSessionModal = showSessionModal;
+window.hideSessionModal = hideSessionModal;
+window.testSessionManagement = testSessionManagement;

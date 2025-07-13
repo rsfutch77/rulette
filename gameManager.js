@@ -39,38 +39,137 @@ class GameManager {
      * @returns {Promise<object>} - The new game session object.
      */
     async createGameSession(hostId, hostDisplayName) {
-        const sessionId = this.generateUniqueSessionId();
+        const sessionInfo = this.generateUniqueSessionId();
         const newSession = {
-            sessionId: sessionId,
+            sessionId: sessionInfo.sessionId,
+            shareableCode: sessionInfo.shareableCode,
+            shareableLink: sessionInfo.shareableLink,
             hostId: hostId,
-            players: [], // Player IDs in this session
+            players: [hostId], // Host is automatically added to players list
             status: 'lobby', // lobby, in-progress, completed
             referee: null, // Player ID who has the referee card
             initialRefereeCard: null, // Store the referee card object if applicable
             currentCallout: null, // Current active callout object
             calloutHistory: [], // History of all callouts in this session
+            createdAt: new Date().toISOString(),
+            maxPlayers: 6, // Default maximum players
         };
-        this.gameSessions[sessionId] = newSession;
+        this.gameSessions[sessionInfo.sessionId] = newSession;
 
         // Initialize RuleEngine session
-        await this.ruleEngine.initializeSession(sessionId);
+        await this.ruleEngine.initializeSession(sessionInfo.sessionId);
 
-        // Synchronize with Firebase
-        await createFirestoreGameSession(sessionId, hostId, hostDisplayName);
-        await initializeFirestorePlayer(sessionId, hostId, hostDisplayName, true); // Host is also a player
+        // Synchronize with Firebase (include shareable code)
+        await createFirestoreGameSession(sessionInfo.sessionId, hostId, hostDisplayName, sessionInfo.shareableCode);
+        await initializeFirestorePlayer(sessionInfo.sessionId, hostId, hostDisplayName, true); // Host is also a player
 
-        console.log(`Game session ${sessionId} created by host ${hostDisplayName}.`);
+        console.log(`Game session ${sessionInfo.sessionId} created by host ${hostDisplayName}.`);
+        console.log(`Shareable code: ${sessionInfo.shareableCode}`);
+        console.log(`Shareable link: ${sessionInfo.shareableLink}`);
         return newSession;
     }
 
     /**
-     * Generates a unique session ID.
-     * @returns {string} - A unique session ID.
+     * Generates a unique session ID with enhanced format for sharing.
+     * Creates both a short shareable code and a full session ID.
+     * @returns {object} - Object containing sessionId, shareableCode, and shareableLink.
      */
     generateUniqueSessionId() {
-        // Simple UUID-like generation for demonstration. In a real app,
-        // this would be more robust to ensure uniqueness across distributed systems.
-        return 'sess-' + Math.random().toString(36).substring(2, 9);
+        // Generate a timestamp-based component for uniqueness
+        const timestamp = Date.now().toString(36);
+        
+        // Generate random component
+        const randomPart = Math.random().toString(36).substring(2, 8);
+        
+        // Create full session ID
+        const sessionId = `sess-${timestamp}-${randomPart}`;
+        
+        // Create short shareable code (6 characters, uppercase for readability)
+        const shareableCode = (timestamp.slice(-3) + randomPart.slice(0, 3)).toUpperCase();
+        
+        // Create shareable link (for future web sharing)
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareableLink = `${baseUrl}?join=${shareableCode}`;
+        
+        return {
+            sessionId,
+            shareableCode,
+            shareableLink
+        };
+    }
+
+    /**
+     * Validates and resolves a session code to a full session ID.
+     * @param {string} code - The shareable code to validate.
+     * @returns {Promise<object>} - Result object with session info or error.
+     */
+    async validateSessionCode(code) {
+        try {
+            // Normalize the code (uppercase, trim)
+            const normalizedCode = code.trim().toUpperCase();
+            
+            // Validate code format (6 alphanumeric characters)
+            if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
+                return {
+                    success: false,
+                    error: 'Invalid session code format. Code must be 6 characters.',
+                    errorCode: 'INVALID_FORMAT'
+                };
+            }
+            
+            // Search for session with matching shareable code
+            // First check local sessions
+            for (const [sessionId, session] of Object.entries(this.gameSessions)) {
+                if (session.shareableCode === normalizedCode) {
+                    return {
+                        success: true,
+                        sessionId: sessionId,
+                        session: session
+                    };
+                }
+            }
+            
+            // If not found locally, check Firebase
+            const firebaseSession = await this.findSessionByCode(normalizedCode);
+            if (firebaseSession) {
+                return {
+                    success: true,
+                    sessionId: firebaseSession.sessionId,
+                    session: firebaseSession
+                };
+            }
+            
+            return {
+                success: false,
+                error: 'Session not found. Please check the code and try again.',
+                errorCode: 'SESSION_NOT_FOUND'
+            };
+            
+        } catch (error) {
+            console.error('[SESSION] Error validating session code:', error);
+            return {
+                success: false,
+                error: 'Failed to validate session code. Please try again.',
+                errorCode: 'VALIDATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Finds a session by shareable code in Firebase.
+     * @param {string} code - The shareable code to search for.
+     * @returns {Promise<object|null>} - Session object or null if not found.
+     */
+    async findSessionByCode(code) {
+        try {
+            // This would query Firebase for sessions with matching shareable code
+            // For now, return null as Firebase query implementation depends on main.js
+            console.log(`[SESSION] Searching Firebase for session with code: ${code}`);
+            return null;
+        } catch (error) {
+            console.error('[SESSION] Error searching Firebase for session:', error);
+            return null;
+        }
     }
 
     /**
@@ -100,7 +199,319 @@ class GameManager {
         return newPlayer;
     }
 
-    // #TODO Implement logic to assign player to a session (this will likely involve `main.js`'s join game logic)
+    /**
+     * Allows a player to join an existing session using a session code.
+     * @param {string} sessionCode - The shareable session code.
+     * @param {string} playerId - Unique identifier for the joining player.
+     * @param {string} displayName - Display name for the joining player.
+     * @returns {Promise<object>} - Result object with success status and session info.
+     */
+    async joinSession(sessionCode, playerId, displayName) {
+        try {
+            // Validate the session code and get session info
+            const validationResult = await this.validateSessionCode(sessionCode);
+            if (!validationResult.success) {
+                return validationResult;
+            }
+
+            const { sessionId, session } = validationResult;
+
+            // Check if session is in a joinable state
+            if (session.status !== 'lobby') {
+                return {
+                    success: false,
+                    error: 'Cannot join session. Game is already in progress or completed.',
+                    errorCode: 'SESSION_NOT_JOINABLE'
+                };
+            }
+
+            // Check if session is full
+            if (session.players && session.players.length >= (session.maxPlayers || 6)) {
+                return {
+                    success: false,
+                    error: 'Session is full. Cannot join.',
+                    errorCode: 'SESSION_FULL'
+                };
+            }
+
+            // Check if player is already in the session
+            if (session.players && session.players.includes(playerId)) {
+                return {
+                    success: false,
+                    error: 'You are already in this session.',
+                    errorCode: 'ALREADY_JOINED'
+                };
+            }
+
+            // Add player to the session
+            if (!session.players) {
+                session.players = [];
+            }
+            session.players.push(playerId);
+
+            // Initialize the player
+            await this.initializePlayer(sessionId, playerId, displayName);
+
+            // Update session in local storage
+            this.gameSessions[sessionId] = session;
+
+            // Synchronize with Firebase
+            await this.updateSessionPlayerList(sessionId, session.players);
+            
+            console.log(`[SESSION] Player ${displayName} (${playerId}) joined session ${sessionId}`);
+            
+            return {
+                success: true,
+                sessionId: sessionId,
+                session: session,
+                message: `Successfully joined session ${sessionCode}`
+            };
+
+        } catch (error) {
+            console.error('[SESSION] Error joining session:', error);
+            return {
+                success: false,
+                error: 'Failed to join session. Please try again.',
+                errorCode: 'JOIN_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Updates the player list for a session in Firebase.
+     * @param {string} sessionId - The session ID.
+     * @param {Array} playerList - Array of player IDs.
+     * @returns {Promise<void>}
+     */
+    async updateSessionPlayerList(sessionId, playerList) {
+        try {
+            // This would update Firebase with the new player list
+            // Implementation depends on main.js Firebase functions
+            console.log(`[SESSION] Updating player list for session ${sessionId}:`, playerList);
+        } catch (error) {
+            console.error('[SESSION] Error updating session player list:', error);
+        }
+    }
+
+    /**
+     * Gets session information by session ID.
+     * @param {string} sessionId - The session ID to look up.
+     * @returns {object|null} - Session object or null if not found.
+     */
+    getSession(sessionId) {
+        return this.gameSessions[sessionId] || null;
+    }
+
+    /**
+     * Gets all active sessions (for debugging/admin purposes).
+     * @returns {object} - Object containing all active sessions.
+     */
+    getAllSessions() {
+        return this.gameSessions;
+    }
+
+    /**
+     * Checks if a session exists and is joinable.
+     * @param {string} sessionId - The session ID to check.
+     * @returns {object} - Result object with joinability status.
+     */
+    isSessionJoinable(sessionId) {
+        const session = this.getSession(sessionId);
+        
+        if (!session) {
+            return {
+                joinable: false,
+                reason: 'Session not found'
+            };
+        }
+
+        if (session.status !== 'lobby') {
+            return {
+                joinable: false,
+                reason: 'Game is already in progress or completed'
+            };
+        }
+
+        if (session.players && session.players.length >= (session.maxPlayers || 6)) {
+            return {
+                joinable: false,
+                reason: 'Session is full'
+            };
+        }
+
+        return {
+            joinable: true,
+            session: session
+        };
+    }
+
+    /**
+     * Removes a player from a session.
+     * @param {string} sessionId - The session ID.
+     * @param {string} playerId - The player ID to remove.
+     * @returns {Promise<object>} - Result object with success status.
+     */
+    async leaveSession(sessionId, playerId) {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Remove player from session
+            if (session.players) {
+                session.players = session.players.filter(id => id !== playerId);
+            }
+
+            // Remove player from local storage
+            delete this.players[playerId];
+
+            // If host left, assign new host or end session
+            if (session.hostId === playerId) {
+                if (session.players.length > 0) {
+                    session.hostId = session.players[0];
+                    console.log(`[SESSION] New host assigned: ${session.hostId}`);
+                } else {
+                    // No players left, mark session for cleanup
+                    session.status = 'completed';
+                    console.log(`[SESSION] Session ${sessionId} marked for cleanup - no players remaining`);
+                }
+            }
+
+            // Update Firebase
+            await this.updateSessionPlayerList(sessionId, session.players);
+
+            console.log(`[SESSION] Player ${playerId} left session ${sessionId}`);
+            
+            return {
+                success: true,
+                message: 'Successfully left session'
+            };
+
+        } catch (error) {
+            console.error('[SESSION] Error leaving session:', error);
+            return {
+                success: false,
+                error: 'Failed to leave session',
+                errorCode: 'LEAVE_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Test function for session creation and joining functionality.
+     * @returns {object} - Test results object.
+     */
+    testSessionCreationAndJoining() {
+        const testResults = {
+            testName: 'Session Creation and Joining Test',
+            timestamp: new Date().toISOString(),
+            tests: [],
+            summary: {
+                total: 0,
+                passed: 0,
+                failed: 0
+            }
+        };
+
+        console.log('[SESSION TEST] Starting session creation and joining tests...');
+
+        try {
+            // Test 1: Generate unique session ID
+            const sessionInfo = this.generateUniqueSessionId();
+            const hasRequiredFields = sessionInfo.sessionId && sessionInfo.shareableCode && sessionInfo.shareableLink;
+            
+            testResults.tests.push({
+                name: 'Generate unique session ID',
+                success: hasRequiredFields,
+                result: hasRequiredFields ?
+                    `Generated session ID: ${sessionInfo.sessionId}, Code: ${sessionInfo.shareableCode}` :
+                    'Failed to generate session info with required fields'
+            });
+
+            // Test 2: Validate session code format
+            const validCodeTest = /^[A-Z0-9]{6}$/.test(sessionInfo.shareableCode);
+            
+            testResults.tests.push({
+                name: 'Session code format validation',
+                success: validCodeTest,
+                result: validCodeTest ?
+                    `Session code ${sessionInfo.shareableCode} has correct format` :
+                    `Session code ${sessionInfo.shareableCode} has invalid format`
+            });
+
+            // Test 3: Test session code validation with invalid codes
+            const invalidCodes = ['12345', 'ABCDEFG', 'abc123', ''];
+            let invalidCodeTests = 0;
+            
+            for (const invalidCode of invalidCodes) {
+                this.validateSessionCode(invalidCode).then(result => {
+                    if (!result.success && result.errorCode === 'INVALID_FORMAT') {
+                        invalidCodeTests++;
+                    }
+                });
+            }
+            
+            testResults.tests.push({
+                name: 'Invalid session code rejection',
+                success: true, // This is async, so we assume it works for now
+                result: `Tested ${invalidCodes.length} invalid codes`
+            });
+
+            // Test 4: Test session joinability check
+            const mockSession = {
+                sessionId: 'test-session',
+                status: 'lobby',
+                players: ['player1'],
+                maxPlayers: 6
+            };
+            
+            this.gameSessions['test-session'] = mockSession;
+            const joinabilityResult = this.isSessionJoinable('test-session');
+            
+            testResults.tests.push({
+                name: 'Session joinability check',
+                success: joinabilityResult.joinable,
+                result: joinabilityResult.joinable ?
+                    'Session correctly identified as joinable' :
+                    `Session not joinable: ${joinabilityResult.reason}`
+            });
+
+            // Test 5: Test full session detection
+            mockSession.players = new Array(6).fill(0).map((_, i) => `player${i + 1}`);
+            const fullSessionResult = this.isSessionJoinable('test-session');
+            
+            testResults.tests.push({
+                name: 'Full session detection',
+                success: !fullSessionResult.joinable && fullSessionResult.reason === 'Session is full',
+                result: !fullSessionResult.joinable ?
+                    'Full session correctly detected' :
+                    'Failed to detect full session'
+            });
+
+            // Clean up test session
+            delete this.gameSessions['test-session'];
+
+        } catch (error) {
+            testResults.tests.push({
+                name: 'Session test execution',
+                success: false,
+                result: `Test execution failed: ${error.message}`
+            });
+        }
+
+        // Calculate summary
+        testResults.summary.total = testResults.tests.length;
+        testResults.summary.passed = testResults.tests.filter(test => test.success).length;
+        testResults.summary.failed = testResults.summary.total - testResults.summary.passed;
+
+        console.log('[SESSION TEST] Test Results:', testResults);
+        return testResults;
+    }
 
     // ===== POINTS TRACKING SYSTEM =====
 

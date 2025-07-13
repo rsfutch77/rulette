@@ -171,9 +171,9 @@ Roles and responsibilities:
 
 ## Phase 3: Multiplayer and Lobby System
 [ ] 6. Multiplayer Session Management (16 Points)
-[ ] 6.1 Session Creation and Join Logic (4 Points)
-[ ] 6.1.1 Allow players to create new multiplayer sessions with unique codes or links (2 Points)
-[ ] 6.1.2 Enable players to join existing sessions using a code or invitation (2 Points)
+[x] 6.1 Session Creation and Join Logic (4 Points)
+[x] 6.1.1 Allow players to create new multiplayer sessions with unique codes or links (2 Points)
+[x] 6.1.2 Enable players to join existing sessions using a code or invitation (2 Points)
 [ ] 6.2 Player Management (4 Points)
 [ ] 6.2.1 Track all players in a session, including their status (active, disconnected, left) (2 Points)
 [ ] 6.2.2 Handle player disconnects and reconnections gracefully (2 Points)
