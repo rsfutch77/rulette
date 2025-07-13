@@ -12,6 +12,7 @@ import {
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
 } from './main.js';
 import { GameCard } from './cardModels.js';
+import { RuleEngine } from './ruleEngine.js';
 
 class GameManager {
     constructor() {
@@ -21,6 +22,7 @@ class GameManager {
         this.turnOrder = {}; // Tracks turn order for each session
         this.cloneMap = {}; // Maps original card ID to cloned card references
         this.cardManager = null; // Reference to CardManager for cloning
+        this.ruleEngine = new RuleEngine(this); // Initialize RuleEngine with reference to GameManager
     }
 
     setCardManager(manager) {
@@ -44,6 +46,9 @@ class GameManager {
             initialRefereeCard: null, // Store the referee card object if applicable
         };
         this.gameSessions[sessionId] = newSession;
+
+        // Initialize RuleEngine session
+        await this.ruleEngine.initializeSession(sessionId);
 
         // Synchronize with Firebase
         await createFirestoreGameSession(sessionId, hostId, hostDisplayName);
@@ -239,7 +244,7 @@ class GameManager {
      * @param {string} sessionId - The session ID
      * @returns {string|null} - Next player ID or null if no session
      */
-    nextTurn(sessionId) {
+    async nextTurn(sessionId) {
         const turn = this.currentTurn[sessionId];
         const order = this.turnOrder[sessionId];
         
@@ -253,6 +258,13 @@ class GameManager {
         // If we've cycled through all players, increment turn number
         if (turn.currentPlayerIndex === 0) {
             turn.turnNumber++;
+        }
+
+        // Process rule expirations for the new turn
+        try {
+            await this.ruleEngine.handleTurnProgression(sessionId, turn.turnNumber);
+        } catch (error) {
+            console.error(`Error processing rule expirations for session ${sessionId}:`, error);
         }
         
         console.log(`Advanced to next turn in session ${sessionId}: Player ${turn.currentPlayerId}, Turn ${turn.turnNumber}`);
@@ -532,6 +544,236 @@ class GameManager {
                 error: 'An unexpected error occurred while flipping the card',
                 errorCode: 'FLIP_ERROR'
             };
+        }
+    }
+
+    /**
+     * Handle card drawing and rule activation
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player drawing the card
+     * @param {Object} card - The drawn card
+     * @param {Object} gameContext - Additional game context
+     * @returns {object} - {success: boolean, activeRule?: object, error?: string}
+     */
+    async handleCardDrawn(sessionId, playerId, card, gameContext = {}) {
+        console.log(`[GAME_MANAGER] Handling card drawn for player ${playerId} in session ${sessionId}: ${card.name || card.id}`);
+        
+        try {
+            // Check if card has a rule to activate
+            if (card.hasRule || card.rule || card.frontRule) {
+                // Prepare game context for rule activation
+                const ruleContext = {
+                    currentTurn: this.currentTurn[sessionId]?.turnNumber || 0,
+                    gameState: {
+                        sessionId,
+                        playerId,
+                        players: this.players,
+                        session: this.gameSessions[sessionId]
+                    },
+                    ...gameContext
+                };
+
+                // Activate rule through RuleEngine
+                const activeRule = await this.ruleEngine.handleCardDrawn(sessionId, playerId, card, ruleContext);
+                
+                if (activeRule) {
+                    console.log(`[GAME_MANAGER] Rule activated from card ${card.id}: ${activeRule.id}`);
+                    return {
+                        success: true,
+                        activeRule: activeRule,
+                        ruleText: activeRule.ruleText
+                    };
+                }
+            }
+
+            // Handle special card types
+            if (card.type === 'prompt') {
+                return this.activatePromptCard(sessionId, playerId, card);
+            }
+
+            return {
+                success: true,
+                message: 'Card drawn successfully (no rule to activate)'
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error handling card drawn:`, error);
+            return {
+                success: false,
+                error: 'Failed to process card draw',
+                errorCode: 'CARD_PROCESSING_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Handle successful callout and rule interactions
+     * @param {string} sessionId - The session ID
+     * @param {string} targetPlayerId - Player who was called out
+     * @param {string} callingPlayerId - Player who made the callout
+     * @param {string} ruleId - Optional specific rule ID that was violated
+     * @returns {object} - {success: boolean, result?: object, error?: string}
+     */
+    async handleCalloutSuccess(sessionId, targetPlayerId, callingPlayerId, ruleId = null) {
+        console.log(`[GAME_MANAGER] Handling successful callout: ${callingPlayerId} called out ${targetPlayerId}`);
+        
+        try {
+            // Process callout through RuleEngine
+            const result = await this.ruleEngine.handleCalloutSuccess(sessionId, targetPlayerId, callingPlayerId, ruleId);
+            
+            // Apply game state changes based on callout result
+            if (result && result.cardTransfers) {
+                for (const transfer of result.cardTransfers) {
+                    await this.transferCard(sessionId, transfer.fromPlayerId, transfer.toPlayerId, transfer.cardId);
+                }
+            }
+
+            return {
+                success: true,
+                result: result
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error handling callout success:`, error);
+            return {
+                success: false,
+                error: 'Failed to process callout',
+                errorCode: 'CALLOUT_PROCESSING_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Transfer a card between players and update rule ownership
+     * @param {string} sessionId - The session ID
+     * @param {string} fromPlayerId - Source player ID
+     * @param {string} toPlayerId - Destination player ID
+     * @param {string} cardId - Card ID to transfer
+     * @returns {object} - {success: boolean, error?: string}
+     */
+    async transferCard(sessionId, fromPlayerId, toPlayerId, cardId) {
+        console.log(`[GAME_MANAGER] Transferring card ${cardId} from ${fromPlayerId} to ${toPlayerId}`);
+        
+        try {
+            const fromPlayer = this.players[fromPlayerId];
+            const toPlayer = this.players[toPlayerId];
+            
+            if (!fromPlayer || !toPlayer) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Find and remove card from source player
+            const cardIndex = fromPlayer.hand.findIndex(c => c.id === cardId);
+            if (cardIndex === -1) {
+                return {
+                    success: false,
+                    error: 'Card not found in source player hand',
+                    errorCode: 'CARD_NOT_FOUND'
+                };
+            }
+
+            const [card] = fromPlayer.hand.splice(cardIndex, 1);
+            toPlayer.hand.push(card);
+
+            // Update Firebase
+            await this.updateFirestorePlayerHand(sessionId, fromPlayerId, fromPlayer.hand);
+            await this.updateFirestorePlayerHand(sessionId, toPlayerId, toPlayer.hand);
+
+            // Notify RuleEngine of card transfer
+            await this.ruleEngine.handleCardTransfer(sessionId, fromPlayerId, toPlayerId, cardId);
+
+            console.log(`[GAME_MANAGER] Card ${cardId} transferred successfully`);
+            return { success: true };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error transferring card:`, error);
+            return {
+                success: false,
+                error: 'Failed to transfer card',
+                errorCode: 'TRANSFER_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Get effective rules for a player (rules they must follow)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @returns {object} - Rule information for the player
+     */
+    getEffectiveRulesForPlayer(sessionId, playerId) {
+        try {
+            return this.ruleEngine.getEffectiveRulesForPlayer(sessionId, playerId);
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error getting effective rules for player ${playerId}:`, error);
+            return {
+                globalRules: [],
+                playerRules: [],
+                targetRules: [],
+                allRules: []
+            };
+        }
+    }
+
+    /**
+     * Check if a player action is restricted by active rules
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} actionType - Type of action (e.g., 'draw', 'spin', 'callout')
+     * @param {object} actionContext - Additional context for the action
+     * @returns {object} - {allowed: boolean, restrictions?: Array, reason?: string}
+     */
+    checkActionRestrictions(sessionId, playerId, actionType, actionContext = {}) {
+        try {
+            const effectiveRules = this.getEffectiveRulesForPlayer(sessionId, playerId);
+            const restrictions = [];
+
+            // Check each rule for action restrictions
+            for (const rule of effectiveRules.allRules) {
+                if (rule.ruleText && rule.ruleText.toLowerCase().includes(actionType.toLowerCase())) {
+                    // This is a simplified check - in a full implementation,
+                    // you'd have more sophisticated rule parsing
+                    restrictions.push({
+                        ruleId: rule.id,
+                        ruleText: rule.ruleText,
+                        restriction: `Rule may affect ${actionType} action`
+                    });
+                }
+            }
+
+            return {
+                allowed: restrictions.length === 0,
+                restrictions: restrictions,
+                reason: restrictions.length > 0 ? `Action may be restricted by ${restrictions.length} active rule(s)` : null
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error checking action restrictions:`, error);
+            return {
+                allowed: true,
+                restrictions: [],
+                reason: null
+            };
+        }
+    }
+
+    /**
+     * Clean up rules when game session ends
+     * @param {string} sessionId - The session ID
+     */
+    async cleanupGameSession(sessionId) {
+        try {
+            // Clean up rules through RuleEngine
+            await this.ruleEngine.handleGameEnd(sessionId);
+            
+            // Clean up local game state
+            delete this.gameSessions[sessionId];
+            delete this.currentTurn[sessionId];
+            delete this.turnOrder[sessionId];
+            
+            console.log(`[GAME_MANAGER] Game session ${sessionId} cleaned up`);
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error cleaning up game session ${sessionId}:`, error);
         }
     }
 
