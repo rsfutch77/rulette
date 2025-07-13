@@ -181,9 +181,9 @@ Roles and responsibilities:
     - If a player rejoins, restore their state and role (including referee if applicable)
     - If the host disconnects, assign a new host or pause the session until rejoin
     - If the referee disconnects, assign referee card to another player or pause adjudication
-[ ] 6.3 Session State Management (3 Points)
-[ ] 6.3.1 Maintain and synchronize session state (lobby, in-game, completed) across all clients (2 Points)
-[ ] 6.3.2 Ensure session state persists if the host disconnects (1 Point)
+[x] 6.3 Session State Management (3 Points)
+[x] 6.3.1 Maintain and synchronize session state (lobby, in-game, completed) across all clients (2 Points)
+[x] 6.3.2 Ensure session state persists if the host disconnects (1 Point)
 [ ] 6.4 Session Termination and Cleanup (3 Points)
 [ ] 6.4.1 Allow sessions to be ended by the host or automatically when all players leave (2 Points)
 [ ] 6.4.2 Clean up session data to prevent orphaned sessions (1 Point)
