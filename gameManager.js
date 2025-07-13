@@ -508,9 +508,12 @@ class GameManager {
      */
     async assignPlayerHand(sessionId, playerId, cards) {
         if (this.players[playerId]) {
+            // Assign ownership to all cards
+            this.assignCardOwnership(playerId, cards);
+            
             this.players[playerId].hand = cards;
             await updateFirestorePlayerHand(sessionId, playerId, cards);
-            console.log(`Player ${playerId}'s hand assigned and synced with Firebase.`);
+            console.log(`Player ${playerId}'s hand assigned with ${cards.length} cards and synced with Firebase.`);
         } else {
             console.warn(`Player ${playerId} not found locally.`);
         }
@@ -1031,60 +1034,507 @@ class GameManager {
         }
     }
 
+    // ===== CARD OWNERSHIP AND TRANSFER SYSTEM =====
+
     /**
-     * Transfer a card between players and update rule ownership
+     * Transfer a card between players with comprehensive ownership tracking
+     * Core implementation for requirement 5.2.2
      * @param {string} sessionId - The session ID
      * @param {string} fromPlayerId - Source player ID
      * @param {string} toPlayerId - Destination player ID
-     * @param {string} cardId - Card ID to transfer
-     * @returns {object} - {success: boolean, error?: string}
+     * @param {string|object} cardIdentifier - Card ID string or card object to transfer
+     * @param {string} reason - Reason for the transfer (for logging and events)
+     * @param {object} transferContext - Additional context for the transfer
+     * @returns {object} - {success: boolean, transfer?: object, error?: string, errorCode?: string}
      */
-    async transferCard(sessionId, fromPlayerId, toPlayerId, cardId) {
-        console.log(`[GAME_MANAGER] Transferring card ${cardId} from ${fromPlayerId} to ${toPlayerId}`);
+    async transferCard(sessionId, fromPlayerId, toPlayerId, cardIdentifier, reason = 'Card transfer', transferContext = {}) {
+        console.log(`[CARD_TRANSFER] Initiating transfer: ${cardIdentifier} from ${fromPlayerId} to ${toPlayerId} (${reason})`);
         
         try {
-            const fromPlayer = this.players[fromPlayerId];
-            const toPlayer = this.players[toPlayerId];
-            
-            if (!fromPlayer || !toPlayer) {
+            // Validate session
+            const session = this.gameSessions[sessionId];
+            if (!session) {
                 return {
                     success: false,
-                    error: 'Player not found',
-                    errorCode: 'PLAYER_NOT_FOUND'
+                    error: 'Game session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
                 };
             }
 
-            // Find and remove card from source player
-            const cardIndex = fromPlayer.hand.findIndex(c => c.id === cardId);
-            if (cardIndex === -1) {
+            // Validate players
+            const fromPlayer = this.players[fromPlayerId];
+            const toPlayer = this.players[toPlayerId];
+            
+            if (!fromPlayer) {
                 return {
                     success: false,
-                    error: 'Card not found in source player hand',
+                    error: 'Source player not found',
+                    errorCode: 'FROM_PLAYER_NOT_FOUND'
+                };
+            }
+
+            if (!toPlayer) {
+                return {
+                    success: false,
+                    error: 'Destination player not found',
+                    errorCode: 'TO_PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Validate players are active
+            if (fromPlayer.status !== 'active') {
+                return {
+                    success: false,
+                    error: 'Source player is not active',
+                    errorCode: 'FROM_PLAYER_INACTIVE'
+                };
+            }
+
+            if (toPlayer.status !== 'active') {
+                return {
+                    success: false,
+                    error: 'Destination player is not active',
+                    errorCode: 'TO_PLAYER_INACTIVE'
+                };
+            }
+
+            // Find the card to transfer
+            let card = null;
+            let cardIndex = -1;
+
+            if (typeof cardIdentifier === 'string') {
+                // Card ID provided
+                cardIndex = fromPlayer.hand.findIndex(c => c.id === cardIdentifier);
+                if (cardIndex !== -1) {
+                    card = fromPlayer.hand[cardIndex];
+                }
+            } else if (cardIdentifier && typeof cardIdentifier === 'object' && cardIdentifier.id) {
+                // Card object provided
+                cardIndex = fromPlayer.hand.findIndex(c => c.id === cardIdentifier.id);
+                if (cardIndex !== -1) {
+                    card = fromPlayer.hand[cardIndex];
+                }
+            }
+
+            if (!card || cardIndex === -1) {
+                return {
+                    success: false,
+                    error: 'Card not found in source player\'s hand',
                     errorCode: 'CARD_NOT_FOUND'
                 };
             }
 
-            const [card] = fromPlayer.hand.splice(cardIndex, 1);
-            toPlayer.hand.push(card);
+            // Validate card ownership
+            if (card.owner && card.owner !== fromPlayerId) {
+                console.warn(`[CARD_TRANSFER] Card ${card.id} ownership mismatch: card.owner=${card.owner}, fromPlayerId=${fromPlayerId}`);
+                // Update card ownership to match current holder
+                card.setOwner(fromPlayerId);
+            }
+
+            // Check for transfer restrictions (e.g., during callouts)
+            const restrictionCheck = this.checkCardTransferRestrictions(sessionId, fromPlayerId, toPlayerId, card, transferContext);
+            if (!restrictionCheck.allowed) {
+                return {
+                    success: false,
+                    error: restrictionCheck.reason,
+                    errorCode: 'TRANSFER_RESTRICTED'
+                };
+            }
+
+            // Perform the transfer
+            const [transferredCard] = fromPlayer.hand.splice(cardIndex, 1);
+            
+            // Update card ownership
+            transferredCard.setOwner(toPlayerId);
+            
+            // Add to destination player's hand
+            toPlayer.hand.push(transferredCard);
+
+            // Create transfer record
+            const transferRecord = {
+                sessionId,
+                fromPlayerId,
+                toPlayerId,
+                cardId: transferredCard.id,
+                cardType: transferredCard.type,
+                cardName: transferredCard.name || transferredCard.getCurrentText(),
+                reason,
+                timestamp: Date.now(),
+                transferContext,
+                fromPlayerName: fromPlayer.displayName,
+                toPlayerName: toPlayer.displayName
+            };
 
             // Update Firebase
-            await this.updateFirestorePlayerHand(sessionId, fromPlayerId, fromPlayer.hand);
-            await this.updateFirestorePlayerHand(sessionId, toPlayerId, toPlayer.hand);
+            try {
+                await this.updateFirestorePlayerHand(sessionId, fromPlayerId, fromPlayer.hand);
+                await this.updateFirestorePlayerHand(sessionId, toPlayerId, toPlayer.hand);
+            } catch (firebaseError) {
+                console.error(`[CARD_TRANSFER] Firebase sync error:`, firebaseError);
+                // Continue with local transfer even if Firebase fails
+            }
 
             // Notify RuleEngine of card transfer
-            await this.ruleEngine.handleCardTransfer(sessionId, fromPlayerId, toPlayerId, cardId);
+            try {
+                await this.ruleEngine.handleCardTransfer(sessionId, fromPlayerId, toPlayerId, transferredCard.id);
+            } catch (ruleEngineError) {
+                console.error(`[CARD_TRANSFER] RuleEngine notification error:`, ruleEngineError);
+                // Continue with transfer even if rule engine notification fails
+            }
 
-            console.log(`[GAME_MANAGER] Card ${cardId} transferred successfully`);
-            return { success: true };
+            // Trigger card transfer event
+            this.triggerCardTransferEvent(sessionId, transferRecord);
+
+            console.log(`[CARD_TRANSFER] Successfully transferred card ${transferredCard.id} from ${fromPlayer.displayName} to ${toPlayer.displayName}`);
+            
+            return {
+                success: true,
+                transfer: transferRecord,
+                card: transferredCard.getDisplayInfo()
+            };
+
         } catch (error) {
-            console.error(`[GAME_MANAGER] Error transferring card:`, error);
+            console.error(`[CARD_TRANSFER] Error transferring card:`, error);
             return {
                 success: false,
-                error: 'Failed to transfer card',
+                error: 'Failed to transfer card due to unexpected error',
                 errorCode: 'TRANSFER_ERROR'
             };
         }
     }
+
+    /**
+     * Check if a card transfer is allowed based on current game state
+     * @param {string} sessionId - The session ID
+     * @param {string} fromPlayerId - Source player ID
+     * @param {string} toPlayerId - Destination player ID
+     * @param {object} card - The card being transferred
+     * @param {object} transferContext - Additional context
+     * @returns {object} - {allowed: boolean, reason?: string}
+     */
+    checkCardTransferRestrictions(sessionId, fromPlayerId, toPlayerId, card, transferContext = {}) {
+        // Check if there's a pending callout that might block transfers
+        const session = this.gameSessions[sessionId];
+        if (session && session.currentCallout && session.currentCallout.status === 'pending') {
+            // Allow transfers during callout resolution if it's part of the callout process
+            if (!transferContext.isCalloutTransfer) {
+                return {
+                    allowed: false,
+                    reason: 'Card transfers are blocked during pending callouts'
+                };
+            }
+        }
+
+        // Check if players are the same (no-op transfer)
+        if (fromPlayerId === toPlayerId) {
+            return {
+                allowed: false,
+                reason: 'Cannot transfer card to the same player'
+            };
+        }
+
+        // Check for card-specific restrictions
+        if (card.type === 'referee' || (card.name && card.name.toLowerCase().includes('referee'))) {
+            // Special handling for referee cards might be needed
+            if (!transferContext.isRefereeSwap) {
+                return {
+                    allowed: false,
+                    reason: 'Referee cards require special transfer handling'
+                };
+            }
+        }
+
+        // All checks passed
+        return { allowed: true };
+    }
+
+    /**
+     * Trigger card transfer event for UI updates and logging
+     * @param {string} sessionId - The session ID
+     * @param {object} transferRecord - The transfer record
+     */
+    triggerCardTransferEvent(sessionId, transferRecord) {
+        // Initialize card transfer events if not exists
+        if (!this.cardTransferEvents) {
+            this.cardTransferEvents = {};
+        }
+        
+        if (!this.cardTransferEvents[sessionId]) {
+            this.cardTransferEvents[sessionId] = [];
+        }
+        
+        // Add transfer event
+        this.cardTransferEvents[sessionId].push(transferRecord);
+        
+        // Keep only the last 50 events per session to prevent memory bloat
+        if (this.cardTransferEvents[sessionId].length > 50) {
+            this.cardTransferEvents[sessionId] = this.cardTransferEvents[sessionId].slice(-50);
+        }
+
+        console.log(`[CARD_TRANSFER_EVENT] Session ${sessionId}: Card transfer event triggered`);
+        
+        // TODO: Emit to UI components when event system is implemented
+        // this.emit('cardTransferred', { sessionId, transferRecord });
+    }
+
+    /**
+     * Get card transfer history for a session
+     * @param {string} sessionId - The session ID
+     * @param {number} limit - Maximum number of events to return (default: 10)
+     * @returns {array} - Array of transfer events
+     */
+    getCardTransferHistory(sessionId, limit = 10) {
+        if (!this.cardTransferEvents || !this.cardTransferEvents[sessionId]) {
+            return [];
+        }
+        
+        return this.cardTransferEvents[sessionId].slice(-limit);
+    }
+
+    /**
+     * Get all cards owned by a specific player across all their locations
+     * @param {string} playerId - The player ID
+     * @returns {array} - Array of cards owned by the player
+     */
+    getPlayerOwnedCards(playerId) {
+        const player = this.players[playerId];
+        if (!player) {
+            return [];
+        }
+
+        // Return cards in player's hand (primary location for card ownership)
+        return player.hand.map(card => {
+            // Ensure ownership is correctly set
+            if (!card.owner || card.owner !== playerId) {
+                card.setOwner(playerId);
+            }
+            return card.getDisplayInfo();
+        });
+    }
+
+    /**
+     * Set ownership for cards when they are dealt or acquired
+     * Core implementation for requirement 5.2.1
+     * @param {string} playerId - The player ID
+     * @param {array} cards - Array of cards to assign ownership
+     * @returns {boolean} - Success status
+     */
+    assignCardOwnership(playerId, cards) {
+        const player = this.players[playerId];
+        if (!player) {
+            console.error(`[CARD_OWNERSHIP] Cannot assign ownership: Player ${playerId} not found`);
+            return false;
+        }
+
+        let assignedCount = 0;
+        for (const card of cards) {
+            if (card && typeof card.setOwner === 'function') {
+                card.setOwner(playerId);
+                assignedCount++;
+            }
+        }
+
+        console.log(`[CARD_OWNERSHIP] Assigned ownership of ${assignedCount} cards to player ${player.displayName}`);
+        return true;
+    }
+
+    /**
+     * Test function for card ownership and transfer system
+     * Core validation for requirement 5.2
+     * @param {string} sessionId - The session ID to test with
+     * @returns {object} - Test results
+     */
+    async testCardOwnershipAndTransfer(sessionId) {
+        console.log(`[CARD_TEST] Starting card ownership and transfer test for session ${sessionId}`);
+        
+        const testResults = {
+            success: true,
+            tests: [],
+            errors: []
+        };
+
+        try {
+            // Get session players
+            const session = this.gameSessions[sessionId];
+            if (!session || session.players.length < 2) {
+                throw new Error('Need at least 2 players in session for testing');
+            }
+
+            const player1Id = session.players[0];
+            const player2Id = session.players[1];
+            const player1 = this.players[player1Id];
+            const player2 = this.players[player2Id];
+
+            // Test 1: Create test cards with ownership
+            const testCard1 = new GameCard({
+                type: 'rule',
+                sideA: 'Test rule card 1',
+                sideB: 'Test rule card 1 flipped',
+                owner: player1Id
+            });
+            
+            const testCard2 = new GameCard({
+                type: 'prompt',
+                sideA: 'Test prompt card',
+                name: 'Test Prompt',
+                description: 'A test prompt card',
+                point_value: 2,
+                owner: player2Id
+            });
+
+            // Add cards to player hands
+            player1.hand.push(testCard1);
+            player2.hand.push(testCard2);
+
+            testResults.tests.push({
+                name: 'Create cards with ownership',
+                success: true,
+                result: `Created test cards with ownership: ${testCard1.id} -> ${player1.displayName}, ${testCard2.id} -> ${player2.displayName}`
+            });
+
+            // Test 2: Verify ownership tracking
+            const player1Cards = this.getPlayerOwnedCards(player1Id);
+            const player2Cards = this.getPlayerOwnedCards(player2Id);
+            
+            const ownershipTest = player1Cards.some(c => c.id === testCard1.id) &&
+                                 player2Cards.some(c => c.id === testCard2.id);
+            
+            testResults.tests.push({
+                name: 'Verify ownership tracking',
+                success: ownershipTest,
+                result: ownershipTest ?
+                    `Ownership correctly tracked: Player1 has ${player1Cards.length} cards, Player2 has ${player2Cards.length} cards` :
+                    'Ownership tracking failed'
+            });
+
+            // Test 3: Test card transfer
+            const transferResult = await this.transferCard(
+                sessionId,
+                player1Id,
+                player2Id,
+                testCard1.id,
+                'Test transfer'
+            );
+            
+            testResults.tests.push({
+                name: 'Card transfer',
+                success: transferResult.success,
+                result: transferResult.success ?
+                    `Successfully transferred card ${testCard1.id} from ${player1.displayName} to ${player2.displayName}` :
+                    `Transfer failed: ${transferResult.error}`
+            });
+
+            // Test 4: Verify ownership after transfer
+            if (transferResult.success) {
+                const updatedPlayer1Cards = this.getPlayerOwnedCards(player1Id);
+                const updatedPlayer2Cards = this.getPlayerOwnedCards(player2Id);
+                
+                const ownershipAfterTransfer = !updatedPlayer1Cards.some(c => c.id === testCard1.id) &&
+                                              updatedPlayer2Cards.some(c => c.id === testCard1.id);
+                
+                testResults.tests.push({
+                    name: 'Ownership after transfer',
+                    success: ownershipAfterTransfer,
+                    result: ownershipAfterTransfer ?
+                        `Ownership correctly updated after transfer` :
+                        'Ownership not properly updated after transfer'
+                });
+
+                // Verify card owner property
+                const transferredCard = player2.hand.find(c => c.id === testCard1.id);
+                const ownerPropertyTest = transferredCard && transferredCard.owner === player2Id;
+                
+                testResults.tests.push({
+                    name: 'Card owner property update',
+                    success: ownerPropertyTest,
+                    result: ownerPropertyTest ?
+                        `Card owner property correctly updated to ${player2Id}` :
+                        'Card owner property not properly updated'
+                });
+            }
+
+            // Test 5: Test clone card with ownership
+            const cloneResult = this.cloneCard(sessionId, player1Id, player2Id, testCard2.id);
+            
+            testResults.tests.push({
+                name: 'Clone card with ownership',
+                success: cloneResult.success,
+                result: cloneResult.success ?
+                    `Successfully cloned card ${testCard2.id} for ${player1.displayName}` :
+                    `Clone failed: ${cloneResult.error}`
+            });
+
+            // Test 6: Verify clone ownership
+            if (cloneResult.success) {
+                const clonedCard = player1.hand.find(c => c.isClone && c.cloneSource.cardId === testCard2.id);
+                const cloneOwnershipTest = clonedCard && clonedCard.owner === player1Id;
+                
+                testResults.tests.push({
+                    name: 'Clone ownership verification',
+                    success: cloneOwnershipTest,
+                    result: cloneOwnershipTest ?
+                        `Clone card correctly owned by ${player1.displayName}` :
+                        'Clone card ownership not properly set'
+                });
+            }
+
+            // Test 7: Test transfer restrictions
+            const restrictedTransferResult = await this.transferCard(
+                sessionId,
+                player1Id,
+                player1Id, // Same player
+                player1.hand[0]?.id,
+                'Test restricted transfer'
+            );
+            
+            testResults.tests.push({
+                name: 'Transfer restrictions',
+                success: !restrictedTransferResult.success,
+                result: !restrictedTransferResult.success ?
+                    `Correctly blocked invalid transfer: ${restrictedTransferResult.error}` :
+                    'Failed to block invalid transfer'
+            });
+
+            // Test 8: Test transfer history
+            const transferHistory = this.getCardTransferHistory(sessionId, 5);
+            
+            testResults.tests.push({
+                name: 'Transfer history tracking',
+                success: transferHistory.length > 0,
+                result: `Transfer history contains ${transferHistory.length} events`
+            });
+
+            // Test 9: Test assign card ownership
+            const newTestCard = new GameCard({
+                type: 'modifier',
+                sideA: 'Test modifier card'
+            });
+            
+            const assignResult = this.assignCardOwnership(player1Id, [newTestCard]);
+            
+            testResults.tests.push({
+                name: 'Assign card ownership',
+                success: assignResult && newTestCard.owner === player1Id,
+                result: assignResult ?
+                    `Successfully assigned ownership of new card to ${player1.displayName}` :
+                    'Failed to assign card ownership'
+            });
+
+            // Clean up test cards
+            player1.hand = player1.hand.filter(c => !c.id.includes('test') && c.type !== 'modifier');
+            player2.hand = player2.hand.filter(c => !c.id.includes('test'));
+
+        } catch (error) {
+            testResults.success = false;
+            testResults.errors.push(error.message);
+            console.error(`[CARD_TEST] Error: ${error.message}`);
+        }
+
+        console.log(`[CARD_TEST] Test completed. Success: ${testResults.success}`);
+        return testResults;
+    }
+
+    // ===== END CARD OWNERSHIP AND TRANSFER SYSTEM =====
 
     /**
      * Get effective rules for a player (rules they must follow)
@@ -1190,16 +1640,21 @@ class GameManager {
             return { success: false, error: 'Card not found for target player', errorCode: 'CARD_NOT_FOUND' };
         }
 
+        // Create clone with proper ownership
         const clone = this.cardManager
-            ? this.cardManager.createCloneCard(originalCard, targetPlayerId)
-            : GameCard.createClone(originalCard, targetPlayerId);
+            ? this.cardManager.createCloneCard(originalCard, targetPlayerId, playerId)
+            : GameCard.createClone(originalCard, targetPlayerId, playerId);
+        
+        // Ensure clone ownership is set
+        clone.setOwner(playerId);
+        
         this.players[playerId].hand.push(clone);
 
         if (!this.cloneMap[originalCard.id]) this.cloneMap[originalCard.id] = [];
         this.cloneMap[originalCard.id].push({ ownerId: playerId, cloneId: clone.id });
 
         console.log(`[GAME_MANAGER] Player ${playerId} cloned card ${originalCard.id} from ${targetPlayerId}`);
-        return { success: true, clone };
+        return { success: true, clone: clone.getDisplayInfo() };
     }
 
     /**

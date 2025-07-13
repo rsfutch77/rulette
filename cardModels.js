@@ -10,7 +10,7 @@
  * - isFlipped: Boolean indicating if the card has been flipped from its default state
  */
 class GameCard {
-    constructor({ type, sideA, sideB = null, isClone = false, cloneSource = null, id = null, name = null, description = null, rules_for_referee = null, point_value = null, discard_rule_on_success = null }) {
+    constructor({ type, sideA, sideB = null, isClone = false, cloneSource = null, id = null, name = null, description = null, rules_for_referee = null, point_value = null, discard_rule_on_success = null, owner = null }) {
         this.type = type; // 'rule', 'prompt', 'modifier'
         
         // Front/Back rule properties for clear distinction
@@ -24,6 +24,9 @@ class GameCard {
         this.currentSide = 'front'; // 'front' or 'back' (maps to 'A' or 'B' internally)
         this.isFlipped = false; // boolean - true when showing back rule
         this.id = id || this.generateId(); // unique identifier
+
+        // Card ownership tracking
+        this.owner = owner; // string - player ID who currently owns this card
 
         // Clone tracking
         this.isClone = isClone; // boolean - true if this card is a clone of another card
@@ -98,18 +101,52 @@ class GameCard {
     }
 
     /**
+     * Set the owner of this card
+     * @param {string} playerId - The player ID who now owns this card
+     */
+    setOwner(playerId) {
+        this.owner = playerId;
+    }
+
+    /**
+     * Get the current owner of this card
+     * @returns {string|null} - The player ID who owns this card, or null if unowned
+     */
+    getOwner() {
+        return this.owner;
+    }
+
+    /**
+     * Check if this card is owned by a specific player
+     * @param {string} playerId - The player ID to check
+     * @returns {boolean} - True if the card is owned by the specified player
+     */
+    isOwnedBy(playerId) {
+        return this.owner === playerId;
+    }
+
+    /**
+     * Clear the ownership of this card
+     */
+    clearOwner() {
+        this.owner = null;
+    }
+
+    /**
      * Create a cloned copy of a card linking back to the original
      * @param {GameCard} card - The card to clone
-     * @param {string} ownerId - The player ID of the original card's owner
+     * @param {string} originalOwnerId - The player ID of the original card's owner
+     * @param {string} newOwnerId - The player ID who will own the clone
      * @returns {GameCard} - New cloned card
      */
-    static createClone(card, ownerId) {
+    static createClone(card, originalOwnerId, newOwnerId = null) {
         const clone = new GameCard({
             type: card.type,
             sideA: card.frontRule,
             sideB: card.backRule,
             isClone: true,
-            cloneSource: { cardId: card.id, ownerId }
+            cloneSource: { cardId: card.id, ownerId: originalOwnerId },
+            owner: newOwnerId
         });
         clone.currentSide = card.currentSide;
         clone.isFlipped = card.isFlipped;
@@ -131,6 +168,7 @@ class GameCard {
             isFlipped: this.isFlipped,
             isClone: this.isClone,
             cloneSource: this.cloneSource,
+            owner: this.owner,
             hasBackRule: this.backRule !== null,
             // Legacy compatibility
             hasFlipSide: this.sideB !== null

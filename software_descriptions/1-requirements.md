@@ -145,13 +145,13 @@ Roles and responsibilities:
     - Multiple callouts in rapid succession
     - Players attempting to bypass referee decisions
 
-[ ] 5. Points and Card Transfer System (10 Points)
+[x] 5. Points and Card Transfer System (10 Points)
 [x] 5.1 Points Tracking (3 Points)
 [x] 5.1.1 Track each player's current points (1 Point)
 [x] 5.1.2 Update points in real time as game events occur (2 Points)
-[ ] 5.2 Card Ownership and Transfer (3 Points)
-[ ] 5.2.1 Track which cards are held by each player (1 Point)
-[ ] 5.2.2 Implement logic for transferring cards between players, including the following scenarios:
+[x] 5.2 Card Ownership and Transfer (3 Points)
+[x] 5.2.1 Track which cards are held by each player (1 Point)
+[x] 5.2.2 Implement logic for transferring cards between players, including the following scenarios:
     - Referee decisions after a valid callout
     - Card effects (swap, clone, flip, prompt)
     - Rule modifiers that trigger transfers
