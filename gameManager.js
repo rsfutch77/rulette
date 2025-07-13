@@ -184,14 +184,31 @@ class GameManager {
             playerId: playerId,
             displayName: displayName,
             points: 0, // Will be set by initializePlayerPoints
-            status: 'active', // active, disconnected
+            status: 'active', // active, disconnected, left
             hasRefereeCard: false,
             hand: [], // Player's hand of cards
+            connectionInfo: {
+                lastSeen: Date.now(),
+                connectionCount: 1,
+                firstConnected: Date.now(),
+                disconnectedAt: null,
+                reconnectedAt: null,
+                totalDisconnects: 0
+            },
+            gameState: {
+                savedRole: null, // Store role for reconnection (e.g., 'referee')
+                savedCards: [], // Store cards for reconnection
+                savedPoints: 0, // Store points for reconnection
+                wasHost: false // Track if player was host before disconnect
+            }
         };
         this.players[playerId] = newPlayer;
 
         // Initialize points using the new tracking system
         this.initializePlayerPoints(playerId, 20);
+
+        // Initialize player presence tracking
+        this.initializePlayerPresence(sessionId, playerId);
 
         // Synchronize with Firebase (false for isHost, as this is for joining players)
         await initializeFirestorePlayer(sessionId, playerId, displayName, false);
@@ -362,25 +379,28 @@ class GameManager {
                 };
             }
 
-            // Remove player from session
+            // Update player status to 'left' instead of immediately removing
+            await this.updatePlayerStatus(sessionId, playerId, 'left', 'Player left session');
+
+            // Stop presence tracking
+            this.stopPlayerPresenceTracking(sessionId, playerId);
+
+            // Remove player from session players list
             if (session.players) {
                 session.players = session.players.filter(id => id !== playerId);
             }
 
-            // Remove player from local storage
-            delete this.players[playerId];
-
-            // If host left, assign new host or end session
+            // Handle special roles before removing player
             if (session.hostId === playerId) {
-                if (session.players.length > 0) {
-                    session.hostId = session.players[0];
-                    console.log(`[SESSION] New host assigned: ${session.hostId}`);
-                } else {
-                    // No players left, mark session for cleanup
-                    session.status = 'completed';
-                    console.log(`[SESSION] Session ${sessionId} marked for cleanup - no players remaining`);
-                }
+                await this.handleHostDisconnect(sessionId, playerId);
             }
+
+            if (session.referee === playerId) {
+                await this.handleRefereeDisconnect(sessionId, playerId);
+            }
+
+            // Keep player data for potential reconnection, but mark as left
+            // Don't delete this.players[playerId] immediately
 
             // Update Firebase
             await this.updateSessionPlayerList(sessionId, session.players);
@@ -399,6 +419,69 @@ class GameManager {
                 error: 'Failed to leave session',
                 errorCode: 'LEAVE_ERROR'
             };
+        }
+    }
+
+    /**
+     * Handle player leave (called when player status is set to 'left')
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID who left
+     */
+    async handlePlayerLeave(sessionId, playerId) {
+        try {
+            const player = this.players[playerId];
+            const session = this.gameSessions[sessionId];
+            
+            if (!player || !session) return;
+            
+            console.log(`[PLAYER_LEAVE] Player ${player.displayName} left session ${sessionId}`);
+            
+            // Save final state before they leave
+            await this.savePlayerStateForReconnection(sessionId, playerId);
+            
+            // Notify other players
+            this.notifyPlayersOfLeave(sessionId, playerId);
+            
+            // Check if session should end due to no active players
+            const activePlayers = session.players.filter(id =>
+                this.players[id] && this.players[id].status === 'active'
+            );
+            
+            if (activePlayers.length === 0) {
+                session.status = 'completed';
+                session.endReason = 'All players left the session';
+                console.log(`[SESSION_END] Session ${sessionId} ended - no active players remaining`);
+            }
+            
+        } catch (error) {
+            console.error(`[PLAYER_LEAVE] Error handling player leave:`, error);
+        }
+    }
+
+    /**
+     * Notify players when someone leaves
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID who left
+     */
+    notifyPlayersOfLeave(sessionId, playerId) {
+        try {
+            const player = this.players[playerId];
+            if (!player) return;
+            
+            const notification = {
+                type: 'player_leave',
+                message: `${player.displayName} has left the session`,
+                playerId,
+                timestamp: Date.now()
+            };
+            
+            console.log(`[NOTIFY] Leave notification: ${notification.message}`);
+            
+            // TODO: Send notification to all active players in session
+            // this.broadcastToSession(sessionId, notification);
+            
+        } catch (error) {
+            console.error(`[NOTIFY] Error notifying players of leave:`, error);
         }
     }
 
@@ -512,6 +595,853 @@ class GameManager {
         console.log('[SESSION TEST] Test Results:', testResults);
         return testResults;
     }
+
+    // ===== PLAYER MANAGEMENT SYSTEM =====
+
+    /**
+     * Initialize player presence tracking for Firebase integration
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     */
+    initializePlayerPresence(sessionId, playerId) {
+        try {
+            // Initialize presence tracking data
+            if (!this.playerPresence) {
+                this.playerPresence = {};
+            }
+            
+            if (!this.playerPresence[sessionId]) {
+                this.playerPresence[sessionId] = {};
+            }
+            
+            this.playerPresence[sessionId][playerId] = {
+                isOnline: true,
+                lastHeartbeat: Date.now(),
+                heartbeatInterval: null,
+                disconnectTimeout: null
+            };
+            
+            // Start heartbeat monitoring
+            this.startPlayerHeartbeat(sessionId, playerId);
+            
+            console.log(`[PRESENCE] Initialized presence tracking for player ${playerId} in session ${sessionId}`);
+        } catch (error) {
+            console.error(`[PRESENCE] Error initializing presence for player ${playerId}:`, error);
+        }
+    }
+
+    /**
+     * Start heartbeat monitoring for a player
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     */
+    startPlayerHeartbeat(sessionId, playerId) {
+        try {
+            const presence = this.playerPresence?.[sessionId]?.[playerId];
+            if (!presence) return;
+            
+            // Clear existing interval if any
+            if (presence.heartbeatInterval) {
+                clearInterval(presence.heartbeatInterval);
+            }
+            
+            // Send heartbeat every 30 seconds
+            presence.heartbeatInterval = setInterval(() => {
+                this.sendPlayerHeartbeat(sessionId, playerId);
+            }, 30000);
+            
+            // Set disconnect timeout (2 minutes without heartbeat)
+            this.resetDisconnectTimeout(sessionId, playerId);
+            
+        } catch (error) {
+            console.error(`[PRESENCE] Error starting heartbeat for player ${playerId}:`, error);
+        }
+    }
+
+    /**
+     * Send heartbeat for a player
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     */
+    sendPlayerHeartbeat(sessionId, playerId) {
+        try {
+            const player = this.players[playerId];
+            const presence = this.playerPresence?.[sessionId]?.[playerId];
+            
+            if (!player || !presence) return;
+            
+            // Update last seen timestamp
+            player.connectionInfo.lastSeen = Date.now();
+            presence.lastHeartbeat = Date.now();
+            
+            // Reset disconnect timeout
+            this.resetDisconnectTimeout(sessionId, playerId);
+            
+            // TODO: Send heartbeat to Firebase
+            // await updateFirestorePlayerHeartbeat(sessionId, playerId, Date.now());
+            
+        } catch (error) {
+            console.error(`[PRESENCE] Error sending heartbeat for player ${playerId}:`, error);
+        }
+    }
+
+    /**
+     * Reset disconnect timeout for a player
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     */
+    resetDisconnectTimeout(sessionId, playerId) {
+        try {
+            const presence = this.playerPresence?.[sessionId]?.[playerId];
+            if (!presence) return;
+            
+            // Clear existing timeout
+            if (presence.disconnectTimeout) {
+                clearTimeout(presence.disconnectTimeout);
+            }
+            
+            // Set new timeout (2 minutes)
+            presence.disconnectTimeout = setTimeout(() => {
+                this.handlePlayerDisconnect(sessionId, playerId, 'timeout');
+            }, 120000);
+            
+        } catch (error) {
+            console.error(`[PRESENCE] Error resetting disconnect timeout for player ${playerId}:`, error);
+        }
+    }
+
+    /**
+     * Update player status
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} newStatus - New status ('active', 'disconnected', 'left')
+     * @param {string} reason - Reason for status change
+     * @returns {object} - Result object with success status
+     */
+    async updatePlayerStatus(sessionId, playerId, newStatus, reason = 'Status update') {
+        try {
+            const player = this.players[playerId];
+            const session = this.gameSessions[sessionId];
+            
+            if (!player) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+            
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+            
+            const oldStatus = player.status;
+            player.status = newStatus;
+            
+            // Update connection info based on status
+            if (newStatus === 'disconnected') {
+                player.connectionInfo.disconnectedAt = Date.now();
+                player.connectionInfo.totalDisconnects++;
+            } else if (newStatus === 'active' && oldStatus === 'disconnected') {
+                player.connectionInfo.reconnectedAt = Date.now();
+                player.connectionInfo.connectionCount++;
+            }
+            
+            console.log(`[PLAYER_STATUS] ${player.displayName} status: ${oldStatus} -> ${newStatus} (${reason})`);
+            
+            // Trigger status change event
+            this.triggerPlayerStatusChangeEvent(sessionId, playerId, oldStatus, newStatus, reason);
+            
+            // Handle special cases based on new status
+            if (newStatus === 'disconnected') {
+                await this.savePlayerStateForReconnection(sessionId, playerId);
+            } else if (newStatus === 'left') {
+                await this.handlePlayerLeave(sessionId, playerId);
+            }
+            
+            // TODO: Sync with Firebase
+            // await updateFirestorePlayerStatus(sessionId, playerId, newStatus);
+            
+            return {
+                success: true,
+                oldStatus,
+                newStatus,
+                reason,
+                timestamp: Date.now()
+            };
+            
+        } catch (error) {
+            console.error(`[PLAYER_STATUS] Error updating status for player ${playerId}:`, error);
+            return {
+                success: false,
+                error: 'Failed to update player status',
+                errorCode: 'STATUS_UPDATE_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Handle player disconnect
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} reason - Reason for disconnect
+     */
+    async handlePlayerDisconnect(sessionId, playerId, reason = 'Unknown') {
+        try {
+            const player = this.players[playerId];
+            const session = this.gameSessions[sessionId];
+            
+            if (!player || !session) return;
+            
+            console.log(`[DISCONNECT] Player ${player.displayName} disconnected: ${reason}`);
+            
+            // Update player status to disconnected
+            await this.updatePlayerStatus(sessionId, playerId, 'disconnected', `Disconnected: ${reason}`);
+            
+            // Save current state for potential reconnection
+            await this.savePlayerStateForReconnection(sessionId, playerId);
+            
+            // Handle special roles
+            if (session.hostId === playerId) {
+                await this.handleHostDisconnect(sessionId, playerId);
+            }
+            
+            if (session.referee === playerId) {
+                await this.handleRefereeDisconnect(sessionId, playerId);
+            }
+            
+            // Stop presence tracking
+            this.stopPlayerPresenceTracking(sessionId, playerId);
+            
+            // Notify other players
+            this.notifyPlayersOfDisconnect(sessionId, playerId, reason);
+            
+        } catch (error) {
+            console.error(`[DISCONNECT] Error handling disconnect for player ${playerId}:`, error);
+        }
+    }
+
+    /**
+     * Handle player reconnection
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @returns {object} - Reconnection result
+     */
+    async handlePlayerReconnection(sessionId, playerId) {
+        try {
+            const player = this.players[playerId];
+            const session = this.gameSessions[sessionId];
+            
+            if (!player || !session) {
+                return {
+                    success: false,
+                    error: 'Player or session not found',
+                    errorCode: 'NOT_FOUND'
+                };
+            }
+            
+            console.log(`[RECONNECT] Player ${player.displayName} attempting to reconnect`);
+            
+            // Restore player state
+            const restorationResult = await this.restorePlayerState(sessionId, playerId);
+            if (!restorationResult.success) {
+                return restorationResult;
+            }
+            
+            // Update status to active
+            await this.updatePlayerStatus(sessionId, playerId, 'active', 'Reconnected');
+            
+            // Restart presence tracking
+            this.initializePlayerPresence(sessionId, playerId);
+            
+            // Handle special role restoration
+            if (player.gameState.savedRole === 'referee') {
+                session.referee = playerId;
+                player.hasRefereeCard = true;
+                console.log(`[RECONNECT] Restored referee role to ${player.displayName}`);
+            }
+            
+            if (player.gameState.wasHost && !session.hostId) {
+                session.hostId = playerId;
+                console.log(`[RECONNECT] Restored host role to ${player.displayName}`);
+            }
+            
+            // Notify other players
+            this.notifyPlayersOfReconnection(sessionId, playerId);
+            
+            return {
+                success: true,
+                message: `${player.displayName} successfully reconnected`,
+                restoredState: restorationResult.restoredState
+            };
+            
+        } catch (error) {
+            console.error(`[RECONNECT] Error handling reconnection for player ${playerId}:`, error);
+            return {
+                success: false,
+                error: 'Failed to reconnect player',
+                errorCode: 'RECONNECTION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Save player state for potential reconnection
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     */
+    async savePlayerStateForReconnection(sessionId, playerId) {
+        try {
+            const player = this.players[playerId];
+            const session = this.gameSessions[sessionId];
+            
+            if (!player || !session) return;
+            
+            // Save current game state
+            player.gameState.savedPoints = player.points;
+            player.gameState.savedCards = [...player.hand];
+            player.gameState.savedRole = session.referee === playerId ? 'referee' : null;
+            player.gameState.wasHost = session.hostId === playerId;
+            
+            console.log(`[STATE_SAVE] Saved state for ${player.displayName}: ${player.points} points, ${player.hand.length} cards, role: ${player.gameState.savedRole || 'none'}`);
+            
+        } catch (error) {
+            console.error(`[STATE_SAVE] Error saving state for player ${playerId}:`, error);
+        }
+    }
+
+    /**
+     * Restore player state after reconnection
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @returns {object} - Restoration result
+     */
+    async restorePlayerState(sessionId, playerId) {
+        try {
+            const player = this.players[playerId];
+            
+            if (!player) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+            
+            const savedState = player.gameState;
+            
+            // Restore points
+            if (savedState.savedPoints !== undefined) {
+                player.points = savedState.savedPoints;
+            }
+            
+            // Restore cards
+            if (savedState.savedCards && savedState.savedCards.length > 0) {
+                player.hand = [...savedState.savedCards];
+            }
+            
+            const restoredState = {
+                points: player.points,
+                cards: player.hand.length,
+                role: savedState.savedRole,
+                wasHost: savedState.wasHost
+            };
+            
+            console.log(`[STATE_RESTORE] Restored state for ${player.displayName}:`, restoredState);
+            
+            return {
+                success: true,
+                restoredState
+            };
+            
+        } catch (error) {
+            console.error(`[STATE_RESTORE] Error restoring state for player ${playerId}:`, error);
+            return {
+                success: false,
+                error: 'Failed to restore player state',
+                errorCode: 'RESTORATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Handle host disconnect scenario
+     * @param {string} sessionId - The session ID
+     * @param {string} hostId - The disconnected host ID
+     */
+    async handleHostDisconnect(sessionId, hostId) {
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session) return;
+            
+            console.log(`[HOST_DISCONNECT] Host ${hostId} disconnected from session ${sessionId}`);
+            
+            // Find active players to potentially assign as new host
+            const activePlayers = session.players.filter(playerId =>
+                this.players[playerId] && this.players[playerId].status === 'active'
+            );
+            
+            if (activePlayers.length > 0) {
+                // Assign first active player as new host
+                const newHostId = activePlayers[0];
+                session.hostId = newHostId;
+                
+                console.log(`[HOST_REASSIGN] New host assigned: ${this.players[newHostId].displayName}`);
+                
+                // Notify players of host change
+                this.notifyPlayersOfHostChange(sessionId, hostId, newHostId);
+                
+            } else {
+                // No active players, pause session
+                session.status = 'paused';
+                session.pausedReason = 'Host disconnected, no active players';
+                
+                console.log(`[SESSION_PAUSE] Session ${sessionId} paused - no active players for host reassignment`);
+            }
+            
+        } catch (error) {
+            console.error(`[HOST_DISCONNECT] Error handling host disconnect:`, error);
+        }
+    }
+
+    /**
+     * Handle referee disconnect scenario
+     * @param {string} sessionId - The session ID
+     * @param {string} refereeId - The disconnected referee ID
+     */
+    async handleRefereeDisconnect(sessionId, refereeId) {
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session) return;
+            
+            console.log(`[REFEREE_DISCONNECT] Referee ${refereeId} disconnected from session ${sessionId}`);
+            
+            // Find active players to potentially assign as new referee
+            const activePlayers = session.players.filter(playerId =>
+                playerId !== refereeId &&
+                this.players[playerId] &&
+                this.players[playerId].status === 'active'
+            );
+            
+            if (activePlayers.length > 0) {
+                // Assign random active player as new referee
+                const newRefereeId = activePlayers[Math.floor(Math.random() * activePlayers.length)];
+                session.referee = newRefereeId;
+                this.players[newRefereeId].hasRefereeCard = true;
+                
+                console.log(`[REFEREE_REASSIGN] New referee assigned: ${this.players[newRefereeId].displayName}`);
+                
+                // Notify players of referee change
+                this.notifyPlayersOfRefereeChange(sessionId, refereeId, newRefereeId);
+                
+            } else {
+                // No active players, pause adjudication
+                session.referee = null;
+                session.adjudicationPaused = true;
+                session.adjudicationPausedReason = 'Referee disconnected, no active players';
+                
+                console.log(`[ADJUDICATION_PAUSE] Adjudication paused in session ${sessionId} - no active players for referee reassignment`);
+            }
+            
+        } catch (error) {
+            console.error(`[REFEREE_DISCONNECT] Error handling referee disconnect:`, error);
+        }
+    }
+
+    /**
+     * Stop presence tracking for a player
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     */
+    stopPlayerPresenceTracking(sessionId, playerId) {
+        try {
+            const presence = this.playerPresence?.[sessionId]?.[playerId];
+            if (!presence) return;
+            
+            // Clear intervals and timeouts
+            if (presence.heartbeatInterval) {
+                clearInterval(presence.heartbeatInterval);
+            }
+            
+            if (presence.disconnectTimeout) {
+                clearTimeout(presence.disconnectTimeout);
+            }
+            
+            // Mark as offline
+            presence.isOnline = false;
+            
+            console.log(`[PRESENCE] Stopped presence tracking for player ${playerId}`);
+            
+        } catch (error) {
+            console.error(`[PRESENCE] Error stopping presence tracking for player ${playerId}:`, error);
+        }
+    }
+
+    /**
+     * Get all players with their current status for a session
+     * @param {string} sessionId - The session ID
+     * @returns {object} - Object mapping player IDs to their status info
+     */
+    getSessionPlayerStatuses(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return {};
+        }
+
+        const playerStatuses = {};
+        for (const playerId of session.players) {
+            const player = this.players[playerId];
+            if (player) {
+                playerStatuses[playerId] = {
+                    displayName: player.displayName,
+                    status: player.status,
+                    points: player.points,
+                    isHost: session.hostId === playerId,
+                    isReferee: session.referee === playerId,
+                    lastSeen: player.connectionInfo.lastSeen,
+                    connectionCount: player.connectionInfo.connectionCount,
+                    totalDisconnects: player.connectionInfo.totalDisconnects
+                };
+            }
+        }
+
+        return playerStatuses;
+    }
+
+    /**
+     * Trigger player status change event
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} oldStatus - Previous status
+     * @param {string} newStatus - New status
+     * @param {string} reason - Reason for change
+     */
+    triggerPlayerStatusChangeEvent(sessionId, playerId, oldStatus, newStatus, reason) {
+        try {
+            if (!this.playerStatusEvents) {
+                this.playerStatusEvents = {};
+            }
+            
+            if (!this.playerStatusEvents[sessionId]) {
+                this.playerStatusEvents[sessionId] = [];
+            }
+            
+            const statusEvent = {
+                playerId,
+                oldStatus,
+                newStatus,
+                reason,
+                timestamp: Date.now()
+            };
+            
+            this.playerStatusEvents[sessionId].push(statusEvent);
+            
+            // Keep only the last 50 events per session
+            if (this.playerStatusEvents[sessionId].length > 50) {
+                this.playerStatusEvents[sessionId] = this.playerStatusEvents[sessionId].slice(-50);
+            }
+            
+            console.log(`[STATUS_EVENT] Session ${sessionId}: Player ${playerId} status changed from ${oldStatus} to ${newStatus}`);
+            
+            // TODO: Emit to UI components when event system is implemented
+            // this.emit('playerStatusChanged', { sessionId, statusEvent });
+            
+        } catch (error) {
+            console.error(`[STATUS_EVENT] Error triggering status change event:`, error);
+        }
+    }
+
+    /**
+     * Notify players of disconnect
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The disconnected player ID
+     * @param {string} reason - Disconnect reason
+     */
+    notifyPlayersOfDisconnect(sessionId, playerId, reason) {
+        try {
+            const player = this.players[playerId];
+            if (!player) return;
+            
+            const notification = {
+                type: 'player_disconnect',
+                message: `${player.displayName} has disconnected (${reason})`,
+                playerId,
+                reason,
+                timestamp: Date.now()
+            };
+            
+            console.log(`[NOTIFY] Disconnect notification: ${notification.message}`);
+            
+            // TODO: Send notification to all active players in session
+            // this.broadcastToSession(sessionId, notification);
+            
+        } catch (error) {
+            console.error(`[NOTIFY] Error notifying players of disconnect:`, error);
+        }
+    }
+
+    /**
+     * Notify players of reconnection
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The reconnected player ID
+     */
+    notifyPlayersOfReconnection(sessionId, playerId) {
+        try {
+            const player = this.players[playerId];
+            if (!player) return;
+            
+            const notification = {
+                type: 'player_reconnect',
+                message: `${player.displayName} has reconnected`,
+                playerId,
+                timestamp: Date.now()
+            };
+            
+            console.log(`[NOTIFY] Reconnection notification: ${notification.message}`);
+            
+            // TODO: Send notification to all active players in session
+            // this.broadcastToSession(sessionId, notification);
+            
+        } catch (error) {
+            console.error(`[NOTIFY] Error notifying players of reconnection:`, error);
+        }
+    }
+
+    /**
+     * Notify players of host change
+     * @param {string} sessionId - The session ID
+     * @param {string} oldHostId - The previous host ID
+     * @param {string} newHostId - The new host ID
+     */
+    notifyPlayersOfHostChange(sessionId, oldHostId, newHostId) {
+        try {
+            const oldHost = this.players[oldHostId];
+            const newHost = this.players[newHostId];
+            
+            if (!newHost) return;
+            
+            const notification = {
+                type: 'host_change',
+                message: `${newHost.displayName} is now the host${oldHost ? ` (${oldHost.displayName} disconnected)` : ''}`,
+                oldHostId,
+                newHostId,
+                timestamp: Date.now()
+            };
+            
+            console.log(`[NOTIFY] Host change notification: ${notification.message}`);
+            
+            // TODO: Send notification to all active players in session
+            // this.broadcastToSession(sessionId, notification);
+            
+        } catch (error) {
+            console.error(`[NOTIFY] Error notifying players of host change:`, error);
+        }
+    }
+
+    /**
+     * Notify players of referee change
+     * @param {string} sessionId - The session ID
+     * @param {string} oldRefereeId - The previous referee ID
+     * @param {string} newRefereeId - The new referee ID
+     */
+    notifyPlayersOfRefereeChange(sessionId, oldRefereeId, newRefereeId) {
+        try {
+            const oldReferee = this.players[oldRefereeId];
+            const newReferee = this.players[newRefereeId];
+            
+            if (!newReferee) return;
+            
+            const notification = {
+                type: 'referee_change',
+                message: `${newReferee.displayName} is now the referee${oldReferee ? ` (${oldReferee.displayName} disconnected)` : ''}`,
+                oldRefereeId,
+                newRefereeId,
+                timestamp: Date.now()
+            };
+            
+            console.log(`[NOTIFY] Referee change notification: ${notification.message}`);
+            
+            // TODO: Send notification to all active players in session
+            // this.broadcastToSession(sessionId, notification);
+            
+        } catch (error) {
+            console.error(`[NOTIFY] Error notifying players of referee change:`, error);
+        }
+    }
+
+    /**
+     * Test function for player management system
+     * @param {string} sessionId - The session ID to test with
+     * @returns {object} - Test results
+     */
+    async testPlayerManagement(sessionId) {
+        console.log(`[PLAYER_MGMT_TEST] Starting player management test for session ${sessionId}`);
+        
+        const testResults = {
+            testName: 'Player Management System Test',
+            timestamp: new Date().toISOString(),
+            tests: [],
+            summary: {
+                total: 0,
+                passed: 0,
+                failed: 0
+            }
+        };
+
+        try {
+            // Get session and ensure we have players
+            const session = this.gameSessions[sessionId];
+            if (!session || session.players.length < 2) {
+                throw new Error('Need at least 2 players in session for testing');
+            }
+
+            const player1Id = session.players[0];
+            const player2Id = session.players[1];
+            const player1 = this.players[player1Id];
+            const player2 = this.players[player2Id];
+
+            // Test 1: Get initial player statuses
+            const initialStatuses = this.getSessionPlayerStatuses(sessionId);
+            testResults.tests.push({
+                name: 'Get session player statuses',
+                success: Object.keys(initialStatuses).length >= 2,
+                result: `Retrieved statuses for ${Object.keys(initialStatuses).length} players`
+            });
+
+            // Test 2: Update player status
+            const statusUpdateResult = await this.updatePlayerStatus(sessionId, player1Id, 'disconnected', 'Test disconnect');
+            testResults.tests.push({
+                name: 'Update player status',
+                success: statusUpdateResult.success && statusUpdateResult.newStatus === 'disconnected',
+                result: statusUpdateResult.success ?
+                    `Updated ${player1.displayName} status to disconnected` :
+                    statusUpdateResult.error
+            });
+
+            // Test 3: Save player state for reconnection
+            await this.savePlayerStateForReconnection(sessionId, player1Id);
+            const savedState = player1.gameState;
+            testResults.tests.push({
+                name: 'Save player state for reconnection',
+                success: savedState.savedPoints !== undefined && Array.isArray(savedState.savedCards),
+                result: `Saved state: ${savedState.savedPoints} points, ${savedState.savedCards.length} cards`
+            });
+
+            // Test 4: Handle player reconnection
+            const reconnectionResult = await this.handlePlayerReconnection(sessionId, player1Id);
+            testResults.tests.push({
+                name: 'Handle player reconnection',
+                success: reconnectionResult.success && player1.status === 'active',
+                result: reconnectionResult.success ?
+                    `${player1.displayName} successfully reconnected` :
+                    reconnectionResult.error
+            });
+
+            // Test 5: Test host disconnect scenario
+            const originalHostId = session.hostId;
+            await this.handleHostDisconnect(sessionId, originalHostId);
+            const newHostAssigned = session.hostId !== originalHostId || session.status === 'paused';
+            testResults.tests.push({
+                name: 'Handle host disconnect',
+                success: newHostAssigned,
+                result: session.hostId !== originalHostId ?
+                    `New host assigned: ${this.players[session.hostId]?.displayName}` :
+                    'Session paused due to no active players'
+            });
+
+            // Test 6: Test referee disconnect scenario (if there's a referee)
+            if (session.referee) {
+                const originalRefereeId = session.referee;
+                await this.handleRefereeDisconnect(sessionId, originalRefereeId);
+                const refereeHandled = session.referee !== originalRefereeId || session.adjudicationPaused;
+                testResults.tests.push({
+                    name: 'Handle referee disconnect',
+                    success: refereeHandled,
+                    result: session.referee !== originalRefereeId ?
+                        `New referee assigned: ${this.players[session.referee]?.displayName}` :
+                        'Adjudication paused due to no active players'
+                });
+            } else {
+                testResults.tests.push({
+                    name: 'Handle referee disconnect',
+                    success: true,
+                    result: 'No referee in session, test skipped'
+                });
+            }
+
+            // Test 7: Test presence tracking initialization
+            this.initializePlayerPresence(sessionId, player2Id);
+            const presenceExists = this.playerPresence?.[sessionId]?.[player2Id];
+            testResults.tests.push({
+                name: 'Initialize player presence tracking',
+                success: !!presenceExists,
+                result: presenceExists ?
+                    `Presence tracking initialized for ${player2.displayName}` :
+                    'Failed to initialize presence tracking'
+            });
+
+            // Test 8: Test heartbeat functionality
+            this.sendPlayerHeartbeat(sessionId, player2Id);
+            const heartbeatSent = player2.connectionInfo.lastSeen > Date.now() - 5000;
+            testResults.tests.push({
+                name: 'Send player heartbeat',
+                success: heartbeatSent,
+                result: heartbeatSent ?
+                    `Heartbeat sent for ${player2.displayName}` :
+                    'Failed to send heartbeat'
+            });
+
+            // Test 9: Test disconnect detection
+            await this.handlePlayerDisconnect(sessionId, player2Id, 'Test disconnect detection');
+            testResults.tests.push({
+                name: 'Handle player disconnect',
+                success: player2.status === 'disconnected',
+                result: player2.status === 'disconnected' ?
+                    `${player2.displayName} marked as disconnected` :
+                    'Failed to mark player as disconnected'
+            });
+
+            // Test 10: Test status event tracking
+            const statusEvents = this.playerStatusEvents?.[sessionId];
+            testResults.tests.push({
+                name: 'Player status event tracking',
+                success: Array.isArray(statusEvents) && statusEvents.length > 0,
+                result: statusEvents ?
+                    `Tracked ${statusEvents.length} status change events` :
+                    'No status events tracked'
+            });
+
+            // Clean up test modifications
+            await this.updatePlayerStatus(sessionId, player1Id, 'active', 'Test cleanup');
+            await this.updatePlayerStatus(sessionId, player2Id, 'active', 'Test cleanup');
+            
+            // Restore original host if needed
+            if (session.hostId !== originalHostId && this.players[originalHostId]) {
+                session.hostId = originalHostId;
+            }
+
+        } catch (error) {
+            testResults.tests.push({
+                name: 'Player management test execution',
+                success: false,
+                result: `Test execution failed: ${error.message}`
+            });
+        }
+
+        // Calculate summary
+        testResults.summary.total = testResults.tests.length;
+        testResults.summary.passed = testResults.tests.filter(test => test.success).length;
+        testResults.summary.failed = testResults.summary.total - testResults.summary.passed;
+
+        console.log(`[PLAYER_MGMT_TEST] Test completed. Passed: ${testResults.summary.passed}/${testResults.summary.total}`);
+        return testResults;
+    }
+
+    // ===== END PLAYER MANAGEMENT SYSTEM =====
 
     // ===== POINTS TRACKING SYSTEM =====
 
