@@ -158,9 +158,9 @@ Roles and responsibilities:
     - End-of-turn or end-of-game effects
     - Voluntary trades (if allowed by rules)
     - Ensure all transfers update UI and game state consistently
-[ ] 5.3 UI Updates for Points and Cards (2 Points)
-[ ] 5.3.1 Display current points and held cards for all players in the UI (1 Point)
-[ ] 5.3.2 Provide clear feedback when points or cards change (1 Point)
+[x] 5.3 UI Updates for Points and Cards (2 Points)
+[x] 5.3.1 Display current points and held cards for all players in the UI (1 Point)
+[x] 5.3.2 Provide clear feedback when points or cards change (1 Point)
 [ ] 5.4 End Condition Detection (2 Points)
 [ ] 5.4.1 Detect the following end conditions:
     - A player reaches 0 points (primary)

@@ -450,6 +450,230 @@
       0%, 100% { border-color: #ffd700; }
       50% { border-color: #ffed4e; }
     }
+    
+    /* Player Info Panel Styles */
+    .player-card {
+      background: #fff;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .player-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      transform: translateY(-2px);
+    }
+    
+    .player-card.current-player {
+      border-color: #28a745;
+      background: linear-gradient(135deg, #f8fff9, #e8f5e8);
+    }
+    
+    .player-card.referee {
+      border-color: #ffc107;
+      background: linear-gradient(135deg, #fffdf0, #fff3cd);
+    }
+    
+    .player-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .player-name {
+      font-weight: bold;
+      font-size: 1.1rem;
+      color: #495057;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .player-badges {
+      display: flex;
+      gap: 0.25rem;
+    }
+    
+    .player-badge {
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 0.7rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    .badge-current {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .badge-referee {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    
+    .player-points {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    .points-display {
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 1.1rem;
+      box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .points-display.points-changed {
+      animation: pointsFlash 0.6s ease-out;
+    }
+    
+    @keyframes pointsFlash {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); background: linear-gradient(135deg, #28a745, #1e7e34); }
+      100% { transform: scale(1); }
+    }
+    
+    .points-change-indicator {
+      position: absolute;
+      top: -20px;
+      right: 10px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #28a745;
+      animation: flyUp 1s ease-out forwards;
+      pointer-events: none;
+    }
+    
+    .points-change-indicator.negative {
+      color: #dc3545;
+    }
+    
+    @keyframes flyUp {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-30px); }
+    }
+    
+    .player-cards-section {
+      margin-top: 0.75rem;
+    }
+    
+    .cards-header {
+      font-weight: bold;
+      color: #6c757d;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    
+    .cards-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    
+    .card-item {
+      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+      color: #495057;
+      transition: all 0.3s ease;
+      position: relative;
+      cursor: pointer;
+    }
+    
+    .card-item:hover {
+      background: linear-gradient(135deg, #e9ecef, #dee2e6);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .card-item.card-transferred {
+      animation: cardTransfer 0.8s ease-out;
+    }
+    
+    @keyframes cardTransfer {
+      0% { transform: scale(1) rotate(0deg); opacity: 1; }
+      50% { transform: scale(1.1) rotate(5deg); opacity: 0.7; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    
+    .card-type-rule { border-left: 4px solid #FF6B6B; }
+    .card-type-prompt { border-left: 4px solid #4ECDC4; }
+    .card-type-modifier { border-left: 4px solid #45B7D1; }
+    .card-type-clone { border-left: 4px solid #96CEB4; }
+    .card-type-flip { border-left: 4px solid #FFEAA7; }
+    .card-type-swap { border-left: 4px solid #DDA0DD; }
+    
+    .no-cards-message {
+      color: #6c757d;
+      font-style: italic;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px dashed #dee2e6;
+    }
+    
+    /* Enhanced player scores in header */
+    .header-player-score {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+      border-radius: 20px;
+      border: 2px solid #dee2e6;
+      transition: all 0.3s ease;
+    }
+    
+    .header-player-score.current-player {
+      border-color: #28a745;
+      background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    }
+    
+    .header-player-score.referee {
+      border-color: #ffc107;
+      background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+    }
+    
+    .header-score-name {
+      font-weight: bold;
+      color: #495057;
+    }
+    
+    .header-score-points {
+      background: #007bff;
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      min-width: 30px;
+      text-align: center;
+    }
     }
   </style>
 </head>
@@ -479,6 +703,17 @@
       <div id="game-join-code" style="font-size:1.2rem; font-weight:bold; color:#4285F4;"></div>
       <div id="players-scores" style="display:flex; gap:2rem;"></div>
       <button id="game-logout-btn" style="background:#d9534f; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer;">Logout</button>
+    </div>
+    
+    <!-- Player Cards and Points Display Panel -->
+    <div id="player-info-panel" style="display:none; margin-bottom:1.5rem; padding:1rem; background:#f8f9fa; border:2px solid #dee2e6; border-radius:10px;">
+      <h3 style="margin-top:0; margin-bottom:1rem; color:#495057; display:flex; align-items:center;">
+        <span style="margin-right:0.5rem;">👥</span>
+        Player Status
+      </h3>
+      <div id="player-cards-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:1rem;">
+        <!-- Player cards will be dynamically populated here -->
+      </div>
     </div>
     <!-- Dev Turn Order Override (only visible for dev/test users) -->
     <div id="dev-turn-order-controls" style="display:none; margin-top:1rem; padding:1rem; background:#d1ecf1; border:2px solid #bee5eb; border-radius:8px; text-align:center;">

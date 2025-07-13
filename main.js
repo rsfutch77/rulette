@@ -800,10 +800,445 @@ function getCurrentSessionId() {
 
 // Helper function to update player scores display
 function updatePlayerScores(sessionId) {
-  // This should update the player scores display
-  // Implementation depends on your existing score display logic
   console.log("DEBUG: Updating player scores for session:", sessionId);
-  // TODO: Implement based on existing score display logic
+  
+  if (!sessionId) return;
+  
+  const currentUser = getCurrentUser();
+  const session = gameManager.gameSessions[sessionId];
+  
+  if (!session || !currentUser) return;
+  
+  // Update header scores display
+  updateHeaderPlayerScores(sessionId);
+  
+  // Update detailed player info panel
+  updatePlayerInfoPanel(sessionId);
+}
+
+// Update the header player scores display
+function updateHeaderPlayerScores(sessionId) {
+  const playersScoresDiv = document.getElementById("players-scores");
+  if (!playersScoresDiv) return;
+  
+  const currentUser = getCurrentUser();
+  const session = gameManager.gameSessions[sessionId];
+  
+  if (!session || !currentUser) return;
+  
+  // Clear existing scores
+  playersScoresDiv.innerHTML = '';
+  
+  // Add each player's score
+  session.players.forEach(playerId => {
+    const player = gameManager.players[playerId];
+    if (!player || player.status !== 'active') return;
+    
+    const points = gameManager.getPlayerPoints(sessionId, playerId) || 0;
+    const displayName = getPlayerDisplayName(playerId);
+    
+    const scoreElement = document.createElement('div');
+    scoreElement.className = 'header-player-score';
+    scoreElement.id = `header-score-${playerId}`;
+    
+    // Add special classes for current player and referee
+    if (playerId === currentUser.uid) {
+      scoreElement.classList.add('current-player');
+    }
+    if (playerId === session.referee) {
+      scoreElement.classList.add('referee');
+    }
+    
+    scoreElement.innerHTML = `
+      <span class="header-score-name">${displayName}</span>
+      <span class="header-score-points" id="header-points-${playerId}">${points}</span>
+    `;
+    
+    playersScoresDiv.appendChild(scoreElement);
+  });
+}
+
+// Update the detailed player info panel
+function updatePlayerInfoPanel(sessionId) {
+  const playerInfoPanel = document.getElementById("player-info-panel");
+  const playerCardsContainer = document.getElementById("player-cards-container");
+  
+  if (!playerInfoPanel || !playerCardsContainer) return;
+  
+  const currentUser = getCurrentUser();
+  const session = gameManager.gameSessions[sessionId];
+  
+  if (!session || !currentUser) return;
+  
+  // Show the panel if game is in progress
+  if (session.status === 'in-progress') {
+    playerInfoPanel.style.display = 'block';
+  }
+  
+  // Clear existing player cards
+  playerCardsContainer.innerHTML = '';
+  
+  // Add each player's card
+  session.players.forEach(playerId => {
+    const player = gameManager.players[playerId];
+    if (!player || player.status !== 'active') return;
+    
+    const playerCard = createPlayerCard(sessionId, playerId);
+    playerCardsContainer.appendChild(playerCard);
+  });
+}
+
+// Create a player card element
+function createPlayerCard(sessionId, playerId) {
+  const currentUser = getCurrentUser();
+  const session = gameManager.gameSessions[sessionId];
+  const player = gameManager.players[playerId];
+  
+  const points = gameManager.getPlayerPoints(sessionId, playerId) || 0;
+  const displayName = getPlayerDisplayName(playerId);
+  const ownedCards = gameManager.getPlayerOwnedCards(playerId) || [];
+  
+  const playerCard = document.createElement('div');
+  playerCard.className = 'player-card';
+  playerCard.id = `player-card-${playerId}`;
+  
+  // Add special classes
+  if (playerId === currentUser.uid) {
+    playerCard.classList.add('current-player');
+  }
+  if (playerId === session.referee) {
+    playerCard.classList.add('referee');
+  }
+  
+  // Create badges
+  const badges = [];
+  if (playerId === currentUser.uid) {
+    badges.push('<span class="player-badge badge-current">You</span>');
+  }
+  if (playerId === session.referee) {
+    badges.push('<span class="player-badge badge-referee">Referee</span>');
+  }
+  
+  // Create cards list
+  const cardsHtml = ownedCards.length > 0
+    ? ownedCards.map(card => `
+        <div class="card-item card-type-${card.type}" data-card-id="${card.id}">
+          ${card.title || card.type}
+        </div>
+      `).join('')
+    : '<div class="no-cards-message">No cards held</div>';
+  
+  playerCard.innerHTML = `
+    <div class="player-card-header">
+      <div class="player-name">
+        ${displayName}
+      </div>
+      <div class="player-badges">
+        ${badges.join('')}
+      </div>
+    </div>
+    <div class="player-points">
+      <div class="points-display" id="points-display-${playerId}">
+        <span id="points-value-${playerId}">${points}</span> Points
+      </div>
+    </div>
+    <div class="player-cards-section">
+      <div class="cards-header">
+        🃏 Cards (${ownedCards.length})
+      </div>
+      <div class="cards-list" id="cards-list-${playerId}">
+// Event listeners for point and card changes
+function setupPointAndCardEventListeners() {
+  console.log("DEBUG: Setting up point and card event listeners");
+  
+  // Listen for point change events
+  if (typeof gameManager !== 'undefined' && gameManager.addEventListener) {
+    gameManager.addEventListener('pointsChanged', handlePointsChanged);
+    gameManager.addEventListener('cardTransferred', handleCardTransferred);
+  }
+}
+
+// Handle point change events with visual feedback
+function handlePointsChanged(event) {
+  console.log("DEBUG: Points changed event received:", event);
+  
+  const { sessionId, playerId, oldPoints, newPoints, changeAmount } = event.detail || event;
+  
+  if (!sessionId || !playerId) return;
+  
+  // Update the UI displays
+  updatePlayerScores(sessionId);
+  
+  // Add visual feedback for point changes
+  animatePointChange(playerId, changeAmount);
+  
+  // Show notification for significant point changes
+  if (Math.abs(changeAmount) > 0) {
+    const playerName = getPlayerDisplayName(playerId);
+    const changeText = changeAmount > 0 ? `+${changeAmount}` : `${changeAmount}`;
+    const emoji = changeAmount > 0 ? '📈' : '📉';
+    
+    showNotification(
+      `${playerName} ${changeAmount > 0 ? 'gained' : 'lost'} ${Math.abs(changeAmount)} point${Math.abs(changeAmount) !== 1 ? 's' : ''}`,
+      `${emoji} Points Updated`
+    );
+  }
+}
+
+// Handle card transfer events with animations
+function handleCardTransferred(event) {
+  console.log("DEBUG: Card transferred event received:", event);
+  
+  const { sessionId, cardId, fromPlayerId, toPlayerId, card } = event.detail || event;
+  
+  if (!sessionId) return;
+  
+  // Update the UI displays
+  updatePlayerCards(sessionId);
+  updatePlayerScores(sessionId); // Also update scores as card counts may have changed
+  
+  // Add visual feedback for card transfers
+  if (cardId) {
+    animateCardTransfer(cardId, fromPlayerId, toPlayerId);
+  }
+  
+  // Show notification for card transfers
+  if (fromPlayerId && toPlayerId) {
+    const fromPlayerName = getPlayerDisplayName(fromPlayerId);
+    const toPlayerName = getPlayerDisplayName(toPlayerId);
+    const cardName = card?.title || card?.type || 'a card';
+    
+    showNotification(
+      `${fromPlayerName} transferred "${cardName}" to ${toPlayerName}`,
+      "🃏 Card Transferred"
+    );
+  }
+}
+
+// Animate point changes with visual effects
+function animatePointChange(playerId, changeAmount) {
+  console.log("DEBUG: Animating point change for player:", playerId, "amount:", changeAmount);
+  
+  // Animate header points display
+  const headerPointsElement = document.getElementById(`header-points-${playerId}`);
+  if (headerPointsElement) {
+    headerPointsElement.classList.add('points-changed');
+    setTimeout(() => {
+      headerPointsElement.classList.remove('points-changed');
+    }, 600);
+  }
+  
+  // Animate detailed points display
+  const pointsDisplayElement = document.getElementById(`points-display-${playerId}`);
+  if (pointsDisplayElement) {
+    pointsDisplayElement.classList.add('points-changed');
+    
+    // Add flying number indicator
+    const indicator = document.createElement('div');
+    indicator.className = `points-change-indicator ${changeAmount < 0 ? 'negative' : ''}`;
+    indicator.textContent = changeAmount > 0 ? `+${changeAmount}` : `${changeAmount}`;
+    
+    pointsDisplayElement.appendChild(indicator);
+    
+    // Remove animation classes and indicator after animation
+    setTimeout(() => {
+      pointsDisplayElement.classList.remove('points-changed');
+      if (indicator.parentNode) {
+        indicator.parentNode.removeChild(indicator);
+      }
+    }, 1000);
+  }
+}
+
+// Animate card transfers with visual effects
+function animateCardTransfer(cardId, fromPlayerId, toPlayerId) {
+  console.log("DEBUG: Animating card transfer:", cardId, "from:", fromPlayerId, "to:", toPlayerId);
+  
+  // Find card elements in both players' card lists
+  const fromCardsList = document.getElementById(`cards-list-${fromPlayerId}`);
+  const toCardsList = document.getElementById(`cards-list-${toPlayerId}`);
+  
+  // Animate cards in from player's list (if any)
+  if (fromCardsList) {
+    const cardElements = fromCardsList.querySelectorAll('.card-item');
+    cardElements.forEach(cardElement => {
+      cardElement.classList.add('card-transferred');
+      setTimeout(() => {
+        cardElement.classList.remove('card-transferred');
+      }, 800);
+    });
+  }
+  
+  // Animate cards in to player's list (if any)
+  if (toCardsList) {
+    const cardElements = toCardsList.querySelectorAll('.card-item');
+    cardElements.forEach(cardElement => {
+      cardElement.classList.add('card-transferred');
+      setTimeout(() => {
+        cardElement.classList.remove('card-transferred');
+      }, 800);
+    });
+  }
+}
+
+// Enhanced helper function to get player display name
+function getPlayerDisplayName(playerId) {
+  if (!playerId) return 'Unknown Player';
+  
+  const player = gameManager.players[playerId];
+  if (player && player.displayName) {
+    return player.displayName;
+  }
+  
+  // Fallback to UID or shortened version
+  if (playerId.length > 10) {
+    return playerId.substring(0, 8) + '...';
+  }
+  
+  return playerId;
+}
+
+// Function to manually trigger UI updates (for testing)
+function refreshPlayerUI(sessionId) {
+  console.log("DEBUG: Manually refreshing player UI for session:", sessionId);
+  
+  if (!sessionId) {
+    // Try to get current session
+    const currentUser = getCurrentUser();
+    if (currentUser && gameManager.gameSessions) {
+      for (const [id, session] of Object.entries(gameManager.gameSessions)) {
+// Test function for the complete points and cards UI system
+function testPointsAndCardsUI() {
+  console.log("DEBUG: Testing Points and Cards UI System");
+  
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    console.log("No current user found for testing");
+    return;
+  }
+  
+  // Find current session
+  let sessionId = null;
+  if (gameManager.gameSessions) {
+    for (const [id, session] of Object.entries(gameManager.gameSessions)) {
+      if (session.players.includes(currentUser.uid)) {
+        sessionId = id;
+        break;
+      }
+    }
+  }
+  
+  if (!sessionId) {
+    console.log("No active session found for testing");
+    return;
+  }
+  
+  console.log("Testing with session:", sessionId);
+  
+  // Test 1: Update player scores and cards
+  console.log("Test 1: Updating player scores and cards");
+  updatePlayerScores(sessionId);
+  updatePlayerCards(sessionId);
+  
+  // Test 2: Test point change animation
+  console.log("Test 2: Testing point change animation");
+  const session = gameManager.gameSessions[sessionId];
+  if (session && session.players.length > 0) {
+    const testPlayerId = session.players[0];
+    animatePointChange(testPlayerId, 5);
+    
+    setTimeout(() => {
+      animatePointChange(testPlayerId, -2);
+    }, 1500);
+  }
+  
+  // Test 3: Test card transfer animation
+  console.log("Test 3: Testing card transfer animation");
+  if (session && session.players.length > 1) {
+    const fromPlayer = session.players[0];
+    const toPlayer = session.players[1];
+    animateCardTransfer('test-card-id', fromPlayer, toPlayer);
+  }
+  
+  // Test 4: Test manual UI refresh
+  console.log("Test 4: Testing manual UI refresh");
+  setTimeout(() => {
+    refreshPlayerUI(sessionId);
+  }, 3000);
+  
+  console.log("Points and Cards UI test completed");
+  showNotification("Points and Cards UI test completed successfully!", "🧪 Test Results");
+}
+
+// Expose test function
+window.testPointsAndCardsUI = testPointsAndCardsUI;
+        if (session.players.includes(currentUser.uid)) {
+          sessionId = id;
+          break;
+        }
+      }
+    }
+  }
+  
+  if (sessionId) {
+    updatePlayerScores(sessionId);
+    updatePlayerCards(sessionId);
+  }
+}
+
+// Expose functions for testing
+window.refreshPlayerUI = refreshPlayerUI;
+window.testPointChange = function(playerId, amount) {
+  animatePointChange(playerId, amount);
+};
+window.testCardTransfer = function(cardId, fromPlayerId, toPlayerId) {
+  animateCardTransfer(cardId, fromPlayerId, toPlayerId);
+};
+        ${cardsHtml}
+      </div>
+    </div>
+  `;
+  
+  return playerCard;
+}
+
+// Update player cards display
+function updatePlayerCards(sessionId) {
+  console.log("DEBUG: Updating player cards for session:", sessionId);
+  
+  if (!sessionId) return;
+  
+  const session = gameManager.gameSessions[sessionId];
+  if (!session) return;
+  
+  // Update each player's cards in the detailed view
+  session.players.forEach(playerId => {
+    const player = gameManager.players[playerId];
+    if (!player || player.status !== 'active') return;
+    
+    const cardsListElement = document.getElementById(`cards-list-${playerId}`);
+    const cardsHeaderElement = cardsListElement?.parentElement?.querySelector('.cards-header');
+    
+    if (!cardsListElement) return;
+    
+    const ownedCards = gameManager.getPlayerOwnedCards(playerId) || [];
+    
+    // Update cards count in header
+    if (cardsHeaderElement) {
+      cardsHeaderElement.innerHTML = `🃏 Cards (${ownedCards.length})`;
+    }
+    
+    // Update cards list
+    if (ownedCards.length > 0) {
+      cardsListElement.innerHTML = ownedCards.map(card => `
+        <div class="card-item card-type-${card.type}" data-card-id="${card.id}">
+          ${card.title || card.type}
+        </div>
+      `).join('');
+    } else {
+      cardsListElement.innerHTML = '<div class="no-cards-message">No cards held</div>';
+    }
+  });
 }
 
 // Function to show in-app notification
@@ -890,6 +1325,13 @@ function startGameDisplay(sessionId) {
   console.log("[GAME] Starting game display for session:", sessionId);
   showWheel();
   startRuleDisplay(sessionId);
+  
+  // Initialize player UI displays
+  updatePlayerScores(sessionId);
+  updatePlayerCards(sessionId);
+  
+  // Setup event listeners for point and card changes
+  setupPointAndCardEventListeners();
 }
 
 // Combined game stop function
