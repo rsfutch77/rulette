@@ -1896,6 +1896,15 @@ class GameManager {
                 };
             }
 
+            // Prevent referee swapping during active callouts to avoid bypassing decisions
+            if (session.currentCallout && session.currentCallout.status === "pending_referee_decision") {
+                return {
+                    success: false,
+                    error: 'Cannot swap referee while a callout is pending decision',
+                    errorCode: 'CALLOUT_PENDING'
+                };
+            }
+
             // If no new referee specified, randomly select one (excluding current referee)
             if (!newRefereeId) {
                 const activePlayersInSession = (await getFirestorePlayersInSession(sessionId))
@@ -2519,7 +2528,19 @@ class GameManager {
                 return { success: false, message: "Only the referee can adjudicate callouts." };
             }
 
-            // Check if there's an active callout
+            // Check referee decision cooldown to prevent spam
+            const cooldownResult = this.calloutManager.checkRefereeDecisionCooldown(refereeId);
+            if (!cooldownResult.allowed) {
+                return { success: false, message: cooldownResult.message };
+            }
+
+            // Validate callout hasn't already been decided (prevent bypassing)
+            const decisionValidation = this.calloutManager.validateCalloutNotAlreadyDecided(session.currentCallout);
+            if (!decisionValidation.valid) {
+                return { success: false, message: decisionValidation.message };
+            }
+
+            // Additional check to ensure callout integrity
             if (!session.currentCallout || session.currentCallout.status !== "pending_referee_decision") {
                 return { success: false, message: "No active callout to adjudicate." };
             }
@@ -2597,6 +2618,9 @@ class GameManager {
                 adjudicatedAt: Date.now()
             });
 
+            // Record referee decision to prevent spam
+            this.calloutManager.recordRefereeDecision(refereeId);
+
             // Clear the active callout
             session.currentCallout = null;
 
@@ -2627,6 +2651,11 @@ class GameManager {
             const session = this.gameSessions[sessionId];
             if (!session) {
                 return { success: false, message: "Game session not found." };
+            }
+
+            // Prevent card transfers if there's an active callout pending decision
+            if (session.currentCallout && session.currentCallout.status === "pending_referee_decision") {
+                return { success: false, message: "Cannot transfer cards while a callout is pending referee decision." };
             }
 
             const fromPlayer = this.players[fromPlayerId];

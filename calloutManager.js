@@ -10,6 +10,8 @@ class CalloutManager {
         this.calloutCooldownMs = 30000; // 30 seconds cooldown between callouts
         this.maxCalloutsPerMinute = 3; // Rate limiting
         this.playerCalloutHistory = {}; // Track callout history per player
+        this.refereeDecisionCooldownMs = 5000; // 5 seconds cooldown between referee decisions
+        this.lastRefereeDecisionTime = {}; // Track last decision time per referee
     }
 
     /**
@@ -99,6 +101,11 @@ class CalloutManager {
             return { valid: false, message: "You cannot call out the current referee." };
         }
 
+        // Prevent referee from making callouts (as per edge case requirements)
+        if (session.referee === callerId) {
+            return { valid: false, message: "The referee cannot initiate callouts." };
+        }
+
         // Check if there's already an active callout
         if (session.currentCallout && session.currentCallout.status === "pending_referee_decision") {
             return { valid: false, message: "There is already an active callout pending referee decision." };
@@ -181,6 +188,59 @@ class CalloutManager {
      */
     clearPlayerCalloutHistory(playerId) {
         delete this.playerCalloutHistory[playerId];
+    }
+
+    /**
+     * Checks if a referee is on cooldown for making decisions
+     * @param {string} refereeId - ID of the referee making the decision
+     * @returns {object} - Result with allowed flag and message
+     */
+    checkRefereeDecisionCooldown(refereeId) {
+        const now = Date.now();
+        const lastDecisionTime = this.lastRefereeDecisionTime[refereeId];
+
+        if (lastDecisionTime) {
+            const timeSinceLastDecision = now - lastDecisionTime;
+            
+            if (timeSinceLastDecision < this.refereeDecisionCooldownMs) {
+                const remainingCooldown = Math.ceil((this.refereeDecisionCooldownMs - timeSinceLastDecision) / 1000);
+                return {
+                    allowed: false,
+                    message: `Please wait ${remainingCooldown} seconds before making another referee decision.`
+                };
+            }
+        }
+
+        return { allowed: true };
+    }
+
+    /**
+     * Records a referee decision timestamp
+     * @param {string} refereeId - ID of the referee making the decision
+     */
+    recordRefereeDecision(refereeId) {
+        this.lastRefereeDecisionTime[refereeId] = Date.now();
+    }
+
+    /**
+     * Validates that a callout decision hasn't already been made
+     * @param {object} callout - The callout object
+     * @returns {object} - Validation result with valid flag and message
+     */
+    validateCalloutNotAlreadyDecided(callout) {
+        if (!callout) {
+            return { valid: false, message: "No active callout to adjudicate." };
+        }
+
+        if (callout.status !== "pending_referee_decision") {
+            return { valid: false, message: "This callout has already been decided." };
+        }
+
+        if (callout.refereeDecision) {
+            return { valid: false, message: "This callout has already been adjudicated." };
+        }
+
+        return { valid: true };
     }
 }
 

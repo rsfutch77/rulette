@@ -138,9 +138,9 @@ Roles and responsibilities:
 [x] 4.4 Referee Card Swapping (2 Points)
 [x] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
 [x] 4.4.2 Update referee status and notify all players (1 Point)
-[ ] 4.5 Edge Cases and Abuse Prevention (2 Points)
-[ ] 4.5.1 Prevent spamming of callouts or referee decisions (1 Point)
-[ ] 4.5.2 Handle the following scenarios:
+[x] 4.5 Edge Cases and Abuse Prevention (2 Points)
+[x] 4.5.1 Prevent spamming of callouts or referee decisions (1 Point)
+[x] 4.5.2 Handle the following scenarios:
     - Referee is the accused or caller
     - Multiple callouts in rapid succession
     - Players attempting to bypass referee decisions
