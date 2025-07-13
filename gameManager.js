@@ -2485,41 +2485,41 @@ class GameManager {
             };
 
             if (isValid) {
-                // Apply point transfer: deduct from accused, add to caller
-                const accusedPlayer = this.players[callout.accusedPlayerId];
-                const callerPlayer = this.players[callout.callerId];
-
-                if (accusedPlayer && callerPlayer) {
-                    accusedPlayer.points = Math.max(0, accusedPlayer.points - 1);
-                    callerPlayer.points += 1;
-
-                    result.effects.push({
-                        type: 'point_transfer',
-                        from: callout.accusedPlayerId,
-                        to: callout.callerId,
-                        amount: 1
-                    });
-
-                    // TODO: Sync player points with Firebase
-                    // await updateFirestorePlayerPoints(sessionId, callout.accusedPlayerId, accusedPlayer.points);
-                    // await updateFirestorePlayerPoints(sessionId, callout.callerId, callerPlayer.points);
-
-                    console.log(`[GAME_MANAGER] Point transferred: ${callout.accusedPlayerId} (-1) -> ${callout.callerId} (+1)`);
-                }
-
-                // Handle rule engine callout success
-                try {
-                    await this.handleCalloutSuccess(sessionId, callout.accusedPlayerId, callout.callerId, callout.ruleViolated);
-                } catch (error) {
-                    console.error(`[GAME_MANAGER] Error handling callout success in rule engine:`, error);
-                }
+                // NOTE: Point transfer and card transfer logic will be implemented in a separate subtask
+                // For now, we only record the decision and update the callout status
+                console.log(`[GAME_MANAGER] Callout ruled valid - effects will be applied in future implementation`);
+                
+                result.effects.push({
+                    type: 'callout_decision',
+                    decision: 'valid',
+                    callerId: callout.callerId,
+                    accusedPlayerId: callout.accusedPlayerId,
+                    ruleViolated: callout.ruleViolated
+                });
+            } else {
+                console.log(`[GAME_MANAGER] Callout ruled invalid - no effects applied`);
+                
+                result.effects.push({
+                    type: 'callout_decision',
+                    decision: 'invalid',
+                    callerId: callout.callerId,
+                    accusedPlayerId: callout.accusedPlayerId,
+                    ruleViolated: callout.ruleViolated
+                });
             }
+
+            // Move the callout to history with the decision
+            session.calloutHistory.push({
+                ...callout,
+                id: callout.id || `callout-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                adjudicatedAt: Date.now()
+            });
 
             // Clear the active callout
             session.currentCallout = null;
 
             // TODO: Sync with Firebase
-            // await updateFirestoreGameSession(sessionId, { currentCallout: null });
+            // await updateFirestoreGameSession(sessionId, { currentCallout: null, calloutHistory: session.calloutHistory });
 
             console.log(`[GAME_MANAGER] Callout adjudicated: ${isValid ? 'valid' : 'invalid'}`);
             return result;

@@ -378,13 +378,34 @@ async function handleRefereeDecision(isValid) {
   }
   
   try {
+    // Disable buttons during processing to prevent double-clicks
+    const validBtn = document.getElementById('callout-valid-btn');
+    const invalidBtn = document.getElementById('callout-invalid-btn');
+    if (validBtn) validBtn.disabled = true;
+    if (invalidBtn) invalidBtn.disabled = true;
+    
     const result = await gameManager.adjudicateCallout(sessionId, currentUser.uid, isValid);
     
     if (result.success) {
-      const decisionText = isValid ? "valid" : "invalid";
+      const decisionText = isValid ? "VALID" : "INVALID";
+      const decisionIcon = isValid ? "✅" : "❌";
+      
+      // Get callout details for the notification
+      const currentCallout = gameManager.getCurrentCallout(sessionId);
+      let notificationMessage = `Callout ruled ${decisionText}.`;
+      
+      if (result.effects && result.effects.length > 0) {
+        const effect = result.effects[0];
+        if (effect.type === 'callout_decision') {
+          const callerName = getPlayerDisplayName(effect.callerId);
+          const accusedName = getPlayerDisplayName(effect.accusedPlayerId);
+          notificationMessage = `${decisionIcon} Callout by ${callerName} against ${accusedName} ruled ${decisionText}.`;
+        }
+      }
+      
       showNotification(
-        `Callout ruled ${decisionText}. ${result.effects?.length ? 'Points and effects applied.' : ''}`,
-        "Callout Adjudicated"
+        notificationMessage,
+        "🏛️ Referee Decision Made"
       );
       
       // Update UI
@@ -392,12 +413,22 @@ async function handleRefereeDecision(isValid) {
       updatePlayerScores(sessionId);
       
     } else {
-      showNotification(result.message, "Adjudication Failed");
+      showNotification(result.message, "❌ Adjudication Failed");
+      
+      // Re-enable buttons on failure
+      if (validBtn) validBtn.disabled = false;
+      if (invalidBtn) invalidBtn.disabled = false;
     }
     
   } catch (error) {
     console.error("Error adjudicating callout:", error);
-    showNotification("Failed to adjudicate callout. Please try again.", "System Error");
+    showNotification("Failed to adjudicate callout. Please try again.", "❌ System Error");
+    
+    // Re-enable buttons on error
+    const validBtn = document.getElementById('callout-valid-btn');
+    const invalidBtn = document.getElementById('callout-invalid-btn');
+    if (validBtn) validBtn.disabled = false;
+    if (invalidBtn) invalidBtn.disabled = false;
   }
 }
 
@@ -456,9 +487,32 @@ function updateCalloutUI(sessionId) {
         const accusedName = getPlayerDisplayName(currentCallout.accusedPlayerId);
         const reasonText = currentCallout.ruleViolated ? ` for violating: "${currentCallout.ruleViolated}"` : '';
         
-        refereeCalloutDetails.textContent = `${callerName} has called out ${accusedName}${reasonText}. Is this callout valid?`;
+        refereeCalloutDetails.innerHTML = `
+          <div style="font-weight: bold; margin-bottom: 0.5rem;">
+            📢 CALLOUT ALERT
+          </div>
+          <div style="margin-bottom: 0.5rem;">
+            <strong>Caller:</strong> ${callerName}
+          </div>
+          <div style="margin-bottom: 0.5rem;">
+            <strong>Accused:</strong> ${accusedName}
+          </div>
+          ${currentCallout.ruleViolated ? `<div style="margin-bottom: 0.5rem;"><strong>Reason:</strong> ${currentCallout.ruleViolated}</div>` : ''}
+          <div style="margin-top: 1rem; font-weight: bold; color: #155724;">
+            Is this callout valid?
+          </div>
+        `;
       }
       refereeAdjudication.style.display = 'block';
+      
+      // Show a notification to the referee when a callout is first initiated
+      if (!refereeAdjudication.dataset.notified) {
+        showNotification(
+          `${getPlayerDisplayName(currentCallout.callerId)} has called out ${getPlayerDisplayName(currentCallout.accusedPlayerId)}. Please review and make a decision.`,
+          "🏛️ Referee Decision Required"
+        );
+        refereeAdjudication.dataset.notified = 'true';
+      }
     }
     
     // Disable callout initiation while one is pending
@@ -473,7 +527,11 @@ function updateCalloutUI(sessionId) {
   } else {
     // No active callout
     if (activeCallout) activeCallout.style.display = 'none';
-    if (refereeAdjudication) refereeAdjudication.style.display = 'none';
+    if (refereeAdjudication) {
+      refereeAdjudication.style.display = 'none';
+      // Clear notification flag when callout is resolved
+      delete refereeAdjudication.dataset.notified;
+    }
     
     // Re-enable callout initiation
     if (calloutInitiation) {
