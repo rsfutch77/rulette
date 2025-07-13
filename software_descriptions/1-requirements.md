@@ -197,8 +197,8 @@ Roles and responsibilities:
 
 [ ] 7. Lobby and Player Join/Leave (12 Points)
 [ ] 7.1 Lobby UI and Player List (3 Points)
-[ ] 7.1.1 Display all players currently in the lobby, including their names and statuses (2 Points)
-[ ] 7.1.2 Update the player list in real time as players join or leave (1 Point)
+[x] 7.1.1 Display all players currently in the lobby, including their names and statuses (2 Points)
+[x] 7.1.2 Update the player list in real time as players join or leave (1 Point)
 [ ] 7.2 Join/Leave Logic (3 Points)
 [ ] 7.2.1 Allow players to join or leave the lobby at any time before the game starts (2 Points)
 [ ] 7.2.2 Handle edge cases such as:

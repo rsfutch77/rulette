@@ -4346,3 +4346,427 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 console.log('[SESSION TERMINATION] Session termination UI system loaded and ready');
+
+// ============================================================================
+// LOBBY UI AND PLAYER LIST FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Initialize lobby UI and event listeners
+ */
+function initializeLobbyUI() {
+    console.log('[LOBBY] Initializing lobby UI...');
+    
+    // Set up event listeners
+    setupLobbyEventListeners();
+    
+    // Initialize lobby display if we have a current session
+    if (window.currentSessionId) {
+        updateLobbyDisplay();
+    }
+}
+
+/**
+ * Set up event listeners for lobby functionality
+ */
+function setupLobbyEventListeners() {
+    // Refresh button
+    const refreshBtn = document.getElementById('refresh-lobby-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            console.log('[LOBBY] Manual refresh requested');
+            updateLobbyDisplay();
+        });
+    }
+    
+    // Listen for player status change events from gameManager
+    if (gameManager) {
+        // Set up listener for player status changes
+        document.addEventListener('playerStatusChanged', handlePlayerStatusChange);
+        document.addEventListener('sessionStateChanged', handleSessionStateChange);
+    }
+}
+
+/**
+ * Show the lobby UI
+ */
+function showLobby() {
+    console.log('[LOBBY] Showing lobby UI');
+    
+    const lobbyContainer = document.getElementById('lobby-container');
+    if (lobbyContainer) {
+        lobbyContainer.style.display = 'block';
+        updateLobbyDisplay();
+    } else {
+        console.error('[LOBBY] Lobby container not found');
+    }
+}
+
+/**
+ * Hide the lobby UI
+ */
+function hideLobby() {
+    console.log('[LOBBY] Hiding lobby UI');
+    
+    const lobbyContainer = document.getElementById('lobby-container');
+    if (lobbyContainer) {
+        lobbyContainer.style.display = 'none';
+    }
+}
+
+/**
+ * Update the entire lobby display
+ */
+function updateLobbyDisplay() {
+    if (!window.currentSessionId || !gameManager) {
+        console.log('[LOBBY] No session or game manager available');
+        return;
+    }
+    
+    const sessionId = window.currentSessionId;
+    const session = gameManager.gameSessions[sessionId];
+    
+    if (!session) {
+        console.error('[LOBBY] Session not found:', sessionId);
+        return;
+    }
+    
+    console.log('[LOBBY] Updating lobby display for session:', sessionId);
+    
+    // Update session info
+    updateLobbySessionInfo(session);
+    
+    // Update player list
+    updateLobbyPlayerList(sessionId);
+}
+
+/**
+ * Update lobby session information
+ */
+function updateLobbySessionInfo(session) {
+    // Update session code
+    const sessionCodeEl = document.getElementById('lobby-session-code');
+    if (sessionCodeEl && session.shareableCode) {
+        sessionCodeEl.textContent = session.shareableCode;
+    }
+    
+    // Update session state
+    const sessionStateEl = document.getElementById('lobby-session-state');
+    if (sessionStateEl) {
+        const stateText = session.status || 'lobby';
+        sessionStateEl.textContent = stateText.charAt(0).toUpperCase() + stateText.slice(1);
+    }
+    
+    // Update max players
+    const maxPlayersEl = document.getElementById('lobby-max-players');
+    if (maxPlayersEl) {
+        maxPlayersEl.textContent = session.maxPlayers || 6;
+    }
+}
+
+/**
+ * Update the player list in the lobby
+ */
+function updateLobbyPlayerList(sessionId) {
+    if (!gameManager) {
+        console.error('[LOBBY] Game manager not available');
+        return;
+    }
+    
+    // Get player statuses from gameManager
+    const playerStatuses = gameManager.getSessionPlayerStatuses(sessionId);
+    const session = gameManager.gameSessions[sessionId];
+    
+    if (!session) {
+        console.error('[LOBBY] Session not found');
+        return;
+    }
+    
+    console.log('[LOBBY] Updating player list with statuses:', playerStatuses);
+    
+    // Update player count
+    const playerCount = Object.keys(playerStatuses).length;
+    const maxPlayers = session.maxPlayers || 6;
+    const playersCountEl = document.getElementById('lobby-players-count');
+    if (playersCountEl) {
+        playersCountEl.textContent = `${playerCount}/${maxPlayers}`;
+    }
+    
+    // Get the players grid container
+    const playersGrid = document.getElementById('lobby-players-grid');
+    const emptyMessage = document.getElementById('empty-lobby-message');
+    
+    if (!playersGrid) {
+        console.error('[LOBBY] Players grid not found');
+        return;
+    }
+    
+    // Clear existing player cards
+    playersGrid.innerHTML = '';
+    
+    // Show/hide empty message
+    if (playerCount === 0) {
+        if (emptyMessage) emptyMessage.style.display = 'block';
+        return;
+    } else {
+        if (emptyMessage) emptyMessage.style.display = 'none';
+    }
+    
+    // Create player cards
+    Object.entries(playerStatuses).forEach(([playerId, playerData]) => {
+        const playerCard = createLobbyPlayerCard(playerId, playerData, session);
+        playersGrid.appendChild(playerCard);
+    });
+}
+
+/**
+ * Create a player card for the lobby
+ */
+function createLobbyPlayerCard(playerId, playerData, session) {
+    const card = document.createElement('div');
+    card.className = 'lobby-player-card';
+    card.id = `lobby-player-${playerId}`;
+    
+    // Add status-based classes
+    if (playerData.isHost) card.classList.add('host');
+    if (playerData.isReferee) card.classList.add('referee');
+    card.classList.add(playerData.status || 'active');
+    
+    // Create card content
+    card.innerHTML = `
+        <div class="lobby-player-header">
+            <h3 class="lobby-player-name">
+                ${getPlayerStatusIcon(playerData.status)}
+                ${playerData.displayName || 'Unknown Player'}
+            </h3>
+            <div class="lobby-player-badges">
+                ${playerData.isHost ? '<span class="lobby-player-badge badge-host">Host</span>' : ''}
+                ${playerData.isReferee ? '<span class="lobby-player-badge badge-referee">Referee</span>' : ''}
+                <span class="lobby-player-badge badge-${playerData.status || 'active'}">${getStatusDisplayText(playerData.status)}</span>
+            </div>
+        </div>
+        
+        <div class="lobby-player-status">
+            <div class="status-indicator ${playerData.status || 'active'}"></div>
+            <span class="status-text">${getStatusDescription(playerData.status)}</span>
+        </div>
+        
+        <div class="lobby-player-details">
+            <div class="lobby-player-detail">
+                <div class="lobby-player-detail-label">Points</div>
+                <div class="lobby-player-detail-value">${playerData.points || 0}</div>
+            </div>
+            <div class="lobby-player-detail">
+                <div class="lobby-player-detail-label">Connections</div>
+                <div class="lobby-player-detail-value">${playerData.connectionCount || 0}</div>
+            </div>
+        </div>
+        
+        ${createConnectionInfo(playerData)}
+    `;
+    
+    return card;
+}
+
+/**
+ * Get status icon for player
+ */
+function getPlayerStatusIcon(status) {
+    switch (status) {
+        case 'active': return '🟢';
+        case 'disconnected': return '🔴';
+        case 'left': return '⚫';
+        default: return '🟢';
+    }
+}
+
+/**
+ * Get display text for status
+ */
+function getStatusDisplayText(status) {
+    switch (status) {
+        case 'active': return 'Active';
+        case 'disconnected': return 'Disconnected';
+        case 'left': return 'Left';
+        default: return 'Active';
+    }
+}
+
+/**
+ * Get status description
+ */
+function getStatusDescription(status) {
+    switch (status) {
+        case 'active': return 'Online and ready';
+        case 'disconnected': return 'Temporarily disconnected';
+        case 'left': return 'Left the session';
+        default: return 'Online and ready';
+    }
+}
+
+/**
+ * Create connection info section
+ */
+function createConnectionInfo(playerData) {
+    if (!playerData.lastSeen) return '';
+    
+    const lastSeenDate = new Date(playerData.lastSeen);
+    const timeAgo = getTimeAgo(lastSeenDate);
+    
+    return `
+        <div class="connection-info">
+            <div class="last-seen">Last seen: ${timeAgo}</div>
+            ${playerData.totalDisconnects ? `<div>Disconnects: ${playerData.totalDisconnects}</div>` : ''}
+        </div>
+    `;
+}
+
+/**
+ * Get time ago string
+ */
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    
+    if (diffSecs < 60) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+}
+
+/**
+ * Handle player status change events
+ */
+function handlePlayerStatusChange(event) {
+    console.log('[LOBBY] Player status changed:', event.detail);
+    
+    // Update the lobby display if it's visible
+    const lobbyContainer = document.getElementById('lobby-container');
+    if (lobbyContainer && lobbyContainer.style.display !== 'none') {
+        updateLobbyDisplay();
+    }
+}
+
+/**
+ * Handle session state change events
+ */
+function handleSessionStateChange(event) {
+    console.log('[LOBBY] Session state changed:', event.detail);
+    
+    // Update the lobby display if it's visible
+    const lobbyContainer = document.getElementById('lobby-container');
+    if (lobbyContainer && lobbyContainer.style.display !== 'none') {
+        updateLobbyDisplay();
+    }
+}
+
+/**
+ * Test function for lobby UI
+ */
+window.testLobbyUI = function() {
+    console.log('[TEST] Testing lobby UI functionality...');
+    
+    if (!gameManager) {
+        console.error('[TEST] Game manager not available');
+        showNotification('Game manager not available. Please refresh the page.', 'Test Error');
+        return;
+    }
+    
+    // Show the lobby
+    showLobby();
+    
+    // Create a test session if none exists
+    if (!window.currentSessionId) {
+        console.log('[TEST] Creating test session for lobby...');
+        
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            console.error('[TEST] No current user');
+            showNotification('No user logged in.', 'Test Error');
+            return;
+        }
+        
+        // Create a test session
+        gameManager.createGameSession(currentUser.uid, currentUser.displayName || 'Test Host', 6)
+            .then(result => {
+                if (result.success) {
+                    window.currentSessionId = result.sessionId;
+                    console.log('[TEST] Test session created:', result.sessionId);
+                    
+                    // Add some test players
+                    addTestPlayers(result.sessionId);
+                    
+                    // Update lobby display
+                    updateLobbyDisplay();
+                    
+                    showNotification('Lobby UI test successful! Check the lobby display.', 'Test Successful');
+                } else {
+                    console.error('[TEST] Failed to create test session:', result.error);
+                    showNotification(`Failed to create test session: ${result.error}`, 'Test Failed');
+                }
+            })
+            .catch(error => {
+                console.error('[TEST] Error creating test session:', error);
+                showNotification('Error creating test session. Check console for details.', 'Test Error');
+            });
+    } else {
+        // Update existing lobby
+        updateLobbyDisplay();
+        showNotification('Lobby UI refreshed successfully!', 'Test Successful');
+    }
+};
+
+/**
+ * Add test players for lobby testing
+ */
+function addTestPlayers(sessionId) {
+    const testPlayers = [
+        { id: 'test-player-1', name: 'Alice', status: 'active' },
+        { id: 'test-player-2', name: 'Bob', status: 'disconnected' },
+        { id: 'test-player-3', name: 'Charlie', status: 'active' }
+    ];
+    
+    testPlayers.forEach(player => {
+        // Add player to session
+        gameManager.players[player.id] = {
+            uid: player.id,
+            displayName: player.name,
+            sessionId: sessionId,
+            status: player.status,
+            points: Math.floor(Math.random() * 10),
+            connectionInfo: {
+                lastSeen: Date.now() - Math.floor(Math.random() * 300000), // Random time in last 5 minutes
+                connectionCount: Math.floor(Math.random() * 5) + 1,
+                totalDisconnects: Math.floor(Math.random() * 3)
+            }
+        };
+        
+        // Add to session player list
+        const session = gameManager.gameSessions[sessionId];
+        if (session && !session.players.includes(player.id)) {
+            session.players.push(player.id);
+        }
+    });
+    
+    console.log('[TEST] Added test players to session');
+}
+
+/**
+ * Refresh lobby player list manually
+ */
+window.refreshLobbyPlayerList = function() {
+    console.log('[LOBBY] Manual refresh requested');
+    updateLobbyDisplay();
+    showNotification('Lobby player list refreshed!', 'Lobby Update');
+};
+
+// Initialize lobby UI when the script loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Wait a bit for other systems to initialize
+    setTimeout(() => {
+        initializeLobbyUI();
+    }, 1000);
+});

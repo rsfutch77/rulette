@@ -1655,8 +1655,17 @@ class GameManager {
             
             console.log(`[STATUS_EVENT] Session ${sessionId}: Player ${playerId} status changed from ${oldStatus} to ${newStatus}`);
             
-            // TODO: Emit to UI components when event system is implemented
-            // this.emit('playerStatusChanged', { sessionId, statusEvent });
+            // Dispatch DOM event for UI components
+            if (typeof document !== 'undefined') {
+                const customEvent = new CustomEvent('playerStatusChanged', {
+                    detail: {
+                        sessionId,
+                        statusEvent,
+                        playerData: this.getSessionPlayerStatuses(sessionId)[playerId]
+                    }
+                });
+                document.dispatchEvent(customEvent);
+            }
             
         } catch (error) {
             console.error(`[STATUS_EVENT] Error triggering status change event:`, error);
