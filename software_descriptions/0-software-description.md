@@ -82,7 +82,7 @@ Create a digital party/card game where players spin a wheel to receive and follo
 - [3.a. Flip Card Mechanic](plan3.a-flip_card_mechanic.md) (7 points)
 - [3.b. Clone Card Mechanic](plan3.b-clone_card_mechanic.md) (9 points)
 - [3.c. Prompt Card Mechanic](plan3.c-prompt_card_mechanic.md) (16 points)
-    - [Prompt Card Data Structure](prompt_card_data_structure.md)
+    - [Prompt Card Data Structure](plan3.1-prompt_card_data_structure.md)
 - [4. Referee and Callout Mechanic](plan4-referee_and_callout_mechanic.md) (15 points)
 - [5. Points and Card Transfer System](plan5-points_and_card_transfer_system.md) (10 points)
 
