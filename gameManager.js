@@ -13,6 +13,7 @@ import {
 } from './main.js';
 import { GameCard } from './cardModels.js';
 import { RuleEngine } from './ruleEngine.js';
+import { CalloutManager } from './calloutManager.js';
 
 class GameManager {
     constructor() {
@@ -24,6 +25,7 @@ class GameManager {
         this.cardManager = null; // Reference to CardManager for cloning
         this.ruleEngine = new RuleEngine(this); // Initialize RuleEngine with reference to GameManager
         this.activePrompts = {}; // Track active prompts by session
+        this.calloutManager = new CalloutManager(this); // Initialize CalloutManager
     }
 
     setCardManager(manager) {
@@ -45,6 +47,8 @@ class GameManager {
             status: 'lobby', // lobby, in-progress, completed
             referee: null, // Player ID who has the referee card
             initialRefereeCard: null, // Store the referee card object if applicable
+            currentCallout: null, // Current active callout object
+            calloutHistory: [], // History of all callouts in this session
         };
         this.gameSessions[sessionId] = newSession;
 
@@ -2397,6 +2401,212 @@ class GameManager {
             conflicts: conflicts,
             canProceed: !conflicts.some(c => c.severity === 'blocking')
         };
+    }
+
+    /**
+     * Request a callout from one player against another
+     * @param {string} sessionId - The game session ID
+     * @param {object} callout - The callout object from CalloutManager
+     * @returns {Promise<object>} - Result object with success status and callout ID
+     */
+    async requestCallout(sessionId, callout) {
+        console.log(`[GAME_MANAGER] Processing callout request in session ${sessionId}`);
+        
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session) {
+                return { success: false, message: "Game session not found." };
+            }
+
+            // Set the callout as active in the session
+            session.currentCallout = callout;
+            
+            // Add to callout history
+            session.calloutHistory.push({
+                ...callout,
+                id: `callout-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+            });
+
+            // TODO: Sync with Firebase
+            // await updateFirestoreGameSession(sessionId, { currentCallout: callout, calloutHistory: session.calloutHistory });
+
+            console.log(`[GAME_MANAGER] Callout set as active: ${callout.callerId} called out ${callout.accusedPlayerId}`);
+            
+            return {
+                success: true,
+                calloutId: session.currentCallout.id || callout.timestamp,
+                message: "Callout initiated successfully."
+            };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error processing callout request:`, error);
+            return { success: false, message: "Failed to process callout request." };
+        }
+    }
+
+    /**
+     * Adjudicate a callout (referee decision)
+     * @param {string} sessionId - The game session ID
+     * @param {string} refereeId - The referee making the decision
+     * @param {boolean} isValid - Whether the callout is valid
+     * @returns {Promise<object>} - Result object with success status and effects
+     */
+    async adjudicateCallout(sessionId, refereeId, isValid) {
+        console.log(`[GAME_MANAGER] Adjudicating callout in session ${sessionId}: ${isValid ? 'valid' : 'invalid'}`);
+        
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session) {
+                return { success: false, message: "Game session not found." };
+            }
+
+            // Verify referee
+            if (session.referee !== refereeId) {
+                return { success: false, message: "Only the referee can adjudicate callouts." };
+            }
+
+            // Check if there's an active callout
+            if (!session.currentCallout || session.currentCallout.status !== "pending_referee_decision") {
+                return { success: false, message: "No active callout to adjudicate." };
+            }
+
+            const callout = session.currentCallout;
+            const result = {
+                success: true,
+                calloutValid: isValid,
+                effects: []
+            };
+
+            // Update callout status
+            callout.status = isValid ? "valid" : "invalid";
+            callout.refereeDecision = {
+                refereeId: refereeId,
+                decision: isValid,
+                timestamp: Date.now()
+            };
+
+            if (isValid) {
+                // Apply point transfer: deduct from accused, add to caller
+                const accusedPlayer = this.players[callout.accusedPlayerId];
+                const callerPlayer = this.players[callout.callerId];
+
+                if (accusedPlayer && callerPlayer) {
+                    accusedPlayer.points = Math.max(0, accusedPlayer.points - 1);
+                    callerPlayer.points += 1;
+
+                    result.effects.push({
+                        type: 'point_transfer',
+                        from: callout.accusedPlayerId,
+                        to: callout.callerId,
+                        amount: 1
+                    });
+
+                    // TODO: Sync player points with Firebase
+                    // await updateFirestorePlayerPoints(sessionId, callout.accusedPlayerId, accusedPlayer.points);
+                    // await updateFirestorePlayerPoints(sessionId, callout.callerId, callerPlayer.points);
+
+                    console.log(`[GAME_MANAGER] Point transferred: ${callout.accusedPlayerId} (-1) -> ${callout.callerId} (+1)`);
+                }
+
+                // Handle rule engine callout success
+                try {
+                    await this.handleCalloutSuccess(sessionId, callout.accusedPlayerId, callout.callerId, callout.ruleViolated);
+                } catch (error) {
+                    console.error(`[GAME_MANAGER] Error handling callout success in rule engine:`, error);
+                }
+            }
+
+            // Clear the active callout
+            session.currentCallout = null;
+
+            // TODO: Sync with Firebase
+            // await updateFirestoreGameSession(sessionId, { currentCallout: null });
+
+            console.log(`[GAME_MANAGER] Callout adjudicated: ${isValid ? 'valid' : 'invalid'}`);
+            return result;
+
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error adjudicating callout:`, error);
+            return { success: false, message: "Failed to adjudicate callout." };
+        }
+    }
+
+    /**
+     * Get the current active callout for a session
+     * @param {string} sessionId - The game session ID
+     * @returns {object|null} - The active callout or null
+     */
+    getCurrentCallout(sessionId) {
+        const session = this.gameSessions[sessionId];
+        return session ? session.currentCallout : null;
+    }
+
+    /**
+     * Get callout history for a session
+     * @param {string} sessionId - The game session ID
+     * @returns {array} - Array of callout history objects
+     */
+    getCalloutHistory(sessionId) {
+        const session = this.gameSessions[sessionId];
+        return session ? session.calloutHistory : [];
+    }
+
+    /**
+     * Transfer a card between players (enhanced for callout mechanism)
+     * @param {string} sessionId - The session ID
+     * @param {string} fromPlayerId - Source player ID
+     * @param {string} toPlayerId - Destination player ID
+     * @param {string} cardId - Card ID to transfer
+     * @returns {Promise<object>} - {success: boolean, error?: string}
+     */
+    async transferCardBetweenPlayers(sessionId, fromPlayerId, toPlayerId, cardId) {
+        console.log(`[GAME_MANAGER] Transferring card ${cardId} from ${fromPlayerId} to ${toPlayerId}`);
+        
+        try {
+            const fromPlayer = this.players[fromPlayerId];
+            const toPlayer = this.players[toPlayerId];
+            
+            if (!fromPlayer || !toPlayer) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Find and remove card from source player
+            const cardIndex = fromPlayer.hand.findIndex(c => c.id === cardId);
+            if (cardIndex === -1) {
+                return {
+                    success: false,
+                    error: 'Card not found in source player hand',
+                    errorCode: 'CARD_NOT_FOUND'
+                };
+            }
+
+            const [card] = fromPlayer.hand.splice(cardIndex, 1);
+            toPlayer.hand.push(card);
+
+            // Update Firebase
+            await this.assignPlayerHand(sessionId, fromPlayerId, fromPlayer.hand);
+            await this.assignPlayerHand(sessionId, toPlayerId, toPlayer.hand);
+
+            // Notify RuleEngine of card transfer
+            try {
+                await this.ruleEngine.handleCardTransfer(sessionId, fromPlayerId, toPlayerId, cardId);
+            } catch (error) {
+                console.error(`[GAME_MANAGER] Error notifying rule engine of card transfer:`, error);
+            }
+
+            console.log(`[GAME_MANAGER] Card ${cardId} transferred successfully`);
+            return { success: true };
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Error transferring card:`, error);
+            return {
+                success: false,
+                error: 'Failed to transfer card',
+                errorCode: 'TRANSFER_ERROR'
+            };
+        }
     }
 
     // #TODO Implement logic to assign player to a session
