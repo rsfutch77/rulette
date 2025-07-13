@@ -93,8 +93,25 @@ export class CardManager {
             return { canDraw: false, reason: `No cards available in "${deckType}" deck` };
         }
         
-        // TODO: Add rule-based restrictions here when rule system is implemented
-        // For now, simulate a rule restriction for demonstration
+        // Check rule-based restrictions through GameManager if available
+        if (gameState.gameManager && gameState.sessionId) {
+            const actionCheck = gameState.gameManager.checkActionRestrictions(
+                gameState.sessionId,
+                playerId,
+                'draw',
+                { deckType }
+            );
+            
+            if (!actionCheck.allowed) {
+                return {
+                    canDraw: false,
+                    reason: actionCheck.reason || `Drawing from "${deckType}" deck is restricted by active rules`,
+                    restrictions: actionCheck.restrictions
+                };
+            }
+        }
+        
+        // Legacy rule restriction check for backward compatibility
         if (gameState.restrictedDecks && gameState.restrictedDecks.includes(deckType)) {
             return { canDraw: false, reason: `Drawing from "${deckType}" deck is currently restricted by game rules` };
         }
@@ -120,6 +137,50 @@ export class CardManager {
             return { success: true, card };
         } catch (error) {
             console.error('[CARD_MANAGER] Error during safe draw:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Draw a card and handle rule activation through GameManager
+     * @param {string} deckType - The deck type to draw from
+     * @param {string} playerId - The player attempting to draw
+     * @param {object} gameState - Current game state including GameManager reference
+     * @returns {object} - {success: boolean, card?: object, activeRule?: object, error?: string}
+     */
+    async drawAndActivate(deckType, playerId, gameState = {}) {
+        try {
+            // First check if drawing is allowed
+            const canDraw = this.canDrawCard(deckType, playerId, gameState);
+            if (!canDraw.canDraw) {
+                return { success: false, error: canDraw.reason, restrictions: canDraw.restrictions };
+            }
+
+            // Draw the card
+            const card = this.draw(deckType);
+            
+            // If GameManager is available, handle rule activation
+            if (gameState.gameManager && gameState.sessionId) {
+                const activationResult = await gameState.gameManager.handleCardDrawn(
+                    gameState.sessionId,
+                    playerId,
+                    card,
+                    gameState
+                );
+                
+                return {
+                    success: true,
+                    card: card,
+                    activeRule: activationResult.activeRule,
+                    ruleText: activationResult.ruleText,
+                    activationResult: activationResult
+                };
+            }
+
+            // Fallback for when GameManager is not available
+            return { success: true, card };
+        } catch (error) {
+            console.error('[CARD_MANAGER] Error during draw and activate:', error);
             return { success: false, error: error.message };
         }
     }
