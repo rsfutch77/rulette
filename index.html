@@ -898,5 +898,70 @@
       <button id="notification-close-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer; margin-top:1rem;">OK</button>
     </div>
   </div>
+  
+  <!-- End Game Modal -->
+  <div id="end-game-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:1001; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:2.5rem; border-radius:1rem; max-width:600px; width:90%; margin:auto; box-shadow:0 4px 20px rgba(0,0,0,0.4); position:relative; text-align:center;">
+      <!-- Game Over Header -->
+      <div id="end-game-header" style="margin-bottom:2rem;">
+        <h1 id="end-game-title" style="margin:0; font-size:2.5rem; color:#333;">🎉 Game Over!</h1>
+        <p id="end-game-reason" style="margin:0.5rem 0 0 0; font-size:1.2rem; color:#666;"></p>
+      </div>
+      
+      <!-- Winner Announcement -->
+      <div id="winner-section" style="margin-bottom:2rem; display:none;">
+        <div style="background:linear-gradient(135deg, #ffd700, #ffed4e); padding:1.5rem; border-radius:10px; margin-bottom:1rem;">
+          <h2 style="margin:0; font-size:2rem; color:#333;">👑 Winner</h2>
+          <p id="winner-name" style="margin:0.5rem 0 0 0; font-size:1.5rem; font-weight:bold; color:#333;"></p>
+          <p id="winner-points" style="margin:0.25rem 0 0 0; font-size:1.1rem; color:#666;"></p>
+        </div>
+      </div>
+      
+      <!-- Final Standings -->
+      <div id="standings-section" style="margin-bottom:2rem;">
+        <h3 style="margin:0 0 1rem 0; font-size:1.5rem; color:#333;">📊 Final Standings</h3>
+        <div id="standings-list" style="background:#f8f9fa; border-radius:8px; padding:1rem;">
+          <!-- Standings will be populated by JavaScript -->
+        </div>
+      </div>
+      
+      <!-- Game Statistics -->
+      <div id="game-stats" style="margin-bottom:2rem; display:none;">
+        <h4 style="margin:0 0 0.5rem 0; color:#666;">Game Statistics</h4>
+        <div style="display:flex; justify-content:space-around; text-align:center; font-size:0.9rem; color:#666;">
+          <div>
+            <div style="font-weight:bold;" id="game-duration">--</div>
+            <div>Duration</div>
+          </div>
+          <div>
+            <div style="font-weight:bold;" id="total-callouts">--</div>
+            <div>Callouts</div>
+          </div>
+          <div>
+            <div style="font-weight:bold;" id="cards-played">--</div>
+            <div>Cards Played</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Action Buttons -->
+      <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+        <button id="restart-game-btn" style="background:#28a745; color:#fff; border:none; border-radius:8px; padding:0.8rem 1.5rem; font-size:1.1rem; cursor:pointer; font-weight:bold; transition:background 0.2s;">
+          🔄 Play Again
+        </button>
+        <button id="return-lobby-btn" style="background:#007bff; color:#fff; border:none; border-radius:8px; padding:0.8rem 1.5rem; font-size:1.1rem; cursor:pointer; font-weight:bold; transition:background 0.2s;">
+          🏠 Return to Lobby
+        </button>
+        <button id="view-history-btn" style="background:#6c757d; color:#fff; border:none; border-radius:8px; padding:0.8rem 1.5rem; font-size:1.1rem; cursor:pointer; font-weight:bold; transition:background 0.2s;">
+          📜 View Game History
+        </button>
+      </div>
+      
+      <!-- Close Button -->
+      <button id="close-end-game-btn" style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#999; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" title="Close">
+        ✕
+      </button>
+    </div>
+  </div>
 </body>
 </html>

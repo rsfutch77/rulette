@@ -177,12 +177,21 @@ class GameManager {
         // Trigger point change event for UI updates
         this.triggerPointChangeEvent(sessionId, pointChange);
 
+        // Check for end conditions after point change
+        const endConditionResult = await this.checkEndConditions(sessionId);
+        if (endConditionResult.gameEnded) {
+            console.log(`[GAME_END] Game ended due to: ${endConditionResult.reason}`);
+        }
+
         // TODO: Sync with Firebase
         // await updateFirestorePlayerPoints(sessionId, playerId, newPoints);
 
         return {
             success: true,
-            pointChange
+            pointChange,
+            gameEnded: endConditionResult.gameEnded,
+            endReason: endConditionResult.reason,
+            winner: endConditionResult.winner
         };
     }
 
@@ -386,6 +395,7 @@ class GameManager {
         }
 
         return playerPoints;
+
     }
 
     /**
@@ -483,6 +493,575 @@ class GameManager {
     }
 
     // ===== END POINTS TRACKING SYSTEM =====
+
+    // ===== END CONDITION DETECTION SYSTEM =====
+
+    /**
+     * Check all end conditions for a game session
+     * @param {string} sessionId - The session ID
+     * @returns {object} - {gameEnded: boolean, reason: string, winner: string|null, finalStandings: array}
+     */
+    async checkEndConditions(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return { gameEnded: false, reason: 'Session not found' };
+        }
+
+        // Skip end condition checks if game is already ended
+        if (session.status === 'completed') {
+            return { gameEnded: true, reason: 'Game already completed' };
+        }
+
+        // Check 1: Player reaches 0 points (primary end condition)
+        const zeroPointsResult = this.checkZeroPointsCondition(sessionId);
+        if (zeroPointsResult.gameEnded) {
+            await this.triggerGameEnd(sessionId, zeroPointsResult.reason, zeroPointsResult.winner, zeroPointsResult.finalStandings);
+            return zeroPointsResult;
+        }
+
+        // Check 2: All but one player reaches 0 points (secondary end condition)
+        const lastPlayerResult = this.checkLastPlayerStandingCondition(sessionId);
+        if (lastPlayerResult.gameEnded) {
+            await this.triggerGameEnd(sessionId, lastPlayerResult.reason, lastPlayerResult.winner, lastPlayerResult.finalStandings);
+            return lastPlayerResult;
+        }
+
+        // Check 3: All players leave the session
+        const noPlayersResult = this.checkNoActivePlayersCondition(sessionId);
+        if (noPlayersResult.gameEnded) {
+            await this.triggerGameEnd(sessionId, noPlayersResult.reason, null, []);
+            return noPlayersResult;
+        }
+
+        // Check 4: Custom rule or card triggered game end
+        const customEndResult = this.checkCustomEndCondition(sessionId);
+        if (customEndResult.gameEnded) {
+            await this.triggerGameEnd(sessionId, customEndResult.reason, customEndResult.winner, customEndResult.finalStandings);
+            return customEndResult;
+        }
+
+        return { gameEnded: false, reason: 'No end conditions met' };
+    }
+
+    /**
+     * Check if any player has reached 0 points (primary end condition)
+     * @param {string} sessionId - The session ID
+     * @returns {object} - End condition result
+     */
+    checkZeroPointsCondition(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return { gameEnded: false, reason: 'Session not found' };
+        }
+
+        const activePlayers = session.players.filter(playerId =>
+            this.players[playerId] && this.players[playerId].status === 'active'
+        );
+
+        const zeroPointPlayers = activePlayers.filter(playerId =>
+            this.players[playerId].points <= 0
+        );
+
+        if (zeroPointPlayers.length > 0) {
+            const finalStandings = this.calculateFinalStandings(sessionId);
+            const winner = finalStandings.length > 0 ? finalStandings[0] : null;
+            
+            return {
+                gameEnded: true,
+                reason: `Player(s) reached 0 points: ${zeroPointPlayers.map(id => this.players[id].displayName).join(', ')}`,
+                winner: winner ? winner.playerId : null,
+                finalStandings
+            };
+        }
+
+        return { gameEnded: false, reason: 'No players at 0 points' };
+    }
+
+    /**
+     * Check if all but one player has reached 0 points (secondary end condition)
+     * @param {string} sessionId - The session ID
+     * @returns {object} - End condition result
+     */
+    checkLastPlayerStandingCondition(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return { gameEnded: false, reason: 'Session not found' };
+        }
+
+        const activePlayers = session.players.filter(playerId =>
+            this.players[playerId] && this.players[playerId].status === 'active'
+        );
+
+        if (activePlayers.length < 2) {
+            return { gameEnded: false, reason: 'Need at least 2 players for this condition' };
+        }
+
+        const playersWithPoints = activePlayers.filter(playerId =>
+            this.players[playerId].points > 0
+        );
+
+        if (playersWithPoints.length === 1) {
+            const finalStandings = this.calculateFinalStandings(sessionId);
+            const winner = playersWithPoints[0];
+            
+            return {
+                gameEnded: true,
+                reason: `Only one player remaining with points: ${this.players[winner].displayName}`,
+                winner: winner,
+                finalStandings
+            };
+        }
+
+        return { gameEnded: false, reason: 'Multiple players still have points' };
+    }
+
+    /**
+     * Check if all players have left the session
+     * @param {string} sessionId - The session ID
+     * @returns {object} - End condition result
+     */
+    checkNoActivePlayersCondition(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return { gameEnded: false, reason: 'Session not found' };
+        }
+
+        const activePlayers = session.players.filter(playerId =>
+            this.players[playerId] && this.players[playerId].status === 'active'
+        );
+
+        if (activePlayers.length === 0) {
+            return {
+                gameEnded: true,
+                reason: 'All players have left the session',
+                winner: null,
+                finalStandings: []
+            };
+        }
+
+        return { gameEnded: false, reason: 'Active players still in session' };
+    }
+
+    /**
+     * Check for custom rule or card triggered game end
+     * @param {string} sessionId - The session ID
+     * @returns {object} - End condition result
+     */
+    checkCustomEndCondition(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return { gameEnded: false, reason: 'Session not found' };
+        }
+
+        // Check if a custom end condition has been triggered
+        if (session.customEndTriggered) {
+            const finalStandings = this.calculateFinalStandings(sessionId);
+            const winner = finalStandings.length > 0 ? finalStandings[0] : null;
+            
+            return {
+                gameEnded: true,
+                reason: session.customEndReason || 'Custom rule triggered game end',
+                winner: winner ? winner.playerId : null,
+                finalStandings
+            };
+        }
+
+        return { gameEnded: false, reason: 'No custom end condition triggered' };
+    }
+
+    /**
+     * Trigger a custom game end condition (for use by rules/cards)
+     * @param {string} sessionId - The session ID
+     * @param {string} reason - Reason for the custom end
+     * @param {string} winnerId - Optional specific winner ID
+     * @returns {boolean} - True if successfully triggered
+     */
+    triggerCustomGameEnd(sessionId, reason = 'Custom game end triggered', winnerId = null) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            console.warn(`Cannot trigger custom game end: Session ${sessionId} not found`);
+            return false;
+        }
+
+        if (session.status === 'completed') {
+            console.warn(`Cannot trigger custom game end: Game already completed`);
+            return false;
+        }
+
+        session.customEndTriggered = true;
+        session.customEndReason = reason;
+        if (winnerId) {
+            session.customEndWinner = winnerId;
+        }
+
+        console.log(`[GAME_END] Custom end condition triggered for session ${sessionId}: ${reason}`);
+        return true;
+    }
+
+    /**
+     * Calculate final standings based on current points
+     * @param {string} sessionId - The session ID
+     * @returns {array} - Array of player standings sorted by points (highest first)
+     */
+    calculateFinalStandings(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return [];
+        }
+
+        const activePlayers = session.players.filter(playerId =>
+            this.players[playerId] && this.players[playerId].status === 'active'
+        );
+
+        const standings = activePlayers.map(playerId => {
+            const player = this.players[playerId];
+            return {
+                playerId: playerId,
+                displayName: player.displayName,
+                points: player.points,
+                isReferee: session.referee === playerId
+            };
+        });
+
+        // Sort by points (highest first), then by name for ties
+        standings.sort((a, b) => {
+            if (b.points !== a.points) {
+                return b.points - a.points;
+            }
+            return a.displayName.localeCompare(b.displayName);
+        });
+
+        // Add ranking
+        standings.forEach((player, index) => {
+            player.rank = index + 1;
+        });
+
+        return standings;
+    }
+
+    /**
+     * Trigger the end-of-game flow
+     * @param {string} sessionId - The session ID
+     * @param {string} reason - Reason for game end
+     * @param {string} winnerId - Winner player ID (if any)
+     * @param {array} finalStandings - Final player standings
+     */
+    async triggerGameEnd(sessionId, reason, winnerId = null, finalStandings = []) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            console.warn(`Cannot trigger game end: Session ${sessionId} not found`);
+            return;
+        }
+
+        console.log(`[GAME_END] Triggering game end for session ${sessionId}: ${reason}`);
+
+        // Update session status
+        session.status = 'completed';
+        session.endReason = reason;
+        session.endTime = Date.now();
+        session.winner = winnerId;
+        session.finalStandings = finalStandings;
+
+        // Stop ongoing game events
+        this.stopGameEvents(sessionId);
+
+        // Create end game event
+        const endGameEvent = {
+            sessionId,
+            reason,
+            winnerId,
+            finalStandings,
+            timestamp: Date.now()
+        };
+
+        // Store end game event
+        if (!this.endGameEvents) {
+            this.endGameEvents = {};
+        }
+        this.endGameEvents[sessionId] = endGameEvent;
+
+        // Trigger end game UI event
+        this.triggerEndGameEvent(sessionId, endGameEvent);
+
+        // TODO: Sync with Firebase
+        // await updateFirestoreGameSession(sessionId, { status: 'completed', endReason: reason, winner: winnerId });
+
+        console.log(`[GAME_END] Game ended for session ${sessionId}. Winner: ${winnerId ? this.players[winnerId]?.displayName : 'None'}`);
+    }
+
+    /**
+     * Stop ongoing game events when game ends
+     * @param {string} sessionId - The session ID
+     */
+    stopGameEvents(sessionId) {
+        // Clear any active prompts
+        if (this.activePrompts && this.activePrompts[sessionId]) {
+            delete this.activePrompts[sessionId];
+        }
+
+        // Clear any pending callouts
+        if (this.calloutManager) {
+            this.calloutManager.clearPendingCallouts(sessionId);
+        }
+
+        // Clear turn management
+        if (this.currentTurn && this.currentTurn[sessionId]) {
+            delete this.currentTurn[sessionId];
+        }
+
+        console.log(`[GAME_END] Stopped ongoing game events for session ${sessionId}`);
+    }
+
+    /**
+     * Trigger end game event for UI updates
+     * @param {string} sessionId - The session ID
+     * @param {object} endGameEvent - End game event details
+     */
+    triggerEndGameEvent(sessionId, endGameEvent) {
+        console.log(`[END_GAME_EVENT] Session ${sessionId}: Game end event triggered`);
+        
+        try {
+            // Prepare game results for UI display
+            const gameResults = {
+                endCondition: this.getEndConditionType(endGameEvent.reason),
+                winners: endGameEvent.winnerId ? [endGameEvent.winnerId] : [],
+                finalStandings: this.formatStandingsForUI(endGameEvent.finalStandings),
+                finalReferee: this.gameSessions[sessionId]?.referee || null,
+                gameDuration: this.calculateGameDuration(sessionId),
+                totalPlayers: this.gameSessions[sessionId]?.players?.length || 0,
+                totalCardsPlayed: this.getGameStatistic(sessionId, 'cardsPlayed') || 0,
+                totalPointsTransferred: this.getGameStatistic(sessionId, 'pointsTransferred') || 0
+            };
+            
+            // Call the UI function to show the end-game modal
+            if (typeof window !== 'undefined' && window.showEndGameModal) {
+                window.showEndGameModal(gameResults);
+            } else {
+                console.warn('[END_GAME_EVENT] showEndGameModal function not available');
+            }
+            
+        } catch (error) {
+            console.error('[END_GAME_EVENT] Error triggering end game UI:', error);
+        }
+    }
+
+    /**
+     * Get the end condition type from the reason string
+     * @param {string} reason - The end reason
+     * @returns {string} - Standardized end condition type
+     */
+    getEndConditionType(reason) {
+        if (reason.includes('0 points')) return 'zero_points';
+        if (reason.includes('last player')) return 'last_player_standing';
+        if (reason.includes('no active players') || reason.includes('all players left')) return 'no_active_players';
+        if (reason.includes('custom')) return 'custom_rule';
+        return 'manual_end';
+    }
+
+    /**
+     * Format standings for UI display
+     * @param {array} standings - Raw standings array
+     * @returns {array} - Formatted standings for UI
+     */
+    formatStandingsForUI(standings) {
+        if (!standings || !Array.isArray(standings)) return [];
+        
+        return standings.map(standing => ({
+            playerId: standing.playerId,
+            displayName: standing.displayName || this.players[standing.playerId]?.displayName || 'Unknown Player',
+            points: standing.points || this.players[standing.playerId]?.points || 0,
+            cardCount: this.getPlayerOwnedCards(standing.playerId).length || 0
+        }));
+    }
+
+    /**
+     * Calculate game duration for a session
+     * @param {string} sessionId - The session ID
+     * @returns {number} - Duration in milliseconds
+     */
+    calculateGameDuration(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) return 0;
+        
+        const startTime = session.startTime || Date.now();
+        const endTime = session.endTime || Date.now();
+        return Math.max(0, endTime - startTime);
+    }
+
+    /**
+     * Get game statistics for a session
+     * @param {string} sessionId - The session ID
+     * @param {string} statType - Type of statistic to get
+     * @returns {number} - Statistic value
+     */
+    getGameStatistic(sessionId, statType) {
+        const session = this.gameSessions[sessionId];
+        if (!session) return 0;
+        
+        switch (statType) {
+            case 'cardsPlayed':
+                // Count total cards in all player hands
+                return session.players.reduce((total, playerId) => {
+                    const player = this.players[playerId];
+                    return total + (player?.hand?.length || 0);
+                }, 0);
+                
+            case 'pointsTransferred':
+                // This would need to be tracked during the game
+                // For now, return a placeholder
+                return session.pointsTransferred || 0;
+                
+            default:
+                return 0;
+        }
+    }
+
+    /**
+     * Get end game information for a session
+     * @param {string} sessionId - The session ID
+     * @returns {object|null} - End game event or null if not ended
+     */
+    getEndGameInfo(sessionId) {
+        if (!this.endGameEvents || !this.endGameEvents[sessionId]) {
+            return null;
+        }
+        
+        return this.endGameEvents[sessionId];
+    }
+
+    /**
+     * Check if a game session has ended
+     * @param {string} sessionId - The session ID
+     * @returns {boolean} - True if game has ended
+     */
+    isGameEnded(sessionId) {
+        const session = this.gameSessions[sessionId];
+        return session ? session.status === 'completed' : false;
+    }
+
+    /**
+     * Restart a game session (reset to lobby state)
+     * @param {string} sessionId - The session ID
+     * @returns {boolean} - True if successfully restarted
+     */
+    async restartGame(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            console.warn(`Cannot restart game: Session ${sessionId} not found`);
+            return false;
+        }
+
+        console.log(`[GAME_RESTART] Restarting game for session ${sessionId}`);
+
+        // Reset session state
+        session.status = 'lobby';
+        session.endReason = null;
+        session.endTime = null;
+        session.winner = null;
+        session.finalStandings = null;
+        session.customEndTriggered = false;
+        session.customEndReason = null;
+        session.customEndWinner = null;
+
+        // Reset player points to initial values
+        for (const playerId of session.players) {
+            if (this.players[playerId]) {
+                this.initializePlayerPoints(playerId, 20); // Reset to starting points
+            }
+        }
+
+        // Clear end game event
+        if (this.endGameEvents && this.endGameEvents[sessionId]) {
+            delete this.endGameEvents[sessionId];
+        }
+
+        // Clear game state
+        this.stopGameEvents(sessionId);
+
+        // TODO: Sync with Firebase
+        // await updateFirestoreGameSession(sessionId, { status: 'lobby' });
+
+        console.log(`[GAME_RESTART] Game restarted for session ${sessionId}`);
+        return true;
+    }
+
+    /**
+     * Test function for end condition detection
+     * @param {string} sessionId - The session ID to test with
+     * @returns {object} - Test results
+     */
+    async testEndConditions(sessionId) {
+        console.log(`[END_CONDITIONS_TEST] Starting end condition test for session ${sessionId}`);
+        
+        const testResults = {
+            success: true,
+            tests: [],
+            errors: []
+        };
+
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session || session.players.length < 2) {
+                throw new Error('Need at least 2 players in session for testing');
+            }
+
+            const player1Id = session.players[0];
+            const player2Id = session.players[1];
+
+            // Test 1: Check initial state (no end conditions)
+            let result = await this.checkEndConditions(sessionId);
+            testResults.tests.push({
+                name: 'Initial state - no end conditions',
+                passed: !result.gameEnded,
+                details: `Game ended: ${result.gameEnded}, Reason: ${result.reason}`
+            });
+
+            // Test 2: Set player to 0 points and check end condition
+            await this.setPlayerPoints(sessionId, player1Id, 0, 'Test: Set to 0 points');
+            result = await this.checkEndConditions(sessionId);
+            testResults.tests.push({
+                name: 'Player reaches 0 points',
+                passed: result.gameEnded && result.reason.includes('reached 0 points'),
+                details: `Game ended: ${result.gameEnded}, Reason: ${result.reason}`
+            });
+
+            // Reset for next test
+            await this.restartGame(sessionId);
+
+            // Test 3: Custom end condition
+            this.triggerCustomGameEnd(sessionId, 'Test custom end', player2Id);
+            result = await this.checkEndConditions(sessionId);
+            testResults.tests.push({
+                name: 'Custom end condition',
+                passed: result.gameEnded && result.reason.includes('Custom'),
+                details: `Game ended: ${result.gameEnded}, Reason: ${result.reason}`
+            });
+
+            // Reset for next test
+            await this.restartGame(sessionId);
+
+            // Test 4: Final standings calculation
+            await this.setPlayerPoints(sessionId, player1Id, 15, 'Test: Set points for standings');
+            await this.setPlayerPoints(sessionId, player2Id, 10, 'Test: Set points for standings');
+            const standings = this.calculateFinalStandings(sessionId);
+            testResults.tests.push({
+                name: 'Final standings calculation',
+                passed: standings.length === 2 && standings[0].points > standings[1].points,
+                details: `Standings: ${JSON.stringify(standings.map(p => ({name: p.displayName, points: p.points, rank: p.rank})))}`
+            });
+
+            console.log(`[END_CONDITIONS_TEST] All tests completed successfully`);
+
+        } catch (error) {
+            testResults.success = false;
+            testResults.errors.push(error.message);
+            console.error(`[END_CONDITIONS_TEST] Test failed:`, error);
+        }
+
+        return testResults;
+    }
+
+    // ===== END END CONDITION DETECTION SYSTEM =====
     /**
      * Updates a player's status and synchronizes with Firebase.
      * @param {string} sessionId - The ID of the session the player is in.
