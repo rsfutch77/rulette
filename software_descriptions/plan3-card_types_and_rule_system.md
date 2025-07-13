@@ -20,6 +20,7 @@ Design and implement the various card types and the underlying rule system that 
 ### 3.2 Rule Engine Architecture (5 points)
 - Implement a rule engine to manage active rules, their triggers, and durations.
 - Support stacking and persistence of rules across turns.
+- *Detailed architecture and data structures are defined in [Rule Engine Design Document](../plan.3.2-rule_engine_design.md).*
 
 ### 3.3 Card Effect Resolution (4 points)
 - Implement logic for applying card effects to players or the game state.
