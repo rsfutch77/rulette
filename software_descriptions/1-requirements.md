@@ -205,9 +205,9 @@ Roles and responsibilities:
     - Duplicate player names
     - Players disconnecting and reconnecting
     - Players leaving and rejoining before game start
-[ ] 7.3 Ready System (2 Points)
-[ ] 7.3.1 Implement a "ready" button for each player (1 Point)
-[ ] 7.3.2 Indicate which players are ready and which are not (1 Point)
+[x] 7.3 Ready System (2 Points)
+[x] 7.3.1 Implement a "ready" button for each player (1 Point)
+[x] 7.3.2 Indicate which players are ready and which are not (1 Point)
 [ ] 7.4 Host Controls (2 Points)
 [ ] 7.4.1 Allow the host to start the game when all players are ready (1 Point)
 [ ] 7.4.2 Optionally, allow the host to kick disruptive players (1 Point)

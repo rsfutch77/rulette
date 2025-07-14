@@ -1802,6 +1802,240 @@
         align-items: stretch;
       }
     }
+
+    /* Ready System Styles (7.3 Requirements) */
+    .ready-section {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 12px;
+      border: 1px solid #dee2e6;
+    }
+
+    .ready-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .ready-title {
+      font-size: 1.3rem;
+      color: #495057;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .ready-count {
+      background: #6c757d;
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .ready-count.all-ready {
+      background: #28a745;
+      animation: pulse 2s infinite;
+    }
+
+    .ready-status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .ready-status-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.8rem 1rem;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+      transition: all 0.3s ease;
+    }
+
+    .ready-status-item.ready {
+      border-color: #28a745;
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    }
+
+    .ready-status-item.not-ready {
+      border-color: #ffc107;
+      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    }
+
+    .ready-status-item.host {
+      border-color: #007bff;
+      background: linear-gradient(135deg, #cce7ff 0%, #b3d9ff 100%);
+    }
+
+    .ready-player-name {
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .ready-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .ready-status-indicator.ready {
+      color: #28a745;
+    }
+
+    .ready-status-indicator.not-ready {
+      color: #ffc107;
+    }
+
+    .ready-status-indicator.host {
+      color: #007bff;
+    }
+
+    .ready-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .ready-btn, .start-game-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 200px;
+      justify-content: center;
+    }
+
+    .ready-btn {
+      background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+      color: #212529;
+      border: 2px solid #ffc107;
+    }
+
+    .ready-btn:hover {
+      background: linear-gradient(135deg, #ffb300 0%, #ff8f00 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+    }
+
+    .ready-btn.ready {
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      color: white;
+      border-color: #28a745;
+    }
+
+    .ready-btn.ready:hover {
+      background: linear-gradient(135deg, #20c997 0%, #17a2b8 100%);
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .start-game-btn {
+      background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+      color: white;
+      border: 2px solid #007bff;
+    }
+
+    .start-game-btn:hover {
+      background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+
+    .start-game-btn:disabled {
+      background: #6c757d;
+      border-color: #6c757d;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .start-game-btn:disabled:hover {
+      background: #6c757d;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .ready-btn-icon, .start-game-btn-icon {
+      font-size: 1.2rem;
+    }
+
+    .ready-message {
+      text-align: center;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+      color: #6c757d;
+      font-style: italic;
+      max-width: 400px;
+    }
+
+    .ready-message.success {
+      background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+      border-color: #28a745;
+      color: #155724;
+    }
+
+    .ready-message.warning {
+      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+      border-color: #ffc107;
+      color: #856404;
+    }
+
+    /* Ready System Animations */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes readyGlow {
+      0% { box-shadow: 0 0 5px rgba(40, 167, 69, 0.3); }
+      50% { box-shadow: 0 0 20px rgba(40, 167, 69, 0.6); }
+      100% { box-shadow: 0 0 5px rgba(40, 167, 69, 0.3); }
+    }
+
+    .ready-status-item.ready {
+      animation: readyGlow 3s infinite;
+    }
+
+    /* Responsive Design for Ready System */
+    @media (max-width: 768px) {
+      .ready-section {
+        margin-top: 1.5rem;
+        padding: 1rem;
+      }
+
+      .ready-status-grid {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+      }
+
+      .ready-btn, .start-game-btn {
+        min-width: 100%;
+        padding: 0.8rem 1.5rem;
+        font-size: 1rem;
+      }
+
+      .ready-actions {
+        gap: 0.8rem;
+      }
+    }
   </style>
 
   <!-- Lobby Container -->
@@ -1845,6 +2079,39 @@
         <div class="empty-lobby-icon">👥</div>
         <div class="empty-lobby-text">No players in the lobby</div>
         <div class="empty-lobby-subtext">Waiting for players to join...</div>
+      </div>
+    </div>
+
+    <!-- Ready System Section (7.3 Requirements) -->
+    <div class="ready-section">
+      <div class="ready-header">
+        <h2 class="ready-title">
+          ⚡ Ready Status
+          <span class="ready-count" id="lobby-ready-count">0/0</span>
+        </h2>
+      </div>
+
+      <div class="ready-status-grid" id="lobby-ready-status">
+        <!-- Ready status indicators will be dynamically inserted here -->
+      </div>
+
+      <div class="ready-actions">
+        <!-- Ready Button for Non-Host Players -->
+        <button class="ready-btn" id="player-ready-btn" style="display: none;">
+          <span class="ready-btn-icon">⚡</span>
+          <span class="ready-btn-text">Ready</span>
+        </button>
+
+        <!-- Start Game Button for Host -->
+        <button class="start-game-btn" id="host-start-game-btn" style="display: none;">
+          <span class="start-game-btn-icon">🚀</span>
+          <span class="start-game-btn-text">Start Game</span>
+        </button>
+
+        <!-- Ready Status Message -->
+        <div class="ready-message" id="ready-status-message">
+          Waiting for players to join...
+        </div>
       </div>
     </div>
   </div>

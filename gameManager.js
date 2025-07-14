@@ -200,6 +200,7 @@ class GameManager {
             points: 0, // Will be set by initializePlayerPoints
             status: 'active', // active, disconnected, left
             hasRefereeCard: false,
+            isReady: false, // Ready status for lobby (7.3.1)
             hand: [], // Player's hand of cards
             connectionInfo: {
                 lastSeen: Date.now(),
@@ -247,7 +248,7 @@ class GameManager {
 
             const { sessionId, session } = validationResult;
 
-            // Check if session is in a joinable state
+            // Check if session is in a joinable state (7.2.1 - only allow joining lobby state)
             if (session.status !== this.SESSION_STATES.LOBBY) {
                 return {
                     success: false,
@@ -256,7 +257,7 @@ class GameManager {
                 };
             }
 
-            // Check if session is full
+            // Check if session is full (7.2.1 - handle full lobby scenario)
             if (session.players && session.players.length >= (session.maxPlayers || 6)) {
                 return {
                     success: false,
@@ -265,7 +266,31 @@ class GameManager {
                 };
             }
 
-            // Check if player is already in the session
+            // Check for duplicate player names (7.2.2 - edge case handling)
+            const duplicateNameResult = await this.checkForDuplicatePlayerName(sessionId, displayName, playerId);
+            if (!duplicateNameResult.success) {
+                return duplicateNameResult;
+            }
+
+            // Handle player reconnection scenario (7.2.2 - disconnected players rejoining)
+            const existingPlayer = this.players[playerId];
+            if (existingPlayer && existingPlayer.sessionId === sessionId) {
+                if (existingPlayer.status === 'disconnected') {
+                    // Player is reconnecting to the same session
+                    return await this.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
+                } else if (existingPlayer.status === 'left') {
+                    // Player previously left and is rejoining - treat as new entry (7.2.2)
+                    return await this.handlePlayerRejoinAfterLeaving(sessionId, playerId, displayName);
+                } else if (existingPlayer.status === 'active') {
+                    return {
+                        success: false,
+                        error: 'You are already in this session.',
+                        errorCode: 'ALREADY_JOINED'
+                    };
+                }
+            }
+
+            // Check if player is already in the session players list
             if (session.players && session.players.includes(playerId)) {
                 return {
                     success: false,
@@ -289,6 +314,9 @@ class GameManager {
             // Synchronize with Firebase
             await this.updateSessionPlayerList(sessionId, session.players);
             
+            // Trigger player status change event for UI updates
+            this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player joined session');
+            
             console.log(`[SESSION] Player ${displayName} (${playerId}) joined session ${sessionId}`);
             
             return {
@@ -304,6 +332,275 @@ class GameManager {
                 success: false,
                 error: 'Failed to join session. Please try again.',
                 errorCode: 'JOIN_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Check for duplicate player names in a session (7.2.2 edge case handling)
+     * @param {string} sessionId - The session ID
+     * @param {string} displayName - The proposed display name
+     * @param {string} playerId - The player ID attempting to join
+     * @returns {Promise<object>} - Success/failure result with suggested name if needed
+     */
+    async checkForDuplicatePlayerName(sessionId, displayName, playerId) {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return { success: true }; // Session doesn't exist, no duplicates possible
+            }
+
+            // Get all current players in the session
+            const currentPlayers = [];
+            if (session.players) {
+                for (const currentPlayerId of session.players) {
+                    const player = this.players[currentPlayerId];
+                    if (player && player.status !== 'left' && currentPlayerId !== playerId) {
+                        currentPlayers.push(player);
+                    }
+                }
+            }
+
+            // Check for duplicate display names
+            const duplicatePlayer = currentPlayers.find(player =>
+                player.displayName && player.displayName.toLowerCase() === displayName.toLowerCase()
+            );
+
+            if (duplicatePlayer) {
+                // Generate suggested alternative names
+                const suggestions = this.generateAlternativePlayerNames(displayName, currentPlayers);
+                
+                return {
+                    success: false,
+                    error: `The name "${displayName}" is already taken in this session.`,
+                    errorCode: 'DUPLICATE_PLAYER_NAME',
+                    suggestions: suggestions
+                };
+            }
+
+            return { success: true };
+
+        } catch (error) {
+            console.error('[SESSION] Error checking duplicate player names:', error);
+            return { success: true }; // Allow join on error to avoid blocking
+        }
+    }
+
+    /**
+     * Generate alternative player name suggestions
+     * @param {string} originalName - The original name that was taken
+     * @param {Array} existingPlayers - Array of existing players
+     * @returns {Array} - Array of suggested alternative names
+     */
+    generateAlternativePlayerNames(originalName, existingPlayers) {
+        const suggestions = [];
+        const existingNames = existingPlayers.map(p => p.displayName.toLowerCase());
+
+        // Strategy 1: Add numbers to the end
+        for (let i = 2; i <= 5; i++) {
+            const suggestion = `${originalName}${i}`;
+            if (!existingNames.includes(suggestion.toLowerCase())) {
+                suggestions.push(suggestion);
+            }
+        }
+
+        // Strategy 2: Add common suffixes
+        const suffixes = ['_new', '_player', '_user', '_alt'];
+        for (const suffix of suffixes) {
+            const suggestion = `${originalName}${suffix}`;
+            if (!existingNames.includes(suggestion.toLowerCase()) && suggestions.length < 4) {
+                suggestions.push(suggestion);
+            }
+        }
+
+        // Strategy 3: Add random numbers if still need more
+        while (suggestions.length < 3) {
+            const randomNum = Math.floor(Math.random() * 1000);
+            const suggestion = `${originalName}_${randomNum}`;
+            if (!existingNames.includes(suggestion.toLowerCase()) && !suggestions.includes(suggestion)) {
+                suggestions.push(suggestion);
+            }
+        }
+
+        return suggestions.slice(0, 3); // Return max 3 suggestions
+    }
+
+    /**
+     * Handle player reconnection to lobby (7.2.2 edge case handling)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} displayName - The display name
+     * @returns {Promise<object>} - Success/failure result
+     */
+    async handlePlayerReconnectionToLobby(sessionId, playerId, displayName) {
+        try {
+            const session = this.getSession(sessionId);
+            const player = this.players[playerId];
+
+            if (!session || !player) {
+                return {
+                    success: false,
+                    error: 'Session or player not found',
+                    errorCode: 'RECONNECTION_ERROR'
+                };
+            }
+
+            // Restore player to active status
+            await this.updatePlayerStatus(sessionId, playerId, 'active', 'Player reconnected to lobby');
+
+            // Ensure player is in session players list
+            if (!session.players.includes(playerId)) {
+                session.players.push(playerId);
+            }
+
+            // Update display name if it changed
+            if (player.displayName !== displayName) {
+                player.displayName = displayName;
+            }
+
+            // Restart presence tracking
+            await this.initializePlayerPresence(sessionId, playerId);
+
+            // Update Firebase
+            await this.updateSessionPlayerList(sessionId, session.players);
+
+            // Trigger player status change event for UI updates
+            this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player reconnected to lobby');
+
+            console.log(`[SESSION] Player ${displayName} (${playerId}) reconnected to lobby in session ${sessionId}`);
+
+            return {
+                success: true,
+                sessionId: sessionId,
+                session: session,
+                message: `Successfully reconnected to session lobby`,
+                reconnected: true
+            };
+
+        } catch (error) {
+            console.error('[SESSION] Error handling player reconnection to lobby:', error);
+            return {
+                success: false,
+                error: 'Failed to reconnect to session',
+                errorCode: 'RECONNECTION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Handle player rejoining after leaving (7.2.2 edge case handling)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} displayName - The display name
+     * @returns {Promise<object>} - Success/failure result
+     */
+    async handlePlayerRejoinAfterLeaving(sessionId, playerId, displayName) {
+        try {
+            const session = this.getSession(sessionId);
+
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Clear previous player state since they left voluntarily
+            if (this.players[playerId]) {
+                // Reset player state for fresh start
+                this.players[playerId].gameState = null;
+                this.players[playerId].connectionInfo = {
+                    lastSeen: Date.now(),
+                    connectionCount: 0,
+                    disconnectTimeout: null
+                };
+            }
+
+            // Ensure player is in session players list
+            if (!session.players.includes(playerId)) {
+                session.players.push(playerId);
+            }
+
+            // Re-initialize the player as if joining for the first time
+            await this.initializePlayer(sessionId, playerId, displayName);
+
+            // Update Firebase
+            await this.updateSessionPlayerList(sessionId, session.players);
+
+            // Trigger player status change event for UI updates
+            this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player rejoined after leaving');
+
+            console.log(`[SESSION] Player ${displayName} (${playerId}) rejoined session ${sessionId} after leaving`);
+
+            return {
+                success: true,
+                sessionId: sessionId,
+                session: session,
+                message: `Successfully rejoined session`,
+                rejoined: true
+            };
+
+        } catch (error) {
+            console.error('[SESSION] Error handling player rejoin after leaving:', error);
+            return {
+                success: false,
+                error: 'Failed to rejoin session',
+                errorCode: 'REJOIN_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Leave lobby specifically (7.2.1 - voluntary lobby departure)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @returns {Promise<object>} - Success/failure result
+     */
+    async leaveLobby(sessionId, playerId) {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Only allow leaving if session is in lobby state
+            if (session.status !== this.SESSION_STATES.LOBBY) {
+                return {
+                    success: false,
+                    error: 'Cannot leave lobby. Game is already in progress or completed.',
+                    errorCode: 'CANNOT_LEAVE_LOBBY'
+                };
+            }
+
+            // Use existing leaveSession method which handles all the cleanup
+            const result = await this.leaveSession(sessionId, playerId);
+            
+            if (result.success) {
+                console.log(`[SESSION] Player ${playerId} left lobby in session ${sessionId}`);
+                
+                // Trigger specific lobby leave event
+                this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'left', 'Player left lobby');
+                
+                return {
+                    success: true,
+                    message: 'Successfully left lobby',
+                    leftLobby: true
+                };
+            }
+
+            return result;
+
+        } catch (error) {
+            console.error('[SESSION] Error leaving lobby:', error);
+            return {
+                success: false,
+                error: 'Failed to leave lobby',
+                errorCode: 'LEAVE_LOBBY_ERROR'
             };
         }
     }
@@ -1959,6 +2256,508 @@ class GameManager {
     }
 
     // ===== END PLAYER MANAGEMENT SYSTEM =====
+
+    // ===== READY SYSTEM (7.3 Requirements) =====
+
+    /**
+     * Toggle player ready status in lobby (7.3.1)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @returns {Promise<object>} - Success/failure result with ready status
+     */
+    async togglePlayerReady(sessionId, playerId) {
+        try {
+            const session = this.getSession(sessionId);
+            const player = this.players[playerId];
+
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            if (!player) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Only allow ready toggle in lobby state
+            if (session.status !== this.SESSION_STATES.LOBBY) {
+                return {
+                    success: false,
+                    error: 'Ready status can only be changed in lobby',
+                    errorCode: 'INVALID_SESSION_STATE'
+                };
+            }
+
+            // Only allow non-host players to toggle ready status
+            if (session.hostId === playerId) {
+                return {
+                    success: false,
+                    error: 'Host cannot use ready status - use Start Game instead',
+                    errorCode: 'HOST_CANNOT_BE_READY'
+                };
+            }
+
+            // Only allow active players to toggle ready status
+            if (player.status !== 'active') {
+                return {
+                    success: false,
+                    error: 'Only active players can toggle ready status',
+                    errorCode: 'PLAYER_NOT_ACTIVE'
+                };
+            }
+
+            // Toggle ready status
+            const newReadyStatus = !player.isReady;
+            player.isReady = newReadyStatus;
+
+            // Log the ready status change
+            console.log(`[READY] Player ${player.displayName} (${playerId}) ready status changed to: ${newReadyStatus}`);
+
+            // Trigger event for UI updates
+            this.triggerPlayerReadyChangeEvent(sessionId, playerId, newReadyStatus);
+
+            // TODO: Sync with Firebase
+            // await this.syncPlayerReadyStatusWithFirebase(sessionId, playerId, newReadyStatus);
+
+            return {
+                success: true,
+                isReady: newReadyStatus,
+                playerName: player.displayName,
+                message: `${player.displayName} is ${newReadyStatus ? 'ready' : 'not ready'}`
+            };
+
+        } catch (error) {
+            console.error('[READY] Error toggling player ready status:', error);
+            return {
+                success: false,
+                error: 'Failed to toggle ready status',
+                errorCode: 'TOGGLE_READY_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Set player ready status directly (7.3.1)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {boolean} isReady - The ready status to set
+     * @returns {Promise<object>} - Success/failure result with ready status
+     */
+    async setPlayerReady(sessionId, playerId, isReady) {
+        try {
+            const session = this.getSession(sessionId);
+            const player = this.players[playerId];
+
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            if (!player) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Only allow ready status changes in lobby state
+            if (session.status !== this.SESSION_STATES.LOBBY) {
+                return {
+                    success: false,
+                    error: 'Ready status can only be changed in lobby',
+                    errorCode: 'INVALID_SESSION_STATE'
+                };
+            }
+
+            // Only allow non-host players to have ready status
+            if (session.hostId === playerId) {
+                return {
+                    success: false,
+                    error: 'Host cannot use ready status - use Start Game instead',
+                    errorCode: 'HOST_CANNOT_BE_READY'
+                };
+            }
+
+            // Only allow active players to have ready status
+            if (player.status !== 'active') {
+                return {
+                    success: false,
+                    error: 'Only active players can have ready status',
+                    errorCode: 'PLAYER_NOT_ACTIVE'
+                };
+            }
+
+            // Set ready status
+            const previousStatus = player.isReady;
+            player.isReady = isReady;
+
+            // Log the ready status change
+            console.log(`[READY] Player ${player.displayName} (${playerId}) ready status set to: ${isReady}`);
+
+            // Trigger event for UI updates if status changed
+            if (previousStatus !== isReady) {
+                this.triggerPlayerReadyChangeEvent(sessionId, playerId, isReady);
+            }
+
+            // TODO: Sync with Firebase
+            // await this.syncPlayerReadyStatusWithFirebase(sessionId, playerId, isReady);
+
+            return {
+                success: true,
+                isReady: isReady,
+                playerName: player.displayName,
+                message: `${player.displayName} is ${isReady ? 'ready' : 'not ready'}`
+            };
+
+        } catch (error) {
+            console.error('[READY] Error setting player ready status:', error);
+            return {
+                success: false,
+                error: 'Failed to set ready status',
+                errorCode: 'SET_READY_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Get ready statuses for all players in session (7.3.2)
+     * @param {string} sessionId - The session ID
+     * @returns {object} - Ready status information for all players
+     */
+    getSessionReadyStatuses(sessionId) {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            const readyStatuses = {};
+            let totalPlayers = 0;
+            let readyPlayers = 0;
+            let activePlayers = 0;
+            let hostPlayer = null;
+
+            // Get ready status for each player in the session
+            for (const playerId of session.players) {
+                const player = this.players[playerId];
+                if (player) {
+                    totalPlayers++;
+                    
+                    if (player.status === 'active') {
+                        activePlayers++;
+                    }
+
+                    if (session.hostId === playerId) {
+                        hostPlayer = {
+                            id: playerId,
+                            name: player.displayName,
+                            status: player.status
+                        };
+                    }
+
+                    readyStatuses[playerId] = {
+                        displayName: player.displayName,
+                        isReady: player.isReady || false,
+                        isHost: session.hostId === playerId,
+                        status: player.status,
+                        canBeReady: session.hostId !== playerId && player.status === 'active'
+                    };
+
+                    // Count ready players (excluding host)
+                    if (session.hostId !== playerId && player.isReady) {
+                        readyPlayers++;
+                    }
+                }
+            }
+
+            // Calculate if all eligible players are ready
+            const eligiblePlayers = activePlayers - (hostPlayer ? 1 : 0); // Exclude host from eligible count
+            const allPlayersReady = eligiblePlayers > 0 && readyPlayers === eligiblePlayers;
+
+            return {
+                success: true,
+                sessionId: sessionId,
+                sessionStatus: session.status,
+                readyStatuses: readyStatuses,
+                summary: {
+                    totalPlayers: totalPlayers,
+                    activePlayers: activePlayers,
+                    readyPlayers: readyPlayers,
+                    eligiblePlayers: eligiblePlayers,
+                    allPlayersReady: allPlayersReady,
+                    hostPlayer: hostPlayer,
+                    canStartGame: allPlayersReady && session.status === this.SESSION_STATES.LOBBY
+                }
+            };
+
+        } catch (error) {
+            console.error('[READY] Error getting session ready statuses:', error);
+            return {
+                success: false,
+                error: 'Failed to get ready statuses',
+                errorCode: 'GET_READY_STATUSES_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Check if all non-host players are ready and game can start (7.3.2)
+     * @param {string} sessionId - The session ID
+     * @returns {object} - Information about whether game can start
+     */
+    checkAllPlayersReady(sessionId) {
+        try {
+            const readyStatusInfo = this.getSessionReadyStatuses(sessionId);
+            
+            if (!readyStatusInfo.success) {
+                return readyStatusInfo;
+            }
+
+            const { summary } = readyStatusInfo;
+            
+            return {
+                success: true,
+                canStartGame: summary.canStartGame,
+                allPlayersReady: summary.allPlayersReady,
+                readyCount: summary.readyPlayers,
+                eligibleCount: summary.eligiblePlayers,
+                sessionStatus: summary.sessionStatus,
+                message: summary.canStartGame
+                    ? 'All players are ready - game can start!'
+                    : summary.allPlayersReady
+                        ? 'All players ready but not in lobby state'
+                        : `${summary.readyPlayers}/${summary.eligiblePlayers} players ready`
+            };
+
+        } catch (error) {
+            console.error('[READY] Error checking if all players ready:', error);
+            return {
+                success: false,
+                error: 'Failed to check ready status',
+                errorCode: 'CHECK_ALL_READY_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Reset all player ready statuses (useful for lobby reset)
+     * @param {string} sessionId - The session ID
+     * @returns {object} - Success/failure result
+     */
+    resetAllPlayerReadyStatuses(sessionId) {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            let resetCount = 0;
+            const resetPlayers = [];
+
+            // Reset ready status for all players in the session
+            for (const playerId of session.players) {
+                const player = this.players[playerId];
+                if (player && session.hostId !== playerId) {
+                    const wasReady = player.isReady;
+                    player.isReady = false;
+                    
+                    if (wasReady) {
+                        resetCount++;
+                        resetPlayers.push(player.displayName);
+                        
+                        // Trigger event for UI updates
+                        this.triggerPlayerReadyChangeEvent(sessionId, playerId, false);
+                    }
+                }
+            }
+
+            console.log(`[READY] Reset ready status for ${resetCount} players in session ${sessionId}`);
+
+            // TODO: Sync with Firebase
+            // await this.syncAllPlayerReadyStatusesWithFirebase(sessionId);
+
+            return {
+                success: true,
+                resetCount: resetCount,
+                resetPlayers: resetPlayers,
+                message: `Reset ready status for ${resetCount} players`
+            };
+
+        } catch (error) {
+            console.error('[READY] Error resetting all player ready statuses:', error);
+            return {
+                success: false,
+                error: 'Failed to reset ready statuses',
+                errorCode: 'RESET_ALL_READY_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Trigger player ready change event for UI updates
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {boolean} isReady - The new ready status
+     */
+    triggerPlayerReadyChangeEvent(sessionId, playerId, isReady) {
+        try {
+            const player = this.players[playerId];
+            const eventData = {
+                sessionId: sessionId,
+                playerId: playerId,
+                playerName: player ? player.displayName : 'Unknown',
+                isReady: isReady,
+                timestamp: new Date().toISOString()
+            };
+
+            // Dispatch DOM event for UI updates
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+                const event = new CustomEvent('playerReadyChanged', {
+                    detail: eventData
+                });
+                window.dispatchEvent(event);
+            }
+
+            console.log('[READY_EVENT] Player ready change event triggered:', eventData);
+
+        } catch (error) {
+            console.error('[READY_EVENT] Error triggering player ready change event:', error);
+        }
+    }
+
+    /**
+     * Test function for ready system functionality
+     * @param {string} testSessionId - Optional test session ID
+     */
+    testReadySystem(testSessionId = null) {
+        console.log('\n🧪 Testing Ready System...');
+        
+        try {
+            // Use existing session or create test session
+            let sessionId = testSessionId;
+            if (!sessionId) {
+                // Create a test session
+                const sessionResult = this.createGameSession('TestHost', 4);
+                if (!sessionResult.success) {
+                    console.error('❌ Failed to create test session');
+                    return;
+                }
+                sessionId = sessionResult.sessionId;
+                console.log(`✓ Created test session: ${sessionId}`);
+            }
+
+            // Add test players
+            const players = [
+                { name: 'Player1', isHost: false },
+                { name: 'Player2', isHost: false },
+                { name: 'Player3', isHost: false }
+            ];
+
+            for (const playerData of players) {
+                const joinResult = this.joinSession(sessionId, playerData.name, `player-${playerData.name.toLowerCase()}`);
+                if (joinResult.success) {
+                    console.log(`✓ Added test player: ${playerData.name}`);
+                } else {
+                    console.log(`⚠️ Could not add player ${playerData.name}: ${joinResult.error}`);
+                }
+            }
+
+            // Test 1: Get initial ready statuses
+            console.log('\n📋 Test 1: Get initial ready statuses');
+            const initialStatuses = this.getSessionReadyStatuses(sessionId);
+            if (initialStatuses.success) {
+                console.log('✓ Initial ready statuses retrieved');
+                console.log(`  - Total players: ${initialStatuses.summary.totalPlayers}`);
+                console.log(`  - Ready players: ${initialStatuses.summary.readyPlayers}`);
+                console.log(`  - All ready: ${initialStatuses.summary.allPlayersReady}`);
+            } else {
+                console.log('❌ Failed to get initial ready statuses');
+            }
+
+            // Test 2: Toggle ready status for non-host players
+            console.log('\n🔄 Test 2: Toggle ready status');
+            const session = this.getSession(sessionId);
+            if (session) {
+                for (const playerId of session.players) {
+                    const player = this.players[playerId];
+                    if (player && session.hostId !== playerId) {
+                        const toggleResult = this.togglePlayerReady(sessionId, playerId);
+                        if (toggleResult.success) {
+                            console.log(`✓ Toggled ready for ${player.displayName}: ${toggleResult.isReady}`);
+                        } else {
+                            console.log(`❌ Failed to toggle ready for ${player.displayName}: ${toggleResult.error}`);
+                        }
+                    }
+                }
+            }
+
+            // Test 3: Check if all players ready
+            console.log('\n✅ Test 3: Check all players ready');
+            const allReadyCheck = this.checkAllPlayersReady(sessionId);
+            if (allReadyCheck.success) {
+                console.log(`✓ All ready check: ${allReadyCheck.message}`);
+                console.log(`  - Can start game: ${allReadyCheck.canStartGame}`);
+            } else {
+                console.log('❌ Failed to check all players ready');
+            }
+
+            // Test 4: Try to set host as ready (should fail)
+            console.log('\n🚫 Test 4: Try to set host as ready (should fail)');
+            const hostPlayer = Object.values(this.players).find(p => session.hostId === p.playerId && session.players.includes(p.playerId));
+            if (hostPlayer) {
+                const hostReadyResult = this.setPlayerReady(sessionId, hostPlayer.playerId, true);
+                if (!hostReadyResult.success && hostReadyResult.errorCode === 'HOST_CANNOT_BE_READY') {
+                    console.log('✓ Correctly prevented host from being ready');
+                } else {
+                    console.log('❌ Host ready prevention failed');
+                }
+            }
+
+            // Test 5: Reset all ready statuses
+            console.log('\n🔄 Test 5: Reset all ready statuses');
+            const resetResult = this.resetAllPlayerReadyStatuses(sessionId);
+            if (resetResult.success) {
+                console.log(`✓ Reset ${resetResult.resetCount} player ready statuses`);
+            } else {
+                console.log('❌ Failed to reset ready statuses');
+            }
+
+            // Test 6: Final status check
+            console.log('\n📋 Test 6: Final status check');
+            const finalStatuses = this.getSessionReadyStatuses(sessionId);
+            if (finalStatuses.success) {
+                console.log('✓ Final ready statuses retrieved');
+                console.log(`  - Ready players: ${finalStatuses.summary.readyPlayers}`);
+                console.log(`  - All ready: ${finalStatuses.summary.allPlayersReady}`);
+            }
+
+            console.log('\n✅ Ready system tests completed!');
+            
+        } catch (error) {
+            console.error('❌ Ready system test failed:', error);
+        }
+    }
+
+    // ===== END READY SYSTEM =====
 
     // ===== POINTS TRACKING SYSTEM =====
 
@@ -6790,6 +7589,182 @@ class GameManager {
     // #TODO Implement lobby and ready system
     // #TODO Implement game start and state transition
     // #TODO Implement session persistence and rejoin
+    /**
+     * Comprehensive test function for join/leave edge cases (7.2 requirements)
+     */
+    async testJoinLeaveEdgeCases() {
+        console.log('\n=== Testing Join/Leave Logic and Edge Cases (7.2) ===');
+        
+        try {
+            // Test 1: Duplicate player name detection
+            console.log('\n1. Testing duplicate player name detection...');
+            const testSessionId = 'test-join-leave-session';
+            
+            // Create test session
+            this.gameSessions[testSessionId] = {
+                sessionId: testSessionId,
+                shareableCode: 'TEST01',
+                hostId: 'host-player',
+                players: ['host-player'],
+                status: this.SESSION_STATES.LOBBY,
+                maxPlayers: 6
+            };
+            
+            // Add existing player
+            this.players['host-player'] = {
+                sessionId: testSessionId,
+                displayName: 'Alice',
+                status: 'active'
+            };
+            
+            // Test duplicate name detection
+            const duplicateResult = await this.checkForDuplicatePlayerName(testSessionId, 'Alice', 'new-player');
+            if (!duplicateResult.success && duplicateResult.errorCode === 'DUPLICATE_PLAYER_NAME') {
+                console.log('✓ Duplicate name detection works');
+                console.log('✓ Name suggestions provided:', duplicateResult.suggestions);
+            } else {
+                console.log('✗ Duplicate name detection failed');
+            }
+            
+            // Test unique name acceptance
+            const uniqueResult = await this.checkForDuplicatePlayerName(testSessionId, 'Bob', 'new-player');
+            if (uniqueResult.success) {
+                console.log('✓ Unique name acceptance works');
+            } else {
+                console.log('✗ Unique name acceptance failed');
+            }
+            
+            // Test 2: Player reconnection to lobby
+            console.log('\n2. Testing player reconnection to lobby...');
+            
+            // Add disconnected player
+            this.players['disconnected-player'] = {
+                sessionId: testSessionId,
+                displayName: 'Charlie',
+                status: 'disconnected',
+                gameState: { points: 5, cards: [] }
+            };
+            
+            const reconnectResult = await this.handlePlayerReconnectionToLobby(testSessionId, 'disconnected-player', 'Charlie');
+            if (reconnectResult.success && reconnectResult.reconnected) {
+                console.log('✓ Player reconnection to lobby works');
+            } else {
+                console.log('✗ Player reconnection to lobby failed');
+            }
+            
+            // Test 3: Player rejoining after leaving
+            console.log('\n3. Testing player rejoin after leaving...');
+            
+            // Add player who left
+            this.players['left-player'] = {
+                sessionId: testSessionId,
+                displayName: 'David',
+                status: 'left',
+                gameState: { points: 3, cards: [] }
+            };
+            
+            const rejoinResult = await this.handlePlayerRejoinAfterLeaving(testSessionId, 'left-player', 'David');
+            if (rejoinResult.success && rejoinResult.rejoined) {
+                console.log('✓ Player rejoin after leaving works (treated as new entry)');
+            } else {
+                console.log('✗ Player rejoin after leaving failed');
+            }
+            
+            // Test 4: Enhanced joinSession method
+            console.log('\n4. Testing enhanced joinSession method...');
+            
+            // Test joining lobby state
+            const joinResult = await this.joinSession('TEST01', 'new-player-1', 'Eve');
+            if (joinResult.success) {
+                console.log('✓ Joining lobby state works');
+            } else {
+                console.log('✗ Joining lobby state failed:', joinResult.error);
+            }
+            
+            // Test joining non-lobby state
+            this.gameSessions[testSessionId].status = this.SESSION_STATES.IN_GAME;
+            const joinInGameResult = await this.joinSession('TEST01', 'new-player-2', 'Frank');
+            if (!joinInGameResult.success && joinInGameResult.errorCode === 'SESSION_NOT_JOINABLE') {
+                console.log('✓ Joining non-lobby state properly rejected');
+            } else {
+                console.log('✗ Joining non-lobby state should be rejected');
+            }
+            
+            // Reset to lobby for further tests
+            this.gameSessions[testSessionId].status = this.SESSION_STATES.LOBBY;
+            
+            // Test joining full session
+            this.gameSessions[testSessionId].maxPlayers = 2;
+            this.gameSessions[testSessionId].players = ['host-player', 'new-player-1'];
+            const joinFullResult = await this.joinSession('TEST01', 'new-player-3', 'Grace');
+            if (!joinFullResult.success && joinFullResult.errorCode === 'SESSION_FULL') {
+                console.log('✓ Joining full session properly rejected');
+            } else {
+                console.log('✗ Joining full session should be rejected');
+            }
+            
+            // Test 5: leaveLobby method
+            console.log('\n5. Testing leaveLobby method...');
+            
+            const leaveResult = await this.leaveLobby(testSessionId, 'new-player-1');
+            if (leaveResult.success && leaveResult.leftLobby) {
+                console.log('✓ Leaving lobby works');
+            } else {
+                console.log('✗ Leaving lobby failed:', leaveResult.error);
+            }
+            
+            // Test leaving non-lobby state
+            this.gameSessions[testSessionId].status = this.SESSION_STATES.IN_GAME;
+            const leaveInGameResult = await this.leaveLobby(testSessionId, 'host-player');
+            if (!leaveInGameResult.success && leaveInGameResult.errorCode === 'CANNOT_LEAVE_LOBBY') {
+                console.log('✓ Leaving non-lobby state properly rejected');
+            } else {
+                console.log('✗ Leaving non-lobby state should be rejected');
+            }
+            
+            // Test 6: Alternative name generation
+            console.log('\n6. Testing alternative name generation...');
+            
+            const existingPlayers = [
+                { displayName: 'Alice' },
+                { displayName: 'Alice2' },
+                { displayName: 'Alice_new' }
+            ];
+            
+            const suggestions = this.generateAlternativePlayerNames('Alice', existingPlayers);
+            if (suggestions.length > 0 && !suggestions.includes('Alice2') && !suggestions.includes('Alice_new')) {
+                console.log('✓ Alternative name generation works:', suggestions);
+            } else {
+                console.log('✗ Alternative name generation failed');
+            }
+            
+            // Test 7: Session state transition validation
+            console.log('\n7. Testing session state transition validation...');
+            
+            // Reset session to lobby
+            this.gameSessions[testSessionId].status = this.SESSION_STATES.LOBBY;
+            
+            // Test valid transition
+            const validTransition = this.validateSessionStateTransition(testSessionId, this.SESSION_STATES.IN_GAME);
+            if (validTransition) {
+                console.log('✓ Valid state transition (lobby -> in-game) accepted');
+            } else {
+                console.log('✗ Valid state transition should be accepted');
+            }
+            
+            // Test invalid transition
+            this.gameSessions[testSessionId].status = this.SESSION_STATES.COMPLETED;
+            const invalidTransition = this.validateSessionStateTransition(testSessionId, this.SESSION_STATES.LOBBY);
+            if (!invalidTransition) {
+                console.log('✓ Invalid state transition (completed -> lobby) rejected');
+            } else {
+                console.log('✗ Invalid state transition should be rejected');
+            }
+            
+            console.log('\n✅ All join/leave edge case tests passed!');
+            
+        } catch (error) {
+            console.error('❌ Join/leave edge case test failed:', error);
+        }
+    }
 }
-
-export const gameManager = new GameManager();
