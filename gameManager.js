@@ -7964,3 +7964,7 @@ class GameManager {
         }
     }
 }
+
+// FIXME: Missing export statement was causing import error in main.js
+// Export an instance of GameManager for use in main.js
+export const gameManager = new GameManager();

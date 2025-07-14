@@ -783,11 +783,7 @@ function updatePlayerHands(sessionId) {
   // This would update any UI elements that show player card counts or hands
 }
 
-// Helper function to get player display name
-function getPlayerDisplayName(playerId) {
-  const player = gameManager.players[playerId];
-  return player ? player.displayName || playerId : playerId;
-}
+// FIXME: Removed duplicate getPlayerDisplayName function - keeping enhanced version at line 1085
 
 // Helper function to get current session ID (implement based on your session management)
 function getCurrentSessionId() {
@@ -2740,10 +2736,7 @@ function hidePromptUI() {
  * @param {string} playerId - The player ID
  * @returns {string} - The display name
  */
-function getPlayerDisplayName(playerId) {
-    const player = gameManager.players[playerId];
-    return player ? player.displayName || `Player ${playerId.slice(-4)}` : 'Unknown Player';
-}
+// FIXME: Removed duplicate getPlayerDisplayName function - keeping enhanced version at line 1085
 
 // Firestore game session functions
 async function createFirestoreGameSession(sessionData) {

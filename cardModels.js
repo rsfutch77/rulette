@@ -275,7 +275,19 @@ async function loadCardData() {
         deckType6: [...swapCards] // Swap cards (placeholder)
     };
     
-    if (process.env.NODE_ENV !== 'test') {
+    // FIXME: Browser compatibility - process.env not available in browser
+    // Add diagnostic logging to confirm environment
+    console.log('[DEBUG] Environment check - typeof process:', typeof process);
+    console.log('[DEBUG] Environment check - typeof window:', typeof window);
+    
+    // Check if we're in a browser environment (window exists) or Node.js/test environment
+    const isTestEnvironment = (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'test');
+    const isBrowserEnvironment = (typeof window !== 'undefined');
+    
+    console.log('[DEBUG] Environment detection - isTestEnvironment:', isTestEnvironment);
+    console.log('[DEBUG] Environment detection - isBrowserEnvironment:', isBrowserEnvironment);
+    
+    if (!isTestEnvironment) {
         console.log('[DEBUG] Card counts by deck type:');
         Object.keys(result).forEach(deckType => {
             console.log(`  ${deckType}:`, result[deckType].length);
