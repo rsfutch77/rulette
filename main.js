@@ -4532,6 +4532,11 @@ function createLobbyPlayerCard(playerId, playerData, session) {
     if (playerData.isReferee) card.classList.add('referee');
     card.classList.add(playerData.status || 'active');
     
+    // Check if current user is host and this card is not for the host themselves
+    const currentUserId = getCurrentUserId();
+    const isCurrentUserHost = session && session.hostId === currentUserId;
+    const canKickThisPlayer = isCurrentUserHost && playerId !== currentUserId && playerId !== session.hostId;
+    
     // Create card content
     card.innerHTML = `
         <div class="lobby-player-header">
@@ -4563,7 +4568,27 @@ function createLobbyPlayerCard(playerId, playerData, session) {
         </div>
         
         ${createConnectionInfo(playerData)}
+        
+        ${canKickThisPlayer ? `
+            <div class="lobby-player-actions">
+                <button class="kick-player-btn"
+                        data-player-id="${playerId}"
+                        data-player-name="${playerData.displayName || 'Unknown Player'}"
+                        title="Kick ${playerData.displayName || 'Unknown Player'} from session">
+                    <span class="kick-btn-icon">🚫</span>
+                    <span class="kick-btn-text">Kick</span>
+                </button>
+            </div>
+        ` : ''}
     `;
+    
+    // Attach kick button event listener if the button exists
+    if (canKickThisPlayer) {
+        const kickBtn = card.querySelector('.kick-player-btn');
+        if (kickBtn) {
+            kickBtn.addEventListener('click', handleKickPlayerButtonClick);
+        }
+    }
     
     return card;
 }
@@ -4770,3 +4795,571 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeLobbyUI();
     }, 1000);
 });
+
+// ===== READY SYSTEM FUNCTIONS (7.3 Requirements) =====
+
+/**
+ * Initialize ready system UI and event listeners
+ */
+function initializeReadySystem() {
+    console.log('[READY_UI] Initializing ready system...');
+    
+    // Set up event listeners for ready buttons
+    setupReadyEventListeners();
+    
+    // Set up event listener for GameManager ready events
+    window.addEventListener('playerReadyChanged', handlePlayerReadyChangeEvent);
+    
+    console.log('[READY_UI] Ready system initialized');
+}
+
+/**
+ * Set up event listeners for ready system buttons
+ */
+function setupReadyEventListeners() {
+    // Ready button for non-host players
+    const readyBtn = document.getElementById('player-ready-btn');
+    if (readyBtn) {
+        readyBtn.addEventListener('click', handleReadyButtonClick);
+    }
+    
+    // Start game button for host
+    const startGameBtn = document.getElementById('host-start-game-btn');
+    if (startGameBtn) {
+        startGameBtn.addEventListener('click', handleStartGameButtonClick);
+    }
+    
+    console.log('[READY_UI] Ready system event listeners set up');
+}
+
+/**
+ * Handle ready button click
+ */
+async function handleReadyButtonClick() {
+    try {
+        const sessionId = gameManager.getCurrentSessionId();
+        const currentPlayerId = getCurrentPlayerId();
+        
+        if (!sessionId || !currentPlayerId) {
+            showNotification('Unable to toggle ready status - session or player not found', 'Ready System Error');
+            return;
+        }
+        
+        console.log(`[READY_UI] Toggling ready status for player ${currentPlayerId}`);
+        
+        // Disable button during request
+        const readyBtn = document.getElementById('player-ready-btn');
+        if (readyBtn) {
+            readyBtn.disabled = true;
+        }
+        
+        // Call GameManager to toggle ready status
+        const result = await gameManager.togglePlayerReady(sessionId, currentPlayerId);
+        
+        if (result.success) {
+            console.log(`[READY_UI] Ready status toggled: ${result.isReady}`);
+            showNotification(result.message, 'Ready Status Updated');
+            
+            // Update button appearance
+            updateReadyButtonState(result.isReady);
+            
+            // Refresh ready status display
+            updateReadyStatusDisplay();
+        } else {
+            console.error('[READY_UI] Failed to toggle ready status:', result.error);
+            showNotification(result.error, 'Ready System Error');
+        }
+        
+    } catch (error) {
+        console.error('[READY_UI] Error handling ready button click:', error);
+        showNotification('Failed to toggle ready status', 'Ready System Error');
+    } finally {
+        // Re-enable button
+        const readyBtn = document.getElementById('player-ready-btn');
+        if (readyBtn) {
+            readyBtn.disabled = false;
+        }
+    }
+}
+
+/**
+ * Handle start game button click (host only)
+ */
+async function handleStartGameButtonClick() {
+    try {
+        const sessionId = gameManager.getCurrentSessionId();
+        const currentUserId = getCurrentUserId();
+        
+        if (!sessionId) {
+            showNotification('Unable to start game - session not found', 'Start Game Error');
+            return;
+        }
+        
+        if (!currentUserId) {
+            showNotification('Unable to start game - user not authenticated', 'Start Game Error');
+            return;
+        }
+        
+        console.log(`[HOST_CONTROLS] Host ${currentUserId} attempting to start game for session ${sessionId}`);
+        
+        // Disable button during request
+        const startGameBtn = document.getElementById('host-start-game-btn');
+        if (startGameBtn) {
+            startGameBtn.disabled = true;
+            startGameBtn.innerHTML = '<span class="start-game-btn-icon">⏳</span><span class="start-game-btn-text">Starting...</span>';
+        }
+        
+        // Call the enhanced startGameSession method with host validation
+        const startResult = await gameManager.startGameSession(sessionId, currentUserId);
+        
+        if (!startResult.success) {
+            showNotification(startResult.error, 'Start Game Error');
+            console.error(`[HOST_CONTROLS] Failed to start game: ${startResult.error} (${startResult.errorCode})`);
+            return;
+        }
+        
+        // Success - game has been started
+        showNotification('Game started successfully! Transitioning to game board...', 'Game Started');
+        console.log(`[HOST_CONTROLS] Game started successfully by host ${currentUserId}`);
+        
+        // TODO: Transition UI from lobby view to main game board
+        // This would involve hiding lobby elements and showing game elements
+        
+        // Reset ready statuses for next game (if needed)
+        gameManager.resetAllPlayerReadyStatuses(sessionId);
+        
+    } catch (error) {
+        console.error('[READY_UI] Error handling start game button click:', error);
+        showNotification('Failed to start game', 'Start Game Error');
+    } finally {
+        // Re-enable button
+        const startGameBtn = document.getElementById('host-start-game-btn');
+        if (startGameBtn) {
+            startGameBtn.disabled = false;
+            startGameBtn.innerHTML = '<span class="start-game-btn-icon">🚀</span><span class="start-game-btn-text">Start Game</span>';
+        }
+    }
+}
+
+/**
+ * Handle player ready change events from GameManager
+ */
+function handlePlayerReadyChangeEvent(event) {
+    console.log('[READY_UI] Player ready change event received:', event.detail);
+    
+    // Update ready status display
+    updateReadyStatusDisplay();
+    
+    // Show notification for ready status changes
+    const { playerName, isReady } = event.detail;
+    const message = `${playerName} is ${isReady ? 'ready' : 'not ready'}`;
+    showNotification(message, 'Ready Status Update');
+}
+
+/**
+ * Update ready status display in the lobby
+ */
+function updateReadyStatusDisplay() {
+    try {
+        const sessionId = gameManager.getCurrentSessionId();
+        if (!sessionId) {
+            console.log('[READY_UI] No current session - hiding ready system');
+            hideReadySystem();
+            return;
+        }
+        
+        // Get ready statuses from GameManager
+        const readyStatusInfo = gameManager.getSessionReadyStatuses(sessionId);
+        
+        if (!readyStatusInfo.success) {
+            console.error('[READY_UI] Failed to get ready statuses:', readyStatusInfo.error);
+            return;
+        }
+        
+        const { readyStatuses, summary } = readyStatusInfo;
+        
+        // Update ready count
+        updateReadyCount(summary.readyPlayers, summary.eligiblePlayers, summary.allPlayersReady);
+        
+        // Update ready status grid
+        updateReadyStatusGrid(readyStatuses);
+        
+        // Update ready actions (buttons and message)
+        updateReadyActions(summary);
+        
+        // Show ready system
+        showReadySystem();
+        
+    } catch (error) {
+        console.error('[READY_UI] Error updating ready status display:', error);
+    }
+}
+
+/**
+ * Update ready count display
+ */
+function updateReadyCount(readyPlayers, eligiblePlayers, allReady) {
+    const readyCountElement = document.getElementById('lobby-ready-count');
+    if (readyCountElement) {
+        readyCountElement.textContent = `${readyPlayers}/${eligiblePlayers}`;
+        
+        // Add visual indicator when all ready
+        if (allReady && eligiblePlayers > 0) {
+            readyCountElement.classList.add('all-ready');
+        } else {
+            readyCountElement.classList.remove('all-ready');
+        }
+    }
+}
+
+/**
+ * Update ready status grid with player ready indicators
+ */
+function updateReadyStatusGrid(readyStatuses) {
+    const statusGrid = document.getElementById('lobby-ready-status');
+    if (!statusGrid) return;
+    
+    // Clear existing content
+    statusGrid.innerHTML = '';
+    
+    // Create status items for each player
+    Object.entries(readyStatuses).forEach(([playerId, playerData]) => {
+        const statusItem = createReadyStatusItem(playerId, playerData);
+        statusGrid.appendChild(statusItem);
+    });
+}
+
+/**
+ * Create a ready status item for a player
+ */
+function createReadyStatusItem(playerId, playerData) {
+    const item = document.createElement('div');
+    item.className = 'ready-status-item';
+    item.id = `ready-status-${playerId}`;
+    
+    // Add status-based classes
+    if (playerData.isHost) {
+        item.classList.add('host');
+    } else if (playerData.isReady) {
+        item.classList.add('ready');
+    } else {
+        item.classList.add('not-ready');
+    }
+    
+    // Create content
+    const statusIcon = playerData.isHost ? '👑' : (playerData.isReady ? '✅' : '⏳');
+    const statusText = playerData.isHost ? 'Host' : (playerData.isReady ? 'Ready' : 'Not Ready');
+    const statusClass = playerData.isHost ? 'host' : (playerData.isReady ? 'ready' : 'not-ready');
+    
+    item.innerHTML = `
+        <div class="ready-player-name">${playerData.displayName}</div>
+        <div class="ready-status-indicator ${statusClass}">
+            ${statusIcon} ${statusText}
+        </div>
+    `;
+    
+    return item;
+}
+
+/**
+ * Update ready actions (buttons and message)
+ */
+function updateReadyActions(summary) {
+    const currentPlayerId = getCurrentPlayerId();
+    const isHost = summary.hostPlayer && summary.hostPlayer.id === currentPlayerId;
+    
+    // Update button visibility and states
+    updateReadyButtonVisibility(isHost, summary);
+    
+    // Update ready message
+    updateReadyMessage(summary);
+}
+
+/**
+ * Update ready button visibility and states
+ */
+function updateReadyButtonVisibility(isHost, summary) {
+    const readyBtn = document.getElementById('player-ready-btn');
+    const startGameBtn = document.getElementById('host-start-game-btn');
+    
+    if (isHost) {
+        // Host sees start game button
+        if (readyBtn) readyBtn.style.display = 'none';
+        if (startGameBtn) {
+            startGameBtn.style.display = 'flex';
+            startGameBtn.disabled = !summary.canStartGame;
+        }
+    } else {
+        // Non-host sees ready button
+        if (startGameBtn) startGameBtn.style.display = 'none';
+        if (readyBtn) {
+            readyBtn.style.display = 'flex';
+            
+            // Update ready button state
+            const currentPlayerId = getCurrentPlayerId();
+            const currentPlayerReady = summary.readyStatuses && summary.readyStatuses[currentPlayerId] && summary.readyStatuses[currentPlayerId].isReady;
+            updateReadyButtonState(currentPlayerReady);
+        }
+    }
+}
+
+/**
+ * Update ready button state (ready/not ready)
+ */
+function updateReadyButtonState(isReady) {
+    const readyBtn = document.getElementById('player-ready-btn');
+    if (!readyBtn) return;
+    
+    if (isReady) {
+        readyBtn.classList.add('ready');
+        readyBtn.innerHTML = '<span class="ready-btn-icon">✅</span><span class="ready-btn-text">Ready!</span>';
+    } else {
+        readyBtn.classList.remove('ready');
+        readyBtn.innerHTML = '<span class="ready-btn-icon">⚡</span><span class="ready-btn-text">Ready</span>';
+    }
+}
+
+/**
+ * Update ready message
+ */
+function updateReadyMessage(summary) {
+    const messageElement = document.getElementById('ready-status-message');
+    if (!messageElement) return;
+    
+    let message = '';
+    let messageClass = '';
+    
+    if (summary.totalPlayers === 0) {
+        message = 'Waiting for players to join...';
+        messageClass = '';
+    } else if (summary.eligiblePlayers === 0) {
+        message = 'Only host in session - waiting for more players';
+        messageClass = 'warning';
+    } else if (summary.canStartGame) {
+        message = 'All players are ready! Host can start the game.';
+        messageClass = 'success';
+    } else {
+        message = `Waiting for ${summary.eligiblePlayers - summary.readyPlayers} more players to be ready`;
+        messageClass = 'warning';
+    }
+    
+    messageElement.textContent = message;
+    messageElement.className = `ready-message ${messageClass}`;
+}
+
+/**
+ * Show ready system
+ */
+function showReadySystem() {
+    const readySection = document.querySelector('.ready-section');
+    if (readySection) {
+        readySection.style.display = 'block';
+    }
+}
+
+/**
+ * Hide ready system
+ */
+function hideReadySystem() {
+    const readySection = document.querySelector('.ready-section');
+    if (readySection) {
+        readySection.style.display = 'none';
+    }
+}
+
+/**
+ * Get current player ID (helper function)
+ */
+function getCurrentPlayerId() {
+    // TODO: Implement proper current player ID detection
+    // For now, return a placeholder
+    return 'current-player-id';
+}
+
+/**
+ * Test ready system functionality
+ */
+window.testReadySystem = function() {
+    console.log('[READY_TEST] Testing ready system UI...');
+    
+    try {
+        // Initialize ready system
+        initializeReadySystem();
+        
+        // Update ready status display
+        updateReadyStatusDisplay();
+        
+        console.log('[READY_TEST] Ready system test completed');
+        showNotification('Ready system test completed!', 'Ready System Test');
+        
+    } catch (error) {
+        console.error('[READY_TEST] Ready system test failed:', error);
+        showNotification('Ready system test failed!', 'Ready System Test Error');
+    }
+};
+// ============================================================================
+// HOST CONTROLS - KICK PLAYER FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Handle kick player button click with confirmation dialog
+ */
+async function handleKickPlayerButtonClick(event) {
+    try {
+        const button = event.target.closest('.kick-player-btn');
+        if (!button) return;
+        
+        const targetPlayerId = button.getAttribute('data-player-id');
+        const targetPlayerName = button.getAttribute('data-player-name');
+        const sessionId = gameManager.getCurrentSessionId();
+        const currentUserId = getCurrentUserId();
+        
+        if (!sessionId || !currentUserId || !targetPlayerId) {
+            showNotification('Unable to kick player - missing required information', 'Kick Player Error');
+            return;
+        }
+        
+        console.log(`[HOST_CONTROLS] Host ${currentUserId} attempting to kick player ${targetPlayerName} (${targetPlayerId})`);
+        
+        // Show confirmation dialog
+        const confirmed = await showKickPlayerConfirmation(targetPlayerName);
+        if (!confirmed) {
+            console.log(`[HOST_CONTROLS] Kick cancelled by host`);
+            return;
+        }
+        
+        // Disable button during request
+        button.disabled = true;
+        button.innerHTML = '<span class="kick-btn-icon">⏳</span><span class="kick-btn-text">Kicking...</span>';
+        
+        // Call the kickPlayer method
+        const kickResult = await gameManager.kickPlayer(sessionId, currentUserId, targetPlayerId);
+        
+        if (!kickResult.success) {
+            showNotification(kickResult.error, 'Kick Player Error');
+            console.error(`[HOST_CONTROLS] Failed to kick player: ${kickResult.error} (${kickResult.errorCode})`);
+            return;
+        }
+        
+        // Success - player has been kicked
+        showNotification(`${targetPlayerName} has been kicked from the session`, 'Player Kicked');
+        console.log(`[HOST_CONTROLS] Successfully kicked player ${targetPlayerName}`);
+        
+        // The UI will be updated automatically via the playerKicked event
+        
+    } catch (error) {
+        console.error('[HOST_CONTROLS] Error handling kick player button click:', error);
+        showNotification('Failed to kick player', 'Kick Player Error');
+    } finally {
+        // Re-enable button (if it still exists)
+        const button = event.target.closest('.kick-player-btn');
+        if (button) {
+            button.disabled = false;
+            button.innerHTML = '<span class="kick-btn-icon">🚫</span><span class="kick-btn-text">Kick</span>';
+        }
+    }
+}
+
+/**
+ * Show confirmation dialog for kicking a player
+ * @param {string} playerName - Name of the player to kick
+ * @returns {Promise<boolean>} - True if confirmed, false if cancelled
+ */
+async function showKickPlayerConfirmation(playerName) {
+    return new Promise((resolve) => {
+        // Create confirmation dialog
+        const dialog = document.createElement('div');
+        dialog.className = 'kick-confirmation-dialog';
+        dialog.innerHTML = `
+            <div class="kick-confirmation-overlay">
+                <div class="kick-confirmation-content">
+                    <h3>Kick Player</h3>
+                    <p>Are you sure you want to kick <strong>${playerName}</strong> from the session?</p>
+                    <p class="kick-warning">This action cannot be undone. The player will be removed immediately.</p>
+                    <div class="kick-confirmation-actions">
+                        <button class="kick-confirm-btn" data-action="confirm">
+                            <span class="kick-confirm-icon">🚫</span>
+                            <span class="kick-confirm-text">Kick Player</span>
+                        </button>
+                        <button class="kick-cancel-btn" data-action="cancel">
+                            <span class="kick-cancel-icon">❌</span>
+                            <span class="kick-cancel-text">Cancel</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners
+        dialog.addEventListener('click', (e) => {
+            const action = e.target.closest('[data-action]')?.getAttribute('data-action');
+            if (action === 'confirm') {
+                resolve(true);
+                document.body.removeChild(dialog);
+            } else if (action === 'cancel') {
+                resolve(false);
+                document.body.removeChild(dialog);
+            }
+        });
+        
+        // Close on overlay click
+        dialog.querySelector('.kick-confirmation-overlay').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                resolve(false);
+                document.body.removeChild(dialog);
+            }
+        });
+        
+        // Add to DOM
+        document.body.appendChild(dialog);
+        
+        // Focus the cancel button by default
+        setTimeout(() => {
+            const cancelBtn = dialog.querySelector('.kick-cancel-btn');
+            if (cancelBtn) cancelBtn.focus();
+        }, 100);
+    });
+}
+
+/**
+ * Handle player kicked events from GameManager
+ */
+function handlePlayerKickedEvent(event) {
+    console.log('[HOST_CONTROLS] Player kicked event received:', event.detail);
+    
+    const { kickedPlayerName, hostName } = event.detail;
+    
+    // Update lobby display to remove the kicked player
+    updateLobbyDisplay();
+    
+    // Show notification to all remaining players
+    showNotification(`${kickedPlayerName} was kicked by ${hostName}`, 'Player Kicked');
+}
+
+/**
+ * Initialize host controls event listeners
+ */
+function initializeHostControls() {
+    // Listen for player kicked events
+    if (typeof window !== 'undefined') {
+        window.addEventListener('playerKicked', handlePlayerKickedEvent);
+    }
+    
+    console.log('[HOST_CONTROLS] Host controls initialized');
+}
+
+// Initialize host controls when the script loads
+if (typeof window !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', initializeHostControls);
+}
+
+
+// Initialize ready system when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Wait for other systems to initialize
+    setTimeout(() => {
+        initializeReadySystem();
+    }, 1500);
+});
+
+// ===== END READY SYSTEM =====

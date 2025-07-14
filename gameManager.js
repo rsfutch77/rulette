@@ -734,6 +734,168 @@ class GameManager {
     }
 
     /**
+     * Kick a player from the session (host only)
+     * @param {string} sessionId - The session ID
+     * @param {string} hostId - The host player ID attempting the kick
+     * @param {string} targetPlayerId - The player ID to kick
+     * @returns {Promise<object>} - Result object with success status
+     */
+    async kickPlayer(sessionId, hostId, targetPlayerId) {
+        try {
+            const session = this.getSession(sessionId);
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Validate that hostId is indeed the host of sessionId
+            if (session.hostId !== hostId) {
+                return {
+                    success: false,
+                    error: 'Only the host can kick players',
+                    errorCode: 'UNAUTHORIZED_KICK_ATTEMPT'
+                };
+            }
+
+            // Ensure the host cannot kick themselves
+            if (hostId === targetPlayerId) {
+                return {
+                    success: false,
+                    error: 'Host cannot kick themselves',
+                    errorCode: 'CANNOT_KICK_SELF'
+                };
+            }
+
+            // Validate that targetPlayerId is a valid player in the session
+            if (!session.players || !session.players.includes(targetPlayerId)) {
+                return {
+                    success: false,
+                    error: 'Target player not found in session',
+                    errorCode: 'PLAYER_NOT_IN_SESSION'
+                };
+            }
+
+            const targetPlayer = this.players[targetPlayerId];
+            if (!targetPlayer) {
+                return {
+                    success: false,
+                    error: 'Target player data not found',
+                    errorCode: 'PLAYER_DATA_NOT_FOUND'
+                };
+            }
+
+            // Update player status to 'kicked' before removal
+            await this.updatePlayerStatus(sessionId, targetPlayerId, 'kicked', `Kicked by host ${this.players[hostId]?.displayName || hostId}`);
+
+            // Stop presence tracking
+            this.stopPlayerPresenceTracking(sessionId, targetPlayerId);
+
+            // Remove the targetPlayerId from the session's player list
+            session.players = session.players.filter(id => id !== targetPlayerId);
+
+            // Handle special roles if the kicked player had them
+            if (session.referee === targetPlayerId) {
+                await this.handleRefereeDisconnect(sessionId, targetPlayerId);
+            }
+
+            // Update Firebase with new player list
+            await this.updateSessionPlayerList(sessionId, session.players);
+
+            // Broadcast notification to remaining players that a player has been kicked
+            this.notifyPlayersOfKick(sessionId, targetPlayerId, hostId);
+
+            // Handle cleanup related to the kicked player's game state
+            await this.cleanupKickedPlayerState(sessionId, targetPlayerId);
+
+            console.log(`[HOST_CONTROLS] Player ${targetPlayer.displayName} (${targetPlayerId}) kicked from session ${sessionId} by host ${hostId}`);
+
+            return {
+                success: true,
+                message: `Player ${targetPlayer.displayName} has been kicked from the session`,
+                kickedPlayer: {
+                    id: targetPlayerId,
+                    displayName: targetPlayer.displayName
+                }
+            };
+
+        } catch (error) {
+            console.error('[HOST_CONTROLS] Error kicking player:', error);
+            return {
+                success: false,
+                error: 'Failed to kick player',
+                errorCode: 'KICK_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Notify players when someone is kicked
+     * @param {string} sessionId - The session ID
+     * @param {string} kickedPlayerId - The player ID who was kicked
+     * @param {string} hostId - The host who performed the kick
+     */
+    notifyPlayersOfKick(sessionId, kickedPlayerId, hostId) {
+        try {
+            const kickedPlayer = this.players[kickedPlayerId];
+            const hostPlayer = this.players[hostId];
+            
+            const kickEvent = {
+                type: 'player_kicked',
+                sessionId: sessionId,
+                kickedPlayerId: kickedPlayerId,
+                kickedPlayerName: kickedPlayer?.displayName || 'Unknown Player',
+                hostId: hostId,
+                hostName: hostPlayer?.displayName || 'Host',
+                timestamp: Date.now()
+            };
+
+            // Dispatch event for UI updates
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('playerKicked', { detail: kickEvent }));
+            }
+
+            console.log(`[HOST_CONTROLS] Notified players of kick: ${kickedPlayer?.displayName} kicked by ${hostPlayer?.displayName}`);
+        } catch (error) {
+            console.error('[HOST_CONTROLS] Error notifying players of kick:', error);
+        }
+    }
+
+    /**
+     * Clean up kicked player's game state
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The kicked player ID
+     */
+    async cleanupKickedPlayerState(sessionId, playerId) {
+        try {
+            // Remove any active prompts for this player
+            if (this.activePrompts[sessionId]) {
+                delete this.activePrompts[sessionId][playerId];
+            }
+
+            // Clear any pending callouts involving this player
+            const session = this.getSession(sessionId);
+            if (session && session.currentCallout) {
+                if (session.currentCallout.callerId === playerId ||
+                    session.currentCallout.accusedId === playerId) {
+                    // Cancel the current callout if the kicked player was involved
+                    session.currentCallout = null;
+                    console.log(`[HOST_CONTROLS] Cancelled callout involving kicked player ${playerId}`);
+                }
+            }
+
+            // TODO: Handle card redistribution if needed
+            // TODO: Handle turn order adjustments if in-game
+
+            console.log(`[HOST_CONTROLS] Cleaned up game state for kicked player ${playerId}`);
+        } catch (error) {
+            console.error('[HOST_CONTROLS] Error cleaning up kicked player state:', error);
+        }
+    }
+
+    /**
      * Handle player leave (called when player status is set to 'left')
      * @param {string} sessionId - The session ID
      * @param {string} playerId - The player ID who left
@@ -1200,7 +1362,7 @@ class GameManager {
      * @param {string} startedBy - Player ID who started the game.
      * @returns {Promise<object>} - Result object with success status.
      */
-    async startGameSession(sessionId, startedBy) {
+    async startGameSession(sessionId, hostId) {
         try {
             const session = this.getSession(sessionId);
             if (!session) {
@@ -1208,6 +1370,15 @@ class GameManager {
                     success: false,
                     error: 'Session not found',
                     errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Validate that hostId is indeed the host of sessionId
+            if (session.hostId !== hostId) {
+                return {
+                    success: false,
+                    error: 'Only the host can start the game',
+                    errorCode: 'UNAUTHORIZED_START_ATTEMPT'
                 };
             }
 
@@ -1229,20 +1400,45 @@ class GameManager {
                 };
             }
 
+            // Check if all players are ready using existing ready system
+            const readyCheck = this.checkAllPlayersReady(sessionId);
+            if (!readyCheck.success) {
+                return {
+                    success: false,
+                    error: readyCheck.error || 'Failed to check player ready status',
+                    errorCode: 'READY_CHECK_FAILED'
+                };
+            }
+
+            if (!readyCheck.canStartGame) {
+                return {
+                    success: false,
+                    error: readyCheck.message || 'Not all players are ready',
+                    errorCode: 'PLAYERS_NOT_READY'
+                };
+            }
+
             // Update session state
             const result = await this.updateSessionState(
                 sessionId,
                 this.SESSION_STATES.IN_GAME,
-                `Game started by ${this.players[startedBy]?.displayName || startedBy}`,
-                { startedBy, startTime: Date.now() }
+                `Game started by ${this.players[hostId]?.displayName || hostId}`,
+                { startedBy: hostId, startTime: Date.now() }
             );
 
             if (result.success) {
                 // Initialize game-specific state
                 session.gameStartTime = Date.now();
-                session.gameStartedBy = startedBy;
+                session.gameStartedBy = hostId;
 
-                console.log(`[GAME_START] Session ${sessionId} game started by ${startedBy}`);
+                // TODO: Trigger necessary game initialization
+                // - Shuffle decks
+                // - Deal initial cards
+                // - Start turn management
+                // - Initialize referee card assignment
+
+                console.log(`[HOST_CONTROLS] Session ${sessionId} game started by host ${hostId}`);
+                console.log(`[HOST_CONTROLS] All ${readyCheck.readyCount} players were ready`);
             }
 
             return result;
