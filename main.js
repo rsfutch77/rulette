@@ -282,7 +282,6 @@ import {
   where,
   getDocs,
   deleteDoc,
-  updateDoc, // FIXME: Added for join game functionality
   arrayUnion, // FIXME: Added for join game functionality
   onSnapshot // FIXME: Added for real-time game updates
 } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js";
