@@ -1098,7 +1098,7 @@ function updateHeaderPlayerScores(sessionId) {
     const player = gameManager.players[playerId];
     if (!player || player.status !== 'active') return;
     
-    const points = gameManager.getPlayerPoints(sessionId, playerId) || 0;
+    const points = gameManager.getPlayerPoints(playerId) || 0;
     const displayName = getPlayerDisplayName(playerId);
     
     const scoreElement = document.createElement('div');
@@ -1158,7 +1158,7 @@ function createPlayerCard(sessionId, playerId) {
   const session = gameManager.gameSessions[sessionId];
   const player = gameManager.players[playerId];
   
-  const points = gameManager.getPlayerPoints(sessionId, playerId) || 0;
+  const points = gameManager.getPlayerPoints(playerId) || 0;
   const displayName = getPlayerDisplayName(playerId);
   const ownedCards = gameManager.getPlayerOwnedCards(playerId) || [];
   
