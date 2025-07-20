@@ -4962,12 +4962,7 @@ function createLobbyPlayerCard(playerId, playerData, session) {
             <span class="status-text">In lobby</span>
         </div>
         
-        <div class="lobby-player-details">
-            <div class="lobby-player-detail">
-                <div class="lobby-player-detail-label">Points</div>
-                <div class="lobby-player-detail-value">${playerData.points || 0}</div>
-            </div>
-        </div>
+        <!-- Points display removed from lobby - only shown during game -->
         
         ${createConnectionInfo(playerData)}
         
