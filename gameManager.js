@@ -94,6 +94,10 @@ class GameManager {
             console.log(`Game session ${sessionInfo.sessionId} created by host ${hostDisplayName}.`);
             console.log(`Shareable code: ${sessionInfo.shareableCode}`);
             console.log(`Shareable link: ${sessionInfo.shareableLink}`);
+            
+            // Load any existing players in the session (in case of session restoration)
+            await this.loadExistingPlayersInSession(sessionInfo.sessionId);
+            
             console.log("DEBUG: Returning session:", newSession);
             return newSession;
         } catch (error) {
@@ -286,6 +290,65 @@ class GameManager {
     }
 
     /**
+     * Load existing players in a session into local gameManager.players
+     * @param {string} sessionId - The session ID
+     */
+    async loadExistingPlayersInSession(sessionId) {
+        try {
+            console.log(`[DEBUG LOAD_PLAYERS] Loading existing players for session ${sessionId}`);
+            
+            // Get all players in the session from Firebase
+            const firestorePlayers = await getFirestorePlayersInSession(sessionId);
+            console.log(`[DEBUG LOAD_PLAYERS] Found ${firestorePlayers.length} players in Firebase:`, firestorePlayers);
+            
+            // Load each player into local gameManager.players if not already present
+            for (const playerData of firestorePlayers) {
+                const playerId = playerData.id;
+                
+                // Skip if player is already loaded locally
+                if (this.players[playerId]) {
+                    console.log(`[DEBUG LOAD_PLAYERS] Player ${playerId} already loaded locally, updating data`);
+                    // Update the existing player data with Firebase data
+                    this.players[playerId].displayName = playerData.displayName || this.players[playerId].displayName;
+                    this.players[playerId].points = playerData.points || this.players[playerId].points;
+                    this.players[playerId].status = playerData.status || this.players[playerId].status;
+                } else {
+                    console.log(`[DEBUG LOAD_PLAYERS] Loading new player ${playerId} (${playerData.displayName}) into local storage`);
+                    
+                    // Create player object in local storage
+                    this.players[playerId] = {
+                        playerId: playerId,
+                        displayName: playerData.displayName || 'Unknown Player',
+                        points: playerData.points || 20,
+                        status: playerData.status || 'active',
+                        hasRefereeCard: false,
+                        hand: [],
+                        connectionInfo: {
+                            lastSeen: Date.now(),
+                            connectionCount: 1,
+                            firstConnected: playerData.joinedAt ? new Date(playerData.joinedAt).getTime() : Date.now(),
+                            disconnectedAt: null,
+                            reconnectedAt: null,
+                            totalDisconnects: 0
+                        },
+                        gameState: {
+                            savedRole: null,
+                            savedCards: [],
+                            savedPoints: playerData.points || 20,
+                            wasHost: playerData.isHost || false
+                        }
+                    };
+                }
+            }
+            
+            console.log(`[DEBUG LOAD_PLAYERS] Loaded players. Local gameManager.players now has:`, Object.keys(this.players));
+            
+        } catch (error) {
+            console.error(`[DEBUG LOAD_PLAYERS] Error loading existing players for session ${sessionId}:`, error);
+        }
+    }
+
+    /**
      * Allows a player to join an existing session using a session code.
      * @param {string} sessionCode - The shareable session code.
      * @param {string} playerId - Unique identifier for the joining player.
@@ -390,6 +453,10 @@ class GameManager {
             // Initialize the player
             await this.initializePlayer(sessionId, playerId, displayName);
             console.log(`[DEBUG JOIN] Player ${playerId} initialized in gameManager.players`);
+
+            // Load existing players in the session to local gameManager.players
+            console.log(`[DEBUG JOIN] Loading existing players in session ${sessionId}`);
+            await this.loadExistingPlayersInSession(sessionId);
 
             // Update session in local storage
             this.gameSessions[sessionId] = session;
@@ -563,9 +630,13 @@ class GameManager {
             // Update Firebase
             await this.updateSessionPlayerList(sessionId, session.players);
 
+            // Load existing players in the session to ensure all player data is available
+            console.log(`[DEBUG RECONNECTION] Loading existing players in session ${sessionId}`);
+            await this.loadExistingPlayersInSession(sessionId);
+            
             // Trigger player status change event for UI updates
             this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player reconnected to lobby');
-
+            
             console.log(`[SESSION] Player ${displayName} (${playerId}) reconnected to lobby in session ${sessionId}`);
 
             return {

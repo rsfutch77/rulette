@@ -1318,12 +1318,21 @@ function animateCardTransfer(cardId, fromPlayerId, toPlayerId) {
 
 // Enhanced helper function to get player display name
 function getPlayerDisplayName(playerId) {
-  if (!playerId) return 'Unknown Player';
+  if (!playerId) {
+    console.log('[DEBUG] getPlayerDisplayName: No playerId provided');
+    return 'Unknown Player';
+  }
   
   const player = gameManager.players[playerId];
+  console.log('[DEBUG] getPlayerDisplayName: Looking up player ' + playerId + ':', player);
+  console.log('[DEBUG] getPlayerDisplayName: Available players:', Object.keys(gameManager.players || {}));
+  
   if (player && player.displayName) {
+    console.log('[DEBUG] getPlayerDisplayName: Found displayName for ' + playerId + ': ' + player.displayName);
     return player.displayName;
   }
+  
+  console.log('[DEBUG] getPlayerDisplayName: No player data found for ' + playerId + ', using fallback');
   
   // Fallback to UID or shortened version
   if (playerId.length > 10) {
