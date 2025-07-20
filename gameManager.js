@@ -1396,14 +1396,22 @@ class GameManager {
                 shareableCode: session.shareableCode
             };
 
-            // TODO: Implement Firebase Realtime Database sync
-            // await updateFirestoreSessionState(sessionId, sessionStateData);
-            
-            console.log(`[FIREBASE_SYNC] Session state synchronized for ${sessionId}:`, sessionStateData);
+            console.log(`[FIREBASE_SYNC] Syncing session state for ${sessionId}:`, sessionStateData);
+
+            // Import Firebase functions dynamically
+            const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js");
+            const { db } = await import('./firebase-init.js');
+
+            // Update session document in Firebase
+            const sessionRef = doc(db, 'gameSessions', sessionId);
+            await updateDoc(sessionRef, sessionStateData);
+
+            console.log(`[FIREBASE_SYNC] Successfully synchronized session state for ${sessionId}`);
 
         } catch (error) {
             console.error('[FIREBASE_SYNC] Error syncing session state:', error);
-            throw error;
+            // Don't throw error to prevent blocking the game start
+            console.warn('[FIREBASE_SYNC] Continuing without Firebase sync...');
         }
     }
 
@@ -1425,12 +1433,16 @@ class GameManager {
                 timestamp: Date.now()
             };
 
+            // FIXME: Real-time broadcasting not implemented - this is why other players don't get notified!
+            console.log(`[BROADCAST] WARNING: Real-time broadcasting not implemented! Other players won't be notified.`);
+            console.log(`[BROADCAST] Would broadcast to ${session.players.length} players:`, session.players);
+
             // Broadcast to all active players in the session
             for (const playerId of session.players) {
                 const player = this.players[playerId];
                 if (player && player.status === 'active') {
                     // TODO: Implement real-time broadcasting via Firebase or WebSocket
-                    console.log(`[BROADCAST] Sending state change to player ${playerId}:`, notification);
+                    console.log(`[BROADCAST] Would send state change to player ${playerId}:`, notification);
                 }
             }
 
@@ -7714,6 +7726,14 @@ class GameManager {
         } catch (error) {
             console.error('❌ Join/leave edge case test failed:', error);
         }
+    }
+
+    /**
+     * Get the current session ID from the global window object
+     * @returns {string|null} - The current session ID or null if none is set
+     */
+    getCurrentSessionId() {
+        return window.currentSessionId || null;
     }
 }
 

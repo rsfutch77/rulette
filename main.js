@@ -446,6 +446,19 @@ async function handleCreateGame() {
       
       // Update lobby with session info - this will call updateLobbySessionInfo, updateLobbyPlayerList, and updateHostControls
       console.log('[DEBUG] Updating full lobby display after create');
+      
+      // Note: window.currentSessionId already set above at line 439, no need to duplicate
+      
+      // FIXME: Set up Firebase listener for real-time updates after creating session
+      // Use setTimeout to ensure the function is available after the file loads
+      setTimeout(() => {
+          if (typeof window.setupFirebaseSessionListener === 'function') {
+            window.setupFirebaseSessionListener();
+        } else {
+            console.log('[DEBUG] setupFirebaseSessionListener not yet available');
+        }
+      }, 100);
+      
       updateLobbyDisplay();
     } else {
       console.error("DEBUG: Session creation failed - no session or shareableCode"); // FIXME: Session creation failed
@@ -481,10 +494,26 @@ async function handleJoinGame(gameCode) {
       
       // Update lobby with session info
       if (result.session) {
-        updateLobbySessionInfo(result.session);
-        // FIXME: Add missing lobby player list update after join
-        console.log('[DEBUG] Updating lobby player list after join');
-        await updateLobbyPlayerList(result.sessionId);
+          updateLobbySessionInfo(result.session);
+          // FIXME: Add missing lobby player list update after join
+          console.log('[DEBUG] Updating lobby player list after join');
+          
+          // FIXME: Set window.currentSessionId to ensure lobby display works properly
+          console.log('[DEBUG_READY_BUTTON] Setting window.currentSessionId to:', result.sessionId);
+          window.currentSessionId = result.sessionId;
+          console.log('[DEBUG_READY_BUTTON] window.currentSessionId now set to:', window.currentSessionId);
+          
+          // FIXME: Set up Firebase listener for real-time updates after joining
+          // Use setTimeout to ensure the function is available after the file loads
+          setTimeout(() => {
+              if (typeof window.setupFirebaseSessionListener === 'function') {
+            window.setupFirebaseSessionListener();
+        } else {
+            console.log('[DEBUG] setupFirebaseSessionListener not yet available');
+        }
+          }, 100);
+          
+          await updateLobbyPlayerList(result.sessionId);
       }
     } else {
       joinGameError.textContent = result.error || 'Failed to join game';
@@ -4602,7 +4631,7 @@ function setupSessionTerminationEventListeners() {
     window.gameManager.addEventListener('hostChanged', updateSessionTerminationButtonVisibility);
     
     // Listen for session state changes
-    window.gameManager.addEventListener('sessionStateChanged', (event) => {
+    window.addEventListener('sessionStateChange', (event) => {
         updateSessionTerminationButtonVisibility();
     });
 }
@@ -4686,7 +4715,21 @@ function setupLobbyEventListeners() {
     if (gameManager) {
         // Set up listener for player status changes
         document.addEventListener('playerStatusChanged', handlePlayerStatusChange);
-        document.addEventListener('sessionStateChanged', handleSessionStateChange);
+        console.log('[EVENT_SETUP] Adding sessionStateChange event listener');
+        document.addEventListener('sessionStateChange', handleSessionStateChange);
+        console.log('[EVENT_SETUP] sessionStateChange event listener added successfully');
+        
+        // FIXME: Set up Firebase real-time listener for session state changes
+        // Use setTimeout to ensure the function is available after the file loads
+        setTimeout(() => {
+            if (typeof setupFirebaseSessionListener === 'function') {
+                if (typeof window.setupFirebaseSessionListener === 'function') {
+            window.setupFirebaseSessionListener();
+        } else {
+            console.log('[DEBUG] setupFirebaseSessionListener not yet available');
+        }
+            }
+        }, 100);
     }
 }
 
@@ -4715,6 +4758,101 @@ function hideLobby() {
     if (lobbyContainer) {
         lobbyContainer.style.display = 'none';
     }
+}
+
+/**
+ * Show the game board UI and hide lobby
+ */
+function showGameBoard() {
+    console.log('[GAME_BOARD] Transitioning from lobby to game board');
+    
+    // Hide lobby
+    hideLobby();
+    
+    // Show game page
+    const gamePage = document.getElementById('game-page');
+    if (gamePage) {
+        gamePage.style.display = 'block';
+        console.log('[GAME_BOARD] Game page shown');
+    } else {
+        console.error('[GAME_BOARD] Game page element not found');
+    }
+    
+    // Show game components that should be visible during gameplay
+    const wheelContainer = document.getElementById('wheel-container');
+    if (wheelContainer) {
+        wheelContainer.style.display = 'block';
+        console.log('[GAME_BOARD] Wheel container shown');
+    }
+    
+    const playerInfoPanel = document.getElementById('player-info-panel');
+    if (playerInfoPanel) {
+        playerInfoPanel.style.display = 'block';
+        console.log('[GAME_BOARD] Player info panel shown');
+    }
+    
+    const turnManagement = document.getElementById('turn-management');
+    if (turnManagement) {
+        turnManagement.style.display = 'block';
+        console.log('[GAME_BOARD] Turn management shown');
+    }
+    
+    // Initialize wheel component if needed
+    if (window.wheelComponent) {
+        window.wheelComponent.show();
+    }
+    
+    // Initialize rule display if needed
+    if (window.ruleDisplayManager) {
+        window.ruleDisplayManager.show();
+    }
+}
+
+/**
+ * Hide the game board UI and show lobby
+ */
+function hideGameBoard() {
+    console.log('[GAME_BOARD] Hiding game board');
+    
+    const gamePage = document.getElementById('game-page');
+    if (gamePage) {
+        gamePage.style.display = 'none';
+        console.log('[GAME_BOARD] Game page hidden');
+    }
+    
+    // Hide game components
+    const wheelContainer = document.getElementById('wheel-container');
+    if (wheelContainer) {
+        wheelContainer.style.display = 'none';
+    }
+    
+    const playerInfoPanel = document.getElementById('player-info-panel');
+    if (playerInfoPanel) {
+        playerInfoPanel.style.display = 'none';
+    }
+    
+    const turnManagement = document.getElementById('turn-management');
+    if (turnManagement) {
+        turnManagement.style.display = 'none';
+    }
+    
+    const calloutPanel = document.getElementById('callout-panel');
+    if (calloutPanel) {
+        calloutPanel.style.display = 'none';
+    }
+    
+    // Hide wheel component
+    if (window.wheelComponent) {
+        window.wheelComponent.hide();
+    }
+    
+    // Hide rule display
+    if (window.ruleDisplayManager) {
+        window.ruleDisplayManager.hide();
+    }
+    
+    // Show lobby
+    showLobby();
 }
 
 /**
@@ -5076,12 +5214,29 @@ function handlePlayerStatusChange(event) {
  * Handle session state change events
  */
 function handleSessionStateChange(event) {
+    console.log('[LOBBY] *** handleSessionStateChange CALLED ***');
     console.log('[LOBBY] Session state changed:', event.detail);
     
-    // Update the lobby display if it's visible
-    const lobbyContainer = document.getElementById('lobby-container');
-    if (lobbyContainer && lobbyContainer.style.display !== 'none') {
-        updateLobbyDisplay();
+    const { sessionId, stateChange } = event.detail;
+    
+    console.log('[UI_TRANSITION] Processing state change:', stateChange);
+    console.log('[UI_TRANSITION] New state is:', stateChange.newState);
+    
+    // Handle UI transitions based on session state
+    if (stateChange.newState === 'in-game') {
+        console.log('[UI_TRANSITION] *** CALLING showGameBoard() ***');
+        showGameBoard();
+        console.log('[UI_TRANSITION] *** showGameBoard() completed ***');
+    } else if (stateChange.newState === 'lobby') {
+        console.log('[UI_TRANSITION] Session returned to lobby - showing lobby');
+        hideGameBoard();
+    } else {
+        console.log('[UI_TRANSITION] Other state change, updating lobby display');
+        // Update the lobby display if it's visible
+        const lobbyContainer = document.getElementById('lobby-container');
+        if (lobbyContainer && lobbyContainer.style.display !== 'none') {
+            updateLobbyDisplay();
+        }
     }
 }
 
@@ -5235,6 +5390,10 @@ async function handleStartGameButtonClick() {
         
         console.log(`[HOST_CONTROLS] Host ${currentUserId} attempting to start game for session ${sessionId}`);
         
+        // FIXME: Add diagnostic logging to track multiplayer sync issue
+        console.log('[DEBUG_MULTIPLAYER] Current session players:', gameManager.gameSessions[sessionId]?.players);
+        console.log('[DEBUG_MULTIPLAYER] All connected players:', Object.keys(gameManager.players));
+        
         // Disable button during request
         const startGameBtn = document.getElementById('host-start-game-btn');
         if (startGameBtn) {
@@ -5244,6 +5403,8 @@ async function handleStartGameButtonClick() {
         
         // Call the enhanced startGameSession method with host validation
         const startResult = await gameManager.startGameSession(sessionId, currentUserId);
+        
+        console.log('[DEBUG_MULTIPLAYER] Start game result:', startResult);
         
         if (!startResult.success) {
             showNotification(startResult.error, 'Start Game Error');
@@ -5255,11 +5416,14 @@ async function handleStartGameButtonClick() {
         showNotification('Game started successfully! Transitioning to game board...', 'Game Started');
         console.log(`[HOST_CONTROLS] Game started successfully by host ${currentUserId}`);
         
-        // TODO: Transition UI from lobby view to main game board
-        // This would involve hiding lobby elements and showing game elements
+        // FIXME: CRITICAL BUG - Only host transitions because showGameBoard() is called directly here
+        // instead of relying on sessionStateChange events. Other players don't get this call.
+        // The sessionStateChange event should handle UI transitions for ALL players.
+        console.log('[DEBUG_MULTIPLAYER] PROBLEM: Only host calls showGameBoard() - other players miss this!');
         
-        // Reset ready statuses for next game (if needed)
-        gameManager.resetAllPlayerReadyStatuses(sessionId);
+        // Transition UI from lobby view to main game board
+        showGameBoard();
+        
         
     } catch (error) {
         console.error('[READY_UI] Error handling start game button click:', error);
@@ -5313,12 +5477,27 @@ function updateHostControls() {
         const isHost = session.hostId === currentPlayerId;
         console.log('[HOST_CONTROLS] isHost check:', isHost, '(', session.hostId, '===', currentPlayerId, ')');
         
+        // FIXME: Add debug logging to diagnose ready button visibility issues
+        console.log('[DEBUG_READY_BUTTON] Debugging ready button visibility issue...');
+        console.log('[DEBUG_READY_BUTTON] Host comparison details:');
+        console.log('[DEBUG_READY_BUTTON] - session.hostId:', JSON.stringify(session.hostId));
+        console.log('[DEBUG_READY_BUTTON] - currentPlayerId:', JSON.stringify(currentPlayerId));
+        console.log('[DEBUG_READY_BUTTON] - Strict equality (===):', session.hostId === currentPlayerId);
+        console.log('[DEBUG_READY_BUTTON] - Loose equality (==):', session.hostId == currentPlayerId);
+        console.log('[DEBUG_READY_BUTTON] - session.hostId type:', typeof session.hostId);
+        console.log('[DEBUG_READY_BUTTON] - currentPlayerId type:', typeof currentPlayerId);
+        
         // Show/hide start game button based on host status
         const startGameBtn = document.getElementById('host-start-game-btn');
         const hostControlsSection = document.querySelector('.host-controls-section');
         console.log('[HOST_CONTROLS] DOM elements found:');
         console.log('[HOST_CONTROLS] startGameBtn:', !!startGameBtn);
         console.log('[HOST_CONTROLS] hostControlsSection:', !!hostControlsSection);
+        console.log('[DEBUG_READY_BUTTON] DOM element details:');
+        console.log('[DEBUG_READY_BUTTON] - startGameBtn element:', startGameBtn);
+        console.log('[DEBUG_READY_BUTTON] - hostControlsSection element:', hostControlsSection);
+        console.log('[DEBUG_READY_BUTTON] - startGameBtn current display:', startGameBtn?.style?.display);
+        console.log('[DEBUG_READY_BUTTON] - hostControlsSection current display:', hostControlsSection?.style?.display);
         
         if (isHost && startGameBtn && hostControlsSection) {
             console.log('[HOST_CONTROLS] Showing host controls - user is host');
@@ -5555,6 +5734,95 @@ if (typeof window !== 'undefined') {
 document.addEventListener('DOMContentLoaded', () => {
     // Wait for other systems to initialize
     setTimeout(() => {
+/**
+ * Set up Firebase real-time listener for session state changes
+ * FIXME: This is the missing piece that prevents other players from seeing state changes
+ */
+window.setupFirebaseSessionListener = async function setupFirebaseSessionListener() {
+    try {
+        const sessionId = window.currentSessionId;
+        if (!sessionId) {
+            console.log('[FIREBASE_LISTENER] No current session - skipping listener setup');
+            return;
+        }
+
+        console.log('[FIREBASE_LISTENER] Setting up real-time listener for session:', sessionId);
+
+        // Import Firebase functions
+        const { onSnapshot, doc } = await import("https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js");
+        const { db } = await import('./firebase-init.js');
+
+        // Set up real-time listener for session document
+        const sessionRef = doc(db, 'gameSessions', sessionId);
+        
+        const unsubscribe = onSnapshot(sessionRef, (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const sessionData = docSnapshot.data();
+                console.log('[FIREBASE_LISTENER] Session state changed:', sessionData);
+                
+                // Update local session data
+                if (gameManager.gameSessions[sessionId]) {
+                    const previousState = gameManager.gameSessions[sessionId].status;
+                    const newState = sessionData.status;
+                    
+                    // Update local session
+                    gameManager.gameSessions[sessionId] = {
+                        ...gameManager.gameSessions[sessionId],
+                        ...sessionData
+                    };
+                    
+                    // Only trigger UI changes if state actually changed
+                    if (previousState !== newState) {
+                        console.log('[FIREBASE_LISTENER] State changed from', previousState, 'to', newState);
+                        
+                        // Create state change event
+                        const stateChangeEvent = {
+                            previousState,
+                            newState,
+                            reason: sessionData.stateChangeReason || 'State updated from Firebase',
+                            timestamp: sessionData.lastStateChange || Date.now()
+                        };
+                        
+                        // Trigger the session state change event for UI updates
+                        console.log('[FIREBASE_LISTENER] Creating sessionStateChange event:', stateChangeEvent);
+                        const globalEvent = new CustomEvent('sessionStateChange', {
+                            detail: {
+                                sessionId,
+                                stateChange: stateChangeEvent
+                            }
+                        });
+                        
+                        console.log('[FIREBASE_LISTENER] Dispatching sessionStateChange event on document');
+                        document.dispatchEvent(globalEvent);
+                        console.log('[FIREBASE_LISTENER] Event dispatched successfully on document');
+                    }
+                }
+            }
+        }, (error) => {
+            console.error('[FIREBASE_LISTENER] Error in session listener:', error);
+        });
+
+        // Store unsubscribe function for cleanup
+        window.sessionStateUnsubscribe = unsubscribe;
+        
+        console.log('[FIREBASE_LISTENER] Real-time listener set up successfully');
+
+    } catch (error) {
+        console.error('[FIREBASE_LISTENER] Error setting up Firebase listener:', error);
+    }
+}
+
+/**
+ * Clean up Firebase listeners when leaving a session
+ */
+function cleanupFirebaseListeners() {
+    if (window.sessionStateUnsubscribe) {
+        console.log('[FIREBASE_LISTENER] Cleaning up session state listener');
+        window.sessionStateUnsubscribe();
+        window.sessionStateUnsubscribe = null;
+    }
+}
+
         initializeHostControls();
     }, 1500);
 });
