@@ -6,6 +6,9 @@ import {
     updateFirestorePlayerStatus,
     updateFirestorePlayerHand,
     updateFirestoreRefereeCard,
+    updateFirestoreSessionPlayerList,
+    updateFirestoreTurnInfo,
+    initializeFirestoreTurnManagement,
     getFirestoreGameSession,
     getFirestorePlayer,
     getFirestorePlayersInSession,
@@ -3787,7 +3790,7 @@ class GameManager {
      * @param {string} sessionId - The session ID
      * @param {Array<string>} playerIds - Array of player IDs in turn order
      */
-    initializeTurnOrder(sessionId, playerIds) {
+    async initializeTurnOrder(sessionId, playerIds) {
         this.turnOrder[sessionId] = [...playerIds];
         this.currentTurn[sessionId] = {
             currentPlayerIndex: 0,
@@ -3795,7 +3798,16 @@ class GameManager {
             currentPlayerId: playerIds[0],
             hasSpun: false
         };
+        
         console.log(`Turn order initialized for session ${sessionId}:`, this.turnOrder[sessionId]);
+        
+        // Synchronize with Firebase
+        try {
+            await initializeFirestoreTurnManagement(sessionId, playerIds);
+            console.log(`[TURN_MGMT] Turn management synchronized to Firebase for session ${sessionId}`);
+        } catch (error) {
+            console.error(`[TURN_MGMT] Failed to sync turn management to Firebase:`, error);
+        }
     }
 
     /**
@@ -3833,7 +3845,7 @@ class GameManager {
      * @param {string} playerId - The player ID
      * @returns {boolean} - True if action was recorded
      */
-    recordPlayerSpin(sessionId, playerId) {
+    async recordPlayerSpin(sessionId, playerId) {
         const turn = this.currentTurn[sessionId];
         if (!turn || turn.currentPlayerId !== playerId || turn.hasSpun) {
             return false;
@@ -3841,6 +3853,21 @@ class GameManager {
         
         turn.hasSpun = true;
         console.log(`Player ${playerId} spin recorded for session ${sessionId}`);
+        
+        // Synchronize spin state with Firebase
+        try {
+            await updateFirestoreTurnInfo(sessionId, {
+                currentPlayerIndex: turn.currentPlayerIndex,
+                turnNumber: turn.turnNumber,
+                currentPlayerId: turn.currentPlayerId,
+                hasSpun: turn.hasSpun,
+                turnOrder: this.turnOrder[sessionId]
+            });
+            console.log(`[TURN_MGMT] Player spin state synchronized to Firebase for session ${sessionId}`);
+        } catch (error) {
+            console.error(`[TURN_MGMT] Failed to sync player spin state to Firebase:`, error);
+        }
+        
         return true;
     }
 
@@ -3870,6 +3897,20 @@ class GameManager {
             await this.ruleEngine.handleTurnProgression(sessionId, turn.turnNumber);
         } catch (error) {
             console.error(`Error processing rule expirations for session ${sessionId}:`, error);
+        }
+        
+        // Synchronize turn advancement with Firebase
+        try {
+            await updateFirestoreTurnInfo(sessionId, {
+                currentPlayerIndex: turn.currentPlayerIndex,
+                turnNumber: turn.turnNumber,
+                currentPlayerId: turn.currentPlayerId,
+                hasSpun: turn.hasSpun,
+                turnOrder: order
+            });
+            console.log(`[TURN_MGMT] Turn advancement synchronized to Firebase for session ${sessionId}`);
+        } catch (error) {
+            console.error(`[TURN_MGMT] Failed to sync turn advancement to Firebase:`, error);
         }
         
         console.log(`Advanced to next turn in session ${sessionId}: Player ${turn.currentPlayerId}, Turn ${turn.turnNumber}`);

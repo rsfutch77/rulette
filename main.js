@@ -255,8 +255,8 @@ function clearPersistentPlayerID() {
     // Get current session ID (this would be stored globally in a real implementation)
     const currentSessionId = window.currentSessionId;
     if (currentSessionId) {
-      setTimeout(() => {
-        completeTurn(currentSessionId);
+      setTimeout(async () => {
+        await completeTurn(currentSessionId);
       }, 2000); // Give time for card draw to complete
     }
   });
@@ -276,6 +276,7 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
   getDoc,
   query,
   where,
@@ -1646,7 +1647,7 @@ function stopGameDisplay() {
 }
 
 // Enhanced wheel control with turn management and comprehensive error handling
-function spinWheelForPlayer(sessionId, playerId) {
+async function spinWheelForPlayer(sessionId, playerId) {
   console.log("[GAME] spinWheelForPlayer called for player:", playerId, "session:", sessionId);
   
   if (!window.wheelComponent || !gameManager) {
@@ -1703,8 +1704,8 @@ function spinWheelForPlayer(sessionId, playerId) {
   // Attempt to spin
   const spinResult = window.wheelComponent.spinWheel(actualPlayerId);
   if (spinResult) {
-    // Record the spin in game manager
-    gameManager.recordPlayerSpin(sessionId, actualPlayerId);
+    // Record the spin in game manager (now async)
+    await gameManager.recordPlayerSpin(sessionId, actualPlayerId);
     console.log("[GAME] Spin initiated for player", actualPlayerId);
     
     // Update UI to show that player has acted
@@ -1717,14 +1718,14 @@ function spinWheelForPlayer(sessionId, playerId) {
 }
 
 // Function to initialize turn-based wheel for a session
-function initializeWheelForSession(sessionId, playerIds) {
+async function initializeWheelForSession(sessionId, playerIds) {
   if (!gameManager) {
     console.error("[GAME] Game manager not available");
     return false;
   }
   
-  // Initialize turn order in game manager
-  gameManager.initializeTurnOrder(sessionId, playerIds);
+  // Initialize turn order in game manager (now async)
+  await gameManager.initializeTurnOrder(sessionId, playerIds);
   
   // Set up wheel for first player
   const currentPlayer = gameManager.getCurrentPlayer(sessionId);
@@ -1739,13 +1740,13 @@ function initializeWheelForSession(sessionId, playerIds) {
 }
 
 // Function to advance turn and update wheel
-function advanceTurn(sessionId) {
+async function advanceTurn(sessionId) {
   if (!gameManager) {
     console.error("[GAME] Game manager not available");
     return null;
   }
   
-  const nextPlayer = gameManager.nextTurn(sessionId);
+  const nextPlayer = await gameManager.nextTurn(sessionId);
   const turnInfo = gameManager.getTurnInfo(sessionId);
   
   if (window.wheelComponent && nextPlayer && turnInfo) {
@@ -1872,7 +1873,7 @@ function initializeTurnManagement(sessionId, playerIds) {
 }
 
 // Function to handle turn completion and advance to next player
-function completeTurn(sessionId) {
+async function completeTurn(sessionId) {
   if (!gameManager) {
     console.error("[GAME] Game manager not available");
     return false;
@@ -1883,7 +1884,7 @@ function completeTurn(sessionId) {
   console.log("[TURN_MGMT] Completing turn for player", currentPlayer, "turn info:", turnInfo);
   
   // Advance to next turn
-  const nextPlayer = advanceTurn(sessionId);
+  const nextPlayer = await advanceTurn(sessionId);
   
   if (nextPlayer) {
     console.log("[TURN_MGMT] Turn advanced to player", nextPlayer);
@@ -3160,6 +3161,48 @@ async function updateFirestoreSessionPlayerList(sessionId, playerList) {
   }
 }
 
+// Function to update turn management information in Firebase
+async function updateFirestoreTurnInfo(sessionId, turnInfo) {
+  try {
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, {
+      currentTurn: turnInfo,
+      lastTurnUpdate: new Date().toISOString()
+    });
+    console.log("[FIRESTORE] Turn info updated:", sessionId, turnInfo);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating turn info:", error);
+    throw error;
+  }
+}
+
+// Function to initialize turn management in Firebase when game starts
+async function initializeFirestoreTurnManagement(sessionId, playerIds) {
+  try {
+    const turnInfo = {
+      currentPlayerIndex: 0,
+      turnNumber: 1,
+      currentPlayerId: playerIds[0],
+      hasSpun: false,
+      turnOrder: playerIds,
+      gameStarted: true
+    };
+    
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, {
+      currentTurn: turnInfo,
+      status: 'in-game',
+      gameStartedAt: new Date().toISOString()
+    });
+    
+    console.log("[FIRESTORE] Turn management initialized:", sessionId, turnInfo);
+    return turnInfo;
+  } catch (error) {
+    console.error("[FIRESTORE] Error initializing turn management:", error);
+    throw error;
+  }
+}
+
 async function getFirestoreGameSession(sessionId) {
   try {
     const sessionRef = doc(db, 'gameSessions', sessionId);
@@ -3243,6 +3286,8 @@ export {
   updateFirestorePlayerHand,
   updateFirestoreRefereeCard,
   updateFirestoreSessionPlayerList,
+  updateFirestoreTurnInfo,
+  initializeFirestoreTurnManagement,
   getFirestoreGameSession,
   getFirestorePlayer,
   getFirestorePlayersInSession,
