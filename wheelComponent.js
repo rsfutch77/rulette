@@ -63,13 +63,24 @@ class WheelComponent {
                 console.log('[WHEEL] currentSessionId:', window.currentSessionId);
                 console.log('[WHEEL] spinWheelForPlayer available:', !!window.spinWheelForPlayer);
                 
+                // FIXME: Add comprehensive logging for button click debugging
+                const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+                console.log('[WHEEL] getCurrentUser function available:', !!window.getCurrentUser);
+                console.log('[WHEEL] Current user:', currentUser);
+                console.log('[WHEEL] Button disabled state:', spinButton.disabled);
+                console.log('[WHEEL] Button style background:', spinButton.style.background);
+                
+                // Check gameManager turn state
+                if (window.gameManager && window.currentSessionId) {
+                    const turnInfo = window.gameManager.getTurnInfo(window.currentSessionId);
+                    const currentTurnPlayer = window.gameManager.getCurrentPlayer(window.currentSessionId);
+                    console.log('[WHEEL] GameManager turn info:', turnInfo);
+                    console.log('[WHEEL] GameManager current turn player:', currentTurnPlayer);
+                    console.log('[WHEEL] Can current user act:', currentUser ? window.gameManager.canPlayerAct(window.currentSessionId, currentUser.uid) : 'No current user');
+                }
+                
                 // In turn-based mode, use the current session and player
                 if (window.currentSessionId && window.spinWheelForPlayer) {
-                    // Get current user to determine if they can spin
-                    const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
-                    console.log('[WHEEL] getCurrentUser function available:', !!window.getCurrentUser);
-                    console.log('[WHEEL] Current user:', currentUser);
-                    
                     if (currentUser) {
                         console.log('[WHEEL] Button clicked by user:', currentUser.uid, '(' + currentUser.displayName + ')');
                         console.log('[WHEEL] Current turn player:', this.currentPlayerId);

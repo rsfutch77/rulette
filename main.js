@@ -1752,12 +1752,23 @@ async function advanceTurn(sessionId) {
     return null;
   }
   
+  // FIXME: Add logging to debug turn advancement
+  console.log("[GAME] advanceTurn called for session:", sessionId);
+  
   const nextPlayer = await gameManager.nextTurn(sessionId);
+  console.log("[GAME] gameManager.nextTurn returned:", nextPlayer);
+  
   const turnInfo = gameManager.getTurnInfo(sessionId);
+  console.log("[GAME] turnInfo after nextTurn:", turnInfo);
   
   if (window.wheelComponent && nextPlayer && turnInfo) {
     window.wheelComponent.setCurrentTurn(nextPlayer, turnInfo.turnNumber);
     console.log("[GAME] Advanced to next turn - player:", nextPlayer, "turn:", turnInfo.turnNumber);
+  } else {
+    console.log("[GAME] Failed to update wheel component:");
+    console.log("[GAME] - wheelComponent exists:", !!window.wheelComponent);
+    console.log("[GAME] - nextPlayer:", nextPlayer);
+    console.log("[GAME] - turnInfo:", turnInfo);
   }
   
   // Update turn UI
@@ -5913,6 +5924,10 @@ window.setupFirebaseSessionListener = async function setupFirebaseSessionListene
                 const sessionData = docSnapshot.data();
                 console.log('[FIREBASE_LISTENER] Session state changed:', sessionData);
                 
+                // FIXME: Add comprehensive logging for turn state debugging
+                console.log('[FIREBASE_LISTENER] Current turn data from Firebase:', sessionData.currentTurn);
+                console.log('[FIREBASE_LISTENER] Local turn data before update:', gameManager.currentTurn[sessionId]);
+                
                 // Update local session data
                 if (gameManager.gameSessions[sessionId]) {
                     const previousState = gameManager.gameSessions[sessionId].status;
@@ -5923,6 +5938,35 @@ window.setupFirebaseSessionListener = async function setupFirebaseSessionListene
                         ...gameManager.gameSessions[sessionId],
                         ...sessionData
                     };
+                    
+                    // FIXME: Critical fix - Update local turn state from Firebase, but avoid race conditions
+                    if (sessionData.currentTurn) {
+                        console.log('[FIREBASE_LISTENER] Updating local turn state from Firebase');
+                        
+                        // Check if this is a newer update than what we have locally
+                        const localTurn = gameManager.currentTurn[sessionId];
+                        const firebaseTurn = sessionData.currentTurn;
+                        
+                        console.log('[FIREBASE_LISTENER] Local turn:', localTurn);
+                        console.log('[FIREBASE_LISTENER] Firebase turn:', firebaseTurn);
+                        
+                        // Only update if Firebase has newer data or if we don't have local data
+                        const shouldUpdate = !localTurn ||
+                            firebaseTurn.turnNumber > localTurn.turnNumber ||
+                            (firebaseTurn.turnNumber === localTurn.turnNumber &&
+                             firebaseTurn.currentPlayerIndex !== localTurn.currentPlayerIndex);
+                        
+                        if (shouldUpdate) {
+                            console.log('[FIREBASE_LISTENER] Updating local turn state from Firebase (newer data)');
+                            gameManager.currentTurn[sessionId] = sessionData.currentTurn;
+                            console.log('[FIREBASE_LISTENER] Local turn data after update:', gameManager.currentTurn[sessionId]);
+                            
+                            // Update turn UI to reflect the new turn state
+                            updateTurnUI(sessionId);
+                        } else {
+                            console.log('[FIREBASE_LISTENER] Skipping turn state update (local data is newer or same)');
+                        }
+                    }
                     
                     // Only trigger UI changes if state actually changed
                     if (previousState !== newState) {

@@ -3880,7 +3880,19 @@ class GameManager {
         const turn = this.currentTurn[sessionId];
         const order = this.turnOrder[sessionId];
         
-        if (!turn || !order) return null;
+        // FIXME: Add logging to debug turn advancement failure
+        console.log('[TURN_MGMT] nextTurn called for session:', sessionId);
+        console.log('[TURN_MGMT] Current turn data:', turn);
+        console.log('[TURN_MGMT] Turn order data:', order);
+        console.log('[TURN_MGMT] All currentTurn data:', this.currentTurn);
+        console.log('[TURN_MGMT] All turnOrder data:', this.turnOrder);
+        
+        if (!turn || !order) {
+            console.log('[TURN_MGMT] FAILED: Missing turn or order data');
+            console.log('[TURN_MGMT] turn exists:', !!turn);
+            console.log('[TURN_MGMT] order exists:', !!order);
+            return null;
+        }
         
         // Move to next player
         turn.currentPlayerIndex = (turn.currentPlayerIndex + 1) % order.length;
@@ -3966,8 +3978,17 @@ class GameManager {
      * @returns {object} - {valid: boolean, error?: string, errorCode?: string}
      */
     validatePlayerAction(sessionId, playerId, action) {
+        // FIXME: Add comprehensive logging for validation debugging
+        console.log('[VALIDATION] *** VALIDATING PLAYER ACTION ***');
+        console.log('[VALIDATION] sessionId:', sessionId);
+        console.log('[VALIDATION] playerId:', playerId);
+        console.log('[VALIDATION] action:', action);
+        console.log('[VALIDATION] Available sessions:', Object.keys(this.gameSessions));
+        console.log('[VALIDATION] Available players:', Object.keys(this.players));
+        
         // Check session exists
         if (!this.gameSessions[sessionId]) {
+            console.log('[VALIDATION] FAILED: Session not found');
             return {
                 valid: false,
                 error: 'Game session not found',
@@ -3977,6 +3998,7 @@ class GameManager {
 
         // Check player exists
         if (!this.players[playerId]) {
+            console.log('[VALIDATION] FAILED: Player not found');
             return {
                 valid: false,
                 error: 'Player not found',
@@ -3986,9 +4008,14 @@ class GameManager {
 
         const player = this.players[playerId];
         const turn = this.currentTurn[sessionId];
+        
+        console.log('[VALIDATION] Player data:', player);
+        console.log('[VALIDATION] Turn data:', turn);
+        console.log('[VALIDATION] All turn data for session:', this.currentTurn);
 
         // Check player is active
         if (player.status !== 'active') {
+            console.log('[VALIDATION] FAILED: Player inactive, status:', player.status);
             return {
                 valid: false,
                 error: `Player is ${player.status} and cannot perform actions`,
@@ -3998,6 +4025,7 @@ class GameManager {
 
         // Check turn management exists
         if (!turn) {
+            console.log('[VALIDATION] FAILED: Turn management not initialized');
             return {
                 valid: false,
                 error: 'Turn management not initialized',
@@ -4007,6 +4035,7 @@ class GameManager {
 
         // Check if it's player's turn
         if (turn.currentPlayerId !== playerId) {
+            console.log('[VALIDATION] FAILED: Not player turn. Current turn player:', turn.currentPlayerId, 'Requesting player:', playerId);
             return {
                 valid: false,
                 error: 'Not your turn',
@@ -4016,6 +4045,7 @@ class GameManager {
 
         // Check for duplicate actions
         if (action === 'spin' && turn.hasSpun) {
+            console.log('[VALIDATION] FAILED: Already spun this turn');
             return {
                 valid: false,
                 error: 'You have already spun this turn',
@@ -4023,6 +4053,7 @@ class GameManager {
             };
         }
 
+        console.log('[VALIDATION] SUCCESS: Player action validated');
         return { valid: true };
     }
 
