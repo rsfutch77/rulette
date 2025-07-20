@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>[Game Title] - Login</title>
+  <title>Rulette - Card Game</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
@@ -866,23 +866,36 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Welcome to [Game Title]</h1>
+  <div id="main-menu" class="container">
+    <h1>Welcome to Rulette</h1>
     <p style="font-size: 1.1rem; color: #333; margin-bottom: 1.5rem; font-style: italic; line-height: 1.4; max-width: 600px; text-align: center;">
-      [Description Text Here]
+      A fast-paced card game where rules change with every spin!
     </p>
-    <div id="game-code-header" style="font-weight:bold; color:#4285F4; margin-bottom:1rem; display:none;"></div>
-    <button id="login-btn">Login</button>
-    <div id="user-info" style="display:none;">
-      <p id="user-name"></p>
-      <button id="logout-btn">Logout</button>
-      <button id="create-game-btn" style="display:none; margin-top:1rem;">Create New Game</button>
-      <button id="join-game-btn" style="display:none; margin-top:1rem;">Join Existing Game</button>
-      <div id="join-game-form" style="display:none; margin-top:1rem;">
-        <input type="text" id="join-game-code" placeholder="Enter game code" maxlength="10" style="margin-right:0.5rem;">
-        <button id="submit-join-game-btn">Join</button>
-        <span id="join-game-error" style="color:red; margin-left:0.5rem;"></span>
-      </div>
+    
+    <!-- Player Name Input -->
+    <div id="player-setup" style="margin-bottom: 2rem;">
+      <input type="text" id="player-name-input" placeholder="Enter your display name"
+             style="padding: 0.7rem; font-size: 1rem; border: 2px solid #ddd; border-radius: 5px; margin-bottom: 1rem; width: 250px;">
+    </div>
+    
+    <!-- Game Options -->
+    <div id="game-options" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+      <button id="create-game-btn" style="padding: 0.7rem 1.5rem; font-size: 1rem; border: none; border-radius: 5px; background: #4285F4; color: #fff; cursor: pointer;">
+        Create New Game
+      </button>
+      <button id="join-game-btn" style="padding: 0.7rem 1.5rem; font-size: 1rem; border: none; border-radius: 5px; background: #28a745; color: #fff; cursor: pointer;">
+        Join Game
+      </button>
+    </div>
+    
+    <!-- Join Game Form (initially hidden) -->
+    <div id="join-game-form" style="display:none; margin-top:1.5rem;">
+      <input type="text" id="join-game-code" placeholder="Enter 6-character game code" maxlength="6"
+             style="padding: 0.7rem; font-size: 1rem; border: 2px solid #ddd; border-radius: 5px; margin-right: 0.5rem; text-transform: uppercase;">
+      <button id="submit-join-game-btn" style="padding: 0.7rem 1rem; font-size: 1rem; border: none; border-radius: 5px; background: #28a745; color: #fff; cursor: pointer;">
+        Join
+      </button>
+      <span id="join-game-error" style="color:red; margin-left:0.5rem; display: block; margin-top: 0.5rem;"></span>
     </div>
   </div>
   <!-- Game Page Section (initially hidden) -->

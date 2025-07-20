@@ -1,7 +1,4 @@
 console.log("DEBUG: main.js loaded");
-import { auth } from "./firebase-init.js";
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js"; // FIXME: Bare import replaced with CDN import for browser compatibility
-
 import { db } from "./firebase-init.js";
 
 // CardManager and sample decks (using dynamic import for CommonJS compatibility)
@@ -94,19 +91,82 @@ function getTurnOrderDiceRoll() {
   return { total: roll1 + roll2, isDev: false };
 }
 
-// Helper to get the current user, supporting localhost dev mode
+// Simple player system - no authentication required
+let currentPlayer = null;
+
 function getCurrentUser() {
-  if (auth.currentUser) return auth.currentUser;
-  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    // Use the dev UID from prompt/localStorage for consistent identity
-    const devUID = getDevUID() || "dev-local-uid";
-    return {
-      uid: devUID,
-      displayName: "Dev User",
-      email: "dev@localhost"
-    };
+  return currentPlayer;
+}
+
+function getCurrentUserId() {
+  return currentPlayer ? currentPlayer.uid : null;
+}
+
+function setCurrentPlayer(displayName) {
+  if (!displayName || displayName.trim() === '') {
+    return null;
   }
-  return null;
+  
+  // Get or create a persistent browser-based player ID
+  const persistentUID = getOrCreatePersistentPlayerID(displayName.trim());
+  console.log(`[DEBUG RECONNECTION] Using persistent UID: ${persistentUID} for name: ${displayName}`);
+  
+  currentPlayer = {
+    uid: persistentUID,
+    displayName: displayName.trim(),
+    email: null,
+    isDev: false
+  };
+  
+  return currentPlayer;
+}
+
+/**
+ * Get or create a persistent player ID that survives browser sessions
+ * This enables proper reconnection detection for the same browser/player
+ */
+function getOrCreatePersistentPlayerID(displayName) {
+  const storageKey = 'rulette_player_id';
+  const nameKey = 'rulette_player_name';
+  
+  // Try to get existing player ID from localStorage
+  let existingUID = localStorage.getItem(storageKey);
+  let existingName = localStorage.getItem(nameKey);
+  
+  // If we have an existing UID and the name matches, reuse it
+  if (existingUID && existingName === displayName) {
+    console.log(`[RECONNECTION] Reusing existing player ID for ${displayName}: ${existingUID}`);
+    return existingUID;
+  }
+  
+  // If name changed or no existing UID, create a new one
+  const newUID = "player-" + Math.random().toString(36).substr(2, 9);
+  
+  // Store the new UID and name for future sessions
+  localStorage.setItem(storageKey, newUID);
+  localStorage.setItem(nameKey, displayName);
+  
+  if (existingUID && existingName !== displayName) {
+    console.log(`[RECONNECTION] Name changed from ${existingName} to ${displayName}, created new ID: ${newUID}`);
+  } else {
+    console.log(`[RECONNECTION] Created new persistent player ID for ${displayName}: ${newUID}`);
+  }
+  
+  return newUID;
+}
+
+function clearCurrentPlayer() {
+  currentPlayer = null;
+}
+
+/**
+ * Clear the persistent player ID from localStorage
+ * Use this when a player explicitly wants to start fresh
+ */
+function clearPersistentPlayerID() {
+  localStorage.removeItem('rulette_player_id');
+  localStorage.removeItem('rulette_player_name');
+  console.log('[RECONNECTION] Cleared persistent player ID from localStorage');
 }
 
 // FIXME: The code assumed card data was available synchronously, but it is loaded asynchronously.
@@ -193,15 +253,16 @@ import {
   updateDoc, // FIXME: Added for join game functionality
   arrayUnion, // FIXME: Added for join game functionality
   onSnapshot // FIXME: Added for real-time game updates
-} from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js";
 
-const loginBtn = document.getElementById("login-btn");
-const logoutBtn = document.getElementById("logout-btn");
-const userInfoDiv = document.getElementById("user-info");
-const userNameP = document.getElementById("user-name");
+// Player setup elements
+const playerNameInput = document.getElementById("player-name-input");
 const createGameBtn = document.getElementById("create-game-btn");
 const joinGameBtn = document.getElementById("join-game-btn");
-const gameCodeHeader = document.getElementById("game-code-header");
+const joinGameForm = document.getElementById("join-game-form");
+const joinGameCodeInput = document.getElementById("join-game-code");
+const submitJoinGameBtn = document.getElementById("submit-join-game-btn");
+const joinGameError = document.getElementById("join-game-error");
 
 // Game page elements
 const gamePage = document.getElementById("game-page");
@@ -260,9 +321,187 @@ function initNotificationElements() {
   }
 }
 
+// Initialize the new player setup system
+function initializePlayerSetup() {
+  // Show join form when join button is clicked
+  if (joinGameBtn) {
+    joinGameBtn.addEventListener('click', () => {
+      const playerName = playerNameInput.value.trim();
+      if (!playerName) {
+        showNotification('Please enter your display name first', 'Name Required');
+        playerNameInput.focus();
+        return;
+      }
+      
+      joinGameForm.style.display = 'block';
+      joinGameCodeInput.focus();
+    });
+  }
+  
+  // Handle create game button
+  if (createGameBtn) {
+    console.log("DEBUG: create-game-btn found, attaching event listener");
+    createGameBtn.addEventListener('click', () => {
+      console.log("DEBUG: create-game-btn clicked!");
+      const playerName = playerNameInput.value.trim();
+      console.log("DEBUG: Player name:", playerName);
+      if (!playerName) {
+        console.log("DEBUG: No player name provided, showing notification");
+        showNotification('Please enter your display name first', 'Name Required');
+        playerNameInput.focus();
+        return;
+      }
+      
+      console.log("DEBUG: Setting current player and calling handleCreateGame");
+      // Set current player and create game
+      setCurrentPlayer(playerName);
+      handleCreateGame();
+    });
+  } else {
+    console.error("DEBUG: create-game-btn element not found!"); // FIXME: Button element missing
+  }
+  
+  // Handle join game submission
+  if (submitJoinGameBtn) {
+    submitJoinGameBtn.addEventListener('click', () => {
+      const playerName = playerNameInput.value.trim();
+      const gameCode = joinGameCodeInput.value.trim().toUpperCase();
+      
+      if (!playerName) {
+        showNotification('Please enter your display name first', 'Name Required');
+        playerNameInput.focus();
+        return;
+      }
+      
+      if (!gameCode || gameCode.length !== 6) {
+        showNotification('Please enter a valid 6-character game code', 'Invalid Code');
+        joinGameCodeInput.focus();
+        return;
+      }
+      
+      // Set current player and join game
+      setCurrentPlayer(playerName);
+      handleJoinGame(gameCode);
+    });
+  }
+  
+  // Auto-format game code input
+  if (joinGameCodeInput) {
+    joinGameCodeInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+    
+    // Allow Enter key to submit
+    joinGameCodeInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        submitJoinGameBtn.click();
+      }
+    });
+  }
+  
+  // Allow Enter key on player name to focus on create game
+  if (playerNameInput) {
+    playerNameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        createGameBtn.click();
+      }
+    });
+  }
+}
+
+// Simplified game creation for new UI
+async function handleCreateGame() {
+  console.log("DEBUG: handleCreateGame() called");
+  try {
+    const currentUser = getCurrentUser();
+    console.log("DEBUG: Current user:", currentUser);
+    if (!currentUser) {
+      console.log("DEBUG: No current user, showing notification"); // FIXME: User not set properly
+      showNotification('Please enter your display name first', 'Name Required');
+      return;
+    }
+
+    console.log("DEBUG: Showing creating game notification");
+    showNotification('Creating game session...', 'Creating Game');
+    
+    console.log("DEBUG: Calling gameManager.createGameSession with:", currentUser.uid, currentUser.displayName);
+    console.log("DEBUG: gameManager available:", !!gameManager);
+    
+    // Create session using GameManager
+    const session = await gameManager.createGameSession(currentUser.uid, currentUser.displayName);
+    console.log("DEBUG: Session created:", session);
+    
+    if (session && session.shareableCode) {
+      console.log("DEBUG: Session created successfully with code:", session.shareableCode);
+      showNotification(`Game created! Share code: ${session.shareableCode}`, 'Game Created');
+      
+      // FIXME: Critical bug fix - set window.currentSessionId when creating session
+      window.currentSessionId = session.sessionId;
+      console.log('[SESSION] Set currentSessionId to:', session.sessionId);
+      
+      // Hide main menu and show lobby
+      console.log("DEBUG: Hiding main menu and showing lobby");
+      document.getElementById('main-menu').style.display = 'none';
+      document.getElementById('lobby-container').style.display = 'block';
+      
+      // Update lobby with session info - this will call updateLobbySessionInfo, updateLobbyPlayerList, and updateHostControls
+      console.log('[DEBUG] Updating full lobby display after create');
+      updateLobbyDisplay();
+    } else {
+      console.error("DEBUG: Session creation failed - no session or shareableCode"); // FIXME: Session creation failed
+      showNotification('Failed to create game session', 'Creation Error');
+    }
+  } catch (error) {
+    console.error('[CREATE_GAME] Error:', error); // FIXME: Exception in handleCreateGame
+    showNotification('Failed to create game: ' + error.message, 'Creation Error');
+  }
+}
+
+// Simplified game joining for new UI
+async function handleJoinGame(gameCode) {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      showNotification('Please enter your display name first', 'Name Required');
+      return;
+    }
+
+    showNotification('Joining game...', 'Joining Game');
+    joinGameError.textContent = '';
+    
+    // Join session using GameManager
+    const result = await gameManager.joinSession(gameCode, currentUser.uid, currentUser.displayName);
+    
+    if (result.success) {
+      showNotification('Successfully joined game!', 'Joined Game');
+      
+      // Hide main menu and show lobby
+      document.getElementById('main-menu').style.display = 'none';
+      document.getElementById('lobby-container').style.display = 'block';
+      
+      // Update lobby with session info
+      if (result.session) {
+        updateLobbySessionInfo(result.session);
+        // FIXME: Add missing lobby player list update after join
+        console.log('[DEBUG] Updating lobby player list after join');
+        await updateLobbyPlayerList(result.sessionId);
+      }
+    } else {
+      joinGameError.textContent = result.error || 'Failed to join game';
+      showNotification(result.error || 'Failed to join game', 'Join Error');
+    }
+  } catch (error) {
+    console.error('[JOIN_GAME] Error:', error);
+    const errorMsg = 'Failed to join game: ' + error.message;
+    joinGameError.textContent = errorMsg;
+    showNotification(errorMsg, 'Join Error');
+  }
+}
+
 // Initialize notification elements and rule display manager when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
   initNotificationElements();
+  initializePlayerSetup();
   initRuleDisplayManager();
   initCalloutEventHandlers();
   initCardTransferEventHandlers();
@@ -299,7 +538,7 @@ async function handleCalloutInitiation() {
   
   const currentUser = getCurrentUser();
   if (!currentUser) {
-    showNotification("You must be logged in to make a callout.", "Authentication Required");
+    showNotification("Please set your player name first.", "Player Name Required");
     return;
   }
   
@@ -368,7 +607,7 @@ async function handleRefereeDecision(isValid) {
   
   const currentUser = getCurrentUser();
   if (!currentUser) {
-    showNotification("You must be logged in to make referee decisions.", "Authentication Required");
+    showNotification("Please set your player name first.", "Player Name Required");
     return;
   }
   
@@ -2796,6 +3035,18 @@ async function updateFirestoreRefereeCard(sessionId, refereeCard) {
   }
 }
 
+// FIXME: Add missing function to update session player list in Firebase
+async function updateFirestoreSessionPlayerList(sessionId, playerList) {
+  try {
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, { players: playerList });
+    console.log("[FIRESTORE] Session player list updated:", sessionId, playerList);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating session player list:", error);
+    throw error;
+  }
+}
+
 async function getFirestoreGameSession(sessionId) {
   try {
     const sessionRef = doc(db, 'gameSessions', sessionId);
@@ -2822,6 +3073,11 @@ async function getFirestorePlayer(playerId) {
 
 async function getFirestorePlayersInSession(sessionId) {
   try {
+    // FIXME: Debug logging to validate Firebase db object
+    console.log("[DEBUG] Firebase db object:", db);
+    console.log("[DEBUG] Firebase db type:", typeof db);
+    console.log("[DEBUG] Firebase db constructor:", db?.constructor?.name);
+    
     const playersQuery = query(
       collection(db, 'players'),
       where('sessionId', '==', sessionId)
@@ -2839,6 +3095,33 @@ async function getFirestorePlayersInSession(sessionId) {
   }
 }
 
+async function getFirestoreSessionByShareableCode(shareableCode) {
+  try {
+    // FIXME: Debug logging to validate Firebase query for shareable code
+    console.log("[DEBUG] Querying Firebase for session with shareable code:", shareableCode);
+    
+    const sessionsQuery = query(
+      collection(db, 'gameSessions'),
+      where('shareableCode', '==', shareableCode)
+    );
+    const sessionsSnapshot = await getDocs(sessionsQuery);
+    
+    if (sessionsSnapshot.empty) {
+      console.log("[DEBUG] No session found with shareable code:", shareableCode);
+      return null;
+    }
+    
+    // Return the first matching session
+    const sessionDoc = sessionsSnapshot.docs[0];
+    const sessionData = { id: sessionDoc.id, ...sessionDoc.data() };
+    console.log("[DEBUG] Found session with shareable code:", shareableCode, sessionData);
+    return sessionData;
+  } catch (error) {
+    console.error("[FIRESTORE] Error getting session by shareable code:", error);
+    return null;
+  }
+}
+
 // Export Firestore functions for gameManager
 export {
   createFirestoreGameSession,
@@ -2846,9 +3129,11 @@ export {
   updateFirestorePlayerStatus,
   updateFirestorePlayerHand,
   updateFirestoreRefereeCard,
+  updateFirestoreSessionPlayerList,
   getFirestoreGameSession,
   getFirestorePlayer,
   getFirestorePlayersInSession,
+  getFirestoreSessionByShareableCode,
   getDevUID
 };
 
@@ -3827,11 +4112,15 @@ async function handleCreateSession() {
         // Get current user
         const currentUser = getCurrentUser();
         if (!currentUser) {
-            throw new Error('User not authenticated');
+            throw new Error('Player name not set');
         }
         
         // Create session using GameManager
         const session = await gameManager.createGameSession(currentUser.uid, hostName);
+        
+        // FIXME: Critical bug fix - set window.currentSessionId when creating session
+        window.currentSessionId = session.sessionId;
+        console.log('[SESSION] Set currentSessionId to:', session.sessionId);
         
         // Update session with max players
         session.maxPlayers = maxPlayers;
@@ -3840,6 +4129,11 @@ async function handleCreateSession() {
         displaySessionCreated(session);
         
         showNotification('Session created successfully!', 'success');
+        
+        // Update lobby display now that we have a session ID
+        setTimeout(() => {
+            updateLobbyDisplay();
+        }, 1000);
         
     } catch (error) {
         console.error('[SESSION] Error creating session:', error);
@@ -3878,13 +4172,17 @@ async function handleJoinSession() {
         // Get current user
         const currentUser = getCurrentUser();
         if (!currentUser) {
-            throw new Error('User not authenticated');
+            throw new Error('Player name not set');
         }
         
         // Join session using GameManager
         const result = await gameManager.joinSession(sessionCode, currentUser.uid, playerName);
         
         if (result.success) {
+            // FIXME: Critical bug fix - set window.currentSessionId when joining session
+            window.currentSessionId = result.sessionId;
+            console.log('[SESSION] Set currentSessionId to:', result.sessionId);
+            
             showJoinStatus('success');
             showNotification('Successfully joined session!', 'success');
             
@@ -3893,6 +4191,9 @@ async function handleJoinSession() {
                 hideSessionModal();
                 // TODO: Navigate to lobby view
                 console.log('[SESSION] Redirecting to lobby...');
+                
+                // Update lobby display now that we have a session ID
+                updateLobbyDisplay();
             }, 2000);
             
         } else {
@@ -4153,7 +4454,7 @@ function updateSessionTerminationButtonVisibility() {
     if (!terminateBtn) return;
     
     try {
-        const currentUser = window.auth?.currentUser;
+        const currentUser = getCurrentUser();
         const isHost = window.gameManager?.isHost(currentUser?.uid);
         const sessionExists = window.gameManager?.currentSession;
         
@@ -4217,10 +4518,10 @@ async function handleConfirmSessionTermination() {
         confirmBtn.textContent = 'Ending...';
         
         const reason = reasonInput.value.trim() || 'Host ended session';
-        const currentUser = window.auth?.currentUser;
+        const currentUser = getCurrentUser();
         
         if (!currentUser) {
-            throw new Error('User not authenticated');
+            throw new Error('Player name not set');
         }
         
         if (!window.gameManager?.isHost(currentUser.uid)) {
@@ -4267,7 +4568,7 @@ function handleSessionTerminationEvent(eventData) {
     const { reason, terminatedBy, timestamp } = eventData;
     
     // Show notification to all players
-    const message = terminatedBy === window.auth?.currentUser?.uid 
+    const message = terminatedBy === getCurrentUser()?.uid
         ? `You ended the session: ${reason}`
         : `Session ended by host: ${reason}`;
     
@@ -4410,27 +4711,116 @@ function hideLobby() {
 /**
  * Update the entire lobby display
  */
-function updateLobbyDisplay() {
+async function updateLobbyDisplay() {
+    // FIXME: Add comprehensive debugging for lobby display issues
+    console.log('[DEBUG] ===== updateLobbyDisplay() START =====');
+    console.log('[DEBUG] updateLobbyDisplay called');
+    console.log('[DEBUG] window.currentSessionId:', window.currentSessionId);
+    console.log('[DEBUG] gameManager (imported):', gameManager);
+    console.log('[DEBUG] window.gameManager:', window.gameManager);
+    console.log('[DEBUG] gameManager === window.gameManager:', gameManager === window.gameManager);
+    
     if (!window.currentSessionId || !gameManager) {
         console.log('[LOBBY] No session or game manager available');
+        console.log('[DEBUG] Missing - currentSessionId:', !window.currentSessionId, 'gameManager:', !gameManager);
+        console.log('[DEBUG] ===== updateLobbyDisplay() END (early return) =====');
         return;
     }
     
     const sessionId = window.currentSessionId;
+    console.log('[DEBUG] Using sessionId:', sessionId);
+    
     const session = gameManager.gameSessions[sessionId];
+    console.log('[DEBUG] Retrieved session from LOCAL storage:', session);
+    console.log('[DEBUG] LOCAL session has players:', session?.players);
+    console.log('[DEBUG] LOCAL session players count:', session?.players?.length || 0);
+    
+    // FIXME: Add Firebase session check to compare with local data
+    console.log('[FIREBASE_SYNC] Checking if local session data is stale...');
     
     if (!session) {
         console.error('[LOBBY] Session not found:', sessionId);
+        console.log('[DEBUG] ===== updateLobbyDisplay() END (session not found) =====');
         return;
+    }
+    
+    // FIXME: Refresh session data from Firebase to get latest player list
+    try {
+        console.log('[FIREBASE_SYNC] Fetching latest session data from Firebase...');
+        const firebaseSessionDoc = await getFirestoreGameSession(sessionId);
+        if (firebaseSessionDoc && firebaseSessionDoc.exists()) {
+            // FIXME: Convert Firestore document to actual data
+            const firebaseSession = firebaseSessionDoc.data();
+            console.log('[FIREBASE_SYNC] Firebase session raw doc:', firebaseSessionDoc);
+            console.log('[FIREBASE_SYNC] Firebase session data:', firebaseSession);
+            console.log('[FIREBASE_SYNC] Firebase session has players:', firebaseSession.players);
+            console.log('[FIREBASE_SYNC] Firebase session players count:', firebaseSession.players?.length || 0);
+            
+            // Compare local vs Firebase data
+            const localPlayerCount = session.players?.length || 0;
+            const firebasePlayerCount = firebaseSession.players?.length || 0;
+            
+            if (localPlayerCount !== firebasePlayerCount) {
+                console.log('[FIREBASE_SYNC] MISMATCH DETECTED!');
+                console.log('[FIREBASE_SYNC] Local players:', localPlayerCount, session.players);
+                console.log('[FIREBASE_SYNC] Firebase players:', firebasePlayerCount, firebaseSession.players);
+                console.log('[FIREBASE_SYNC] Updating local session with Firebase data...');
+                
+                // FIXME: Safely merge Firebase data, preserving local players array if Firebase data is invalid
+                console.log('[FIREBASE_SYNC] Before merge - Local players:', session.players);
+                console.log('[FIREBASE_SYNC] Before merge - Firebase players:', firebaseSession.players);
+                
+                // Update local session with Firebase data
+                gameManager.gameSessions[sessionId] = {
+                    ...session,
+                    // Only update players if Firebase has valid data
+                    players: Array.isArray(firebaseSession.players) ? firebaseSession.players : session.players,
+                    // Update other fields that might have changed
+                    hostId: firebaseSession.hostId || session.hostId,
+                    referee: firebaseSession.referee !== undefined ? firebaseSession.referee : session.referee,
+                    status: firebaseSession.status || session.status
+                };
+                
+                console.log('[FIREBASE_SYNC] After merge - Final players:', gameManager.gameSessions[sessionId].players);
+                
+                // Update the session variable for the rest of the function
+                session = gameManager.gameSessions[sessionId];
+                console.log('[FIREBASE_SYNC] Local session updated. New player count:', session.players?.length || 0);
+            } else {
+                console.log('[FIREBASE_SYNC] Local and Firebase data match. No update needed.');
+            }
+        } else {
+            console.log('[FIREBASE_SYNC] No Firebase session found or session does not exist');
+        }
+    } catch (error) {
+        console.error('[FIREBASE_SYNC] Error fetching Firebase session:', error);
+        console.log('[FIREBASE_SYNC] Continuing with local session data...');
     }
     
     console.log('[LOBBY] Updating lobby display for session:', sessionId);
     
-    // Update session info
-    updateLobbySessionInfo(session);
+    try {
+        console.log('[DEBUG] About to call updateLobbySessionInfo...');
+        // Update session info
+        updateLobbySessionInfo(session);
+        console.log('[DEBUG] updateLobbySessionInfo completed');
+        
+        console.log('[DEBUG] About to call updateLobbyPlayerList...');
+        // Update player list
+        await updateLobbyPlayerList(sessionId);
+        console.log('[DEBUG] updateLobbyPlayerList completed');
+        
+        console.log('[DEBUG] About to call updateHostControls...');
+        // Show simplified host controls
+        updateHostControls();
+        console.log('[DEBUG] updateHostControls completed');
+        
+    } catch (error) {
+        console.error('[DEBUG] Error in updateLobbyDisplay:', error);
+        console.error('[DEBUG] Error stack:', error.stack);
+    }
     
-    // Update player list
-    updateLobbyPlayerList(sessionId);
+    console.log('[DEBUG] ===== updateLobbyDisplay() END =====');
 }
 
 /**
@@ -4460,22 +4850,38 @@ function updateLobbySessionInfo(session) {
 /**
  * Update the player list in the lobby
  */
-function updateLobbyPlayerList(sessionId) {
+async function updateLobbyPlayerList(sessionId) {
+    // FIXME: Add comprehensive debugging for lobby player list update
+    console.log('[DEBUG] updateLobbyPlayerList called with sessionId:', sessionId);
+    
     if (!gameManager) {
         console.error('[LOBBY] Game manager not available');
         return;
     }
     
     // Get player statuses from gameManager
-    const playerStatuses = gameManager.getSessionPlayerStatuses(sessionId);
+    const playerStatuses = await gameManager.getSessionPlayerStatuses(sessionId);
     const session = gameManager.gameSessions[sessionId];
     
+    console.log('[DEBUG] Session data:', session);
+    console.log('[DEBUG] Session players array:', session?.players);
+    console.log('[DEBUG] GameManager players object:', gameManager.players);
+    
     if (!session) {
-        console.error('[LOBBY] Session not found');
+        console.error('[LOBBY] Session not found for sessionId:', sessionId);
+        console.error('[LOBBY] Available sessions:', Object.keys(gameManager.gameSessions));
         return;
     }
     
     console.log('[LOBBY] Updating player list with statuses:', playerStatuses);
+    console.log('[DEBUG] Player statuses keys:', Object.keys(playerStatuses));
+    
+    // FIXME: Handle case where playerStatuses might be empty or have different structure
+    if (!playerStatuses || Object.keys(playerStatuses).length === 0) {
+        console.warn('[LOBBY] No player statuses returned, checking session.players directly');
+        console.log('[DEBUG] Session.players:', session.players);
+        console.log('[DEBUG] GameManager.players keys:', Object.keys(gameManager.players));
+    }
     
     // Update player count
     const playerCount = Object.keys(playerStatuses).length;
@@ -4523,7 +4929,6 @@ function createLobbyPlayerCard(playerId, playerData, session) {
     // Add status-based classes
     if (playerData.isHost) card.classList.add('host');
     if (playerData.isReferee) card.classList.add('referee');
-    card.classList.add(playerData.status || 'active');
     
     // Check if current user is host and this card is not for the host themselves
     const currentUserId = getCurrentUserId();
@@ -4540,23 +4945,18 @@ function createLobbyPlayerCard(playerId, playerData, session) {
             <div class="lobby-player-badges">
                 ${playerData.isHost ? '<span class="lobby-player-badge badge-host">Host</span>' : ''}
                 ${playerData.isReferee ? '<span class="lobby-player-badge badge-referee">Referee</span>' : ''}
-                <span class="lobby-player-badge badge-${playerData.status || 'active'}">${getStatusDisplayText(playerData.status)}</span>
             </div>
         </div>
         
         <div class="lobby-player-status">
-            <div class="status-indicator ${playerData.status || 'active'}"></div>
-            <span class="status-text">${getStatusDescription(playerData.status)}</span>
+            <div class="status-indicator active"></div>
+            <span class="status-text">In lobby</span>
         </div>
         
         <div class="lobby-player-details">
             <div class="lobby-player-detail">
                 <div class="lobby-player-detail-label">Points</div>
                 <div class="lobby-player-detail-value">${playerData.points || 0}</div>
-            </div>
-            <div class="lobby-player-detail">
-                <div class="lobby-player-detail-label">Connections</div>
-                <div class="lobby-player-detail-value">${playerData.connectionCount || 0}</div>
             </div>
         </div>
         
@@ -4615,10 +5015,10 @@ function getStatusDisplayText(status) {
  */
 function getStatusDescription(status) {
     switch (status) {
-        case 'active': return 'Online and ready';
+        case 'active': return 'Online';
         case 'disconnected': return 'Temporarily disconnected';
         case 'left': return 'Left the session';
-        default: return 'Online and ready';
+        default: return 'Online';
     }
 }
 
@@ -4789,90 +5189,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 });
 
-// ===== READY SYSTEM FUNCTIONS (7.3 Requirements) =====
+// ===== SIMPLIFIED HOST CONTROLS =====
 
 /**
- * Initialize ready system UI and event listeners
+ * Initialize simplified host controls
  */
-function initializeReadySystem() {
-    console.log('[READY_UI] Initializing ready system...');
+function initializeHostControls() {
+    console.log('[HOST_CONTROLS] Initializing host controls...');
     
-    // Set up event listeners for ready buttons
-    setupReadyEventListeners();
-    
-    // Set up event listener for GameManager ready events
-    window.addEventListener('playerReadyChanged', handlePlayerReadyChangeEvent);
-    
-    console.log('[READY_UI] Ready system initialized');
-}
-
-/**
- * Set up event listeners for ready system buttons
- */
-function setupReadyEventListeners() {
-    // Ready button for non-host players
-    const readyBtn = document.getElementById('player-ready-btn');
-    if (readyBtn) {
-        readyBtn.addEventListener('click', handleReadyButtonClick);
-    }
-    
-    // Start game button for host
+    // Set up event listener for start game button
     const startGameBtn = document.getElementById('host-start-game-btn');
     if (startGameBtn) {
         startGameBtn.addEventListener('click', handleStartGameButtonClick);
     }
     
-    console.log('[READY_UI] Ready system event listeners set up');
-}
-
-/**
- * Handle ready button click
- */
-async function handleReadyButtonClick() {
-    try {
-        const sessionId = gameManager.getCurrentSessionId();
-        const currentPlayerId = getCurrentPlayerId();
-        
-        if (!sessionId || !currentPlayerId) {
-            showNotification('Unable to toggle ready status - session or player not found', 'Ready System Error');
-            return;
-        }
-        
-        console.log(`[READY_UI] Toggling ready status for player ${currentPlayerId}`);
-        
-        // Disable button during request
-        const readyBtn = document.getElementById('player-ready-btn');
-        if (readyBtn) {
-            readyBtn.disabled = true;
-        }
-        
-        // Call GameManager to toggle ready status
-        const result = await gameManager.togglePlayerReady(sessionId, currentPlayerId);
-        
-        if (result.success) {
-            console.log(`[READY_UI] Ready status toggled: ${result.isReady}`);
-            showNotification(result.message, 'Ready Status Updated');
-            
-            // Update button appearance
-            updateReadyButtonState(result.isReady);
-            
-            // Refresh ready status display
-            updateReadyStatusDisplay();
-        } else {
-            console.error('[READY_UI] Failed to toggle ready status:', result.error);
-            showNotification(result.error, 'Ready System Error');
-        }
-        
-    } catch (error) {
-        console.error('[READY_UI] Error handling ready button click:', error);
-        showNotification('Failed to toggle ready status', 'Ready System Error');
-    } finally {
-        // Re-enable button
-        const readyBtn = document.getElementById('player-ready-btn');
-        if (readyBtn) {
-            readyBtn.disabled = false;
-        }
+    // Listen for player kicked events
+    if (typeof window !== 'undefined') {
+        window.addEventListener('playerKicked', handlePlayerKickedEvent);
     }
+    
+    console.log('[HOST_CONTROLS] Host controls initialized');
 }
 
 /**
@@ -4935,228 +5271,96 @@ async function handleStartGameButtonClick() {
 }
 
 /**
- * Handle player ready change events from GameManager
+ * Update simplified host controls display
  */
-function handlePlayerReadyChangeEvent(event) {
-    console.log('[READY_UI] Player ready change event received:', event.detail);
-    
-    // Update ready status display
-    updateReadyStatusDisplay();
-    
-    // Show notification for ready status changes
-    const { playerName, isReady } = event.detail;
-    const message = `${playerName} is ${isReady ? 'ready' : 'not ready'}`;
-    showNotification(message, 'Ready Status Update');
-}
-
-/**
- * Update ready status display in the lobby
- */
-function updateReadyStatusDisplay() {
+function updateHostControls() {
     try {
-        const sessionId = gameManager.getCurrentSessionId();
+        console.log('[HOST_CONTROLS] ===== DEBUGGING HOST CONTROLS =====');
+        console.log('[HOST_CONTROLS] Updating host controls display');
+        
+        // FIXME: Add comprehensive debugging for host controls visibility issue
+        const sessionId = window.currentSessionId;
+        console.log('[HOST_CONTROLS] sessionId:', sessionId);
+        console.log('[HOST_CONTROLS] window.currentSessionId:', window.currentSessionId);
+        
         if (!sessionId) {
-            console.log('[READY_UI] No current session - hiding ready system');
-            hideReadySystem();
+            console.log('[HOST_CONTROLS] No current session - hiding host controls');
+            hideHostControls();
             return;
         }
         
-        // Get ready statuses from GameManager
-        const readyStatusInfo = gameManager.getSessionReadyStatuses(sessionId);
+        const currentPlayerId = getCurrentPlayerId();
+        console.log('[HOST_CONTROLS] currentPlayerId:', currentPlayerId);
+        console.log('[HOST_CONTROLS] currentPlayer object:', currentPlayer);
         
-        if (!readyStatusInfo.success) {
-            console.error('[READY_UI] Failed to get ready statuses:', readyStatusInfo.error);
+        const session = gameManager.getSession(sessionId);
+        console.log('[HOST_CONTROLS] session:', session);
+        console.log('[HOST_CONTROLS] session.hostId:', session?.hostId);
+        console.log('[HOST_CONTROLS] session.players:', session?.players);
+        
+        if (!session || !currentPlayerId) {
+            console.log('[HOST_CONTROLS] Missing session or currentPlayerId - hiding controls');
+            console.log('[HOST_CONTROLS] session exists:', !!session);
+            console.log('[HOST_CONTROLS] currentPlayerId exists:', !!currentPlayerId);
+            hideHostControls();
             return;
         }
         
-        const { readyStatuses, summary } = readyStatusInfo;
+        const isHost = session.hostId === currentPlayerId;
+        console.log('[HOST_CONTROLS] isHost check:', isHost, '(', session.hostId, '===', currentPlayerId, ')');
         
-        // Update ready count
-        updateReadyCount(summary.readyPlayers, summary.eligiblePlayers, summary.allPlayersReady);
+        // Show/hide start game button based on host status
+        const startGameBtn = document.getElementById('host-start-game-btn');
+        const hostControlsSection = document.querySelector('.host-controls-section');
+        console.log('[HOST_CONTROLS] DOM elements found:');
+        console.log('[HOST_CONTROLS] startGameBtn:', !!startGameBtn);
+        console.log('[HOST_CONTROLS] hostControlsSection:', !!hostControlsSection);
         
-        // Update ready status grid
-        updateReadyStatusGrid(readyStatuses);
+        if (isHost && startGameBtn && hostControlsSection) {
+            console.log('[HOST_CONTROLS] Showing host controls - user is host');
+            startGameBtn.style.display = 'flex';
+            hostControlsSection.style.display = 'block';
+            
+            // Enable button if there are players in the session
+            const hasPlayers = session.players && session.players.length > 1; // Host + at least 1 other player
+            startGameBtn.disabled = !hasPlayers;
+            
+            console.log('[HOST_CONTROLS] Host controls shown, hasPlayers:', hasPlayers);
+            console.log('[HOST_CONTROLS] Button disabled state:', startGameBtn.disabled);
+            console.log('[HOST_CONTROLS] Button display style:', startGameBtn.style.display);
+            console.log('[HOST_CONTROLS] Section display style:', hostControlsSection.style.display);
+        } else {
+            console.log('[HOST_CONTROLS] Hiding host controls - conditions not met:');
+            console.log('[HOST_CONTROLS] - isHost:', isHost);
+            console.log('[HOST_CONTROLS] - startGameBtn exists:', !!startGameBtn);
+            console.log('[HOST_CONTROLS] - hostControlsSection exists:', !!hostControlsSection);
+            hideHostControls();
+        }
         
-        // Update ready actions (buttons and message)
-        updateReadyActions(summary);
-        
-        // Show ready system
-        showReadySystem();
+        console.log('[HOST_CONTROLS] ===== END HOST CONTROLS DEBUG =====');
         
     } catch (error) {
-        console.error('[READY_UI] Error updating ready status display:', error);
+        console.error('[HOST_CONTROLS] Error updating host controls:', error);
     }
 }
 
 /**
- * Update ready count display
+ * Show host controls
  */
-function updateReadyCount(readyPlayers, eligiblePlayers, allReady) {
-    const readyCountElement = document.getElementById('lobby-ready-count');
-    if (readyCountElement) {
-        readyCountElement.textContent = `${readyPlayers}/${eligiblePlayers}`;
-        
-        // Add visual indicator when all ready
-        if (allReady && eligiblePlayers > 0) {
-            readyCountElement.classList.add('all-ready');
-        } else {
-            readyCountElement.classList.remove('all-ready');
-        }
+function showHostControls() {
+    const hostControlsSection = document.querySelector('.host-controls-section');
+    if (hostControlsSection) {
+        hostControlsSection.style.display = 'block';
     }
 }
 
 /**
- * Update ready status grid with player ready indicators
+ * Hide host controls
  */
-function updateReadyStatusGrid(readyStatuses) {
-    const statusGrid = document.getElementById('lobby-ready-status');
-    if (!statusGrid) return;
-    
-    // Clear existing content
-    statusGrid.innerHTML = '';
-    
-    // Create status items for each player
-    Object.entries(readyStatuses).forEach(([playerId, playerData]) => {
-        const statusItem = createReadyStatusItem(playerId, playerData);
-        statusGrid.appendChild(statusItem);
-    });
-}
-
-/**
- * Create a ready status item for a player
- */
-function createReadyStatusItem(playerId, playerData) {
-    const item = document.createElement('div');
-    item.className = 'ready-status-item';
-    item.id = `ready-status-${playerId}`;
-    
-    // Add status-based classes
-    if (playerData.isHost) {
-        item.classList.add('host');
-    } else if (playerData.isReady) {
-        item.classList.add('ready');
-    } else {
-        item.classList.add('not-ready');
-    }
-    
-    // Create content
-    const statusIcon = playerData.isHost ? '👑' : (playerData.isReady ? '✅' : '⏳');
-    const statusText = playerData.isHost ? 'Host' : (playerData.isReady ? 'Ready' : 'Not Ready');
-    const statusClass = playerData.isHost ? 'host' : (playerData.isReady ? 'ready' : 'not-ready');
-    
-    item.innerHTML = `
-        <div class="ready-player-name">${playerData.displayName}</div>
-        <div class="ready-status-indicator ${statusClass}">
-            ${statusIcon} ${statusText}
-        </div>
-    `;
-    
-    return item;
-}
-
-/**
- * Update ready actions (buttons and message)
- */
-function updateReadyActions(summary) {
-    const currentPlayerId = getCurrentPlayerId();
-    const isHost = summary.hostPlayer && summary.hostPlayer.id === currentPlayerId;
-    
-    // Update button visibility and states
-    updateReadyButtonVisibility(isHost, summary);
-    
-    // Update ready message
-    updateReadyMessage(summary);
-}
-
-/**
- * Update ready button visibility and states
- */
-function updateReadyButtonVisibility(isHost, summary) {
-    const readyBtn = document.getElementById('player-ready-btn');
-    const startGameBtn = document.getElementById('host-start-game-btn');
-    
-    if (isHost) {
-        // Host sees start game button
-        if (readyBtn) readyBtn.style.display = 'none';
-        if (startGameBtn) {
-            startGameBtn.style.display = 'flex';
-            startGameBtn.disabled = !summary.canStartGame;
-        }
-    } else {
-        // Non-host sees ready button
-        if (startGameBtn) startGameBtn.style.display = 'none';
-        if (readyBtn) {
-            readyBtn.style.display = 'flex';
-            
-            // Update ready button state
-            const currentPlayerId = getCurrentPlayerId();
-            const currentPlayerReady = summary.readyStatuses && summary.readyStatuses[currentPlayerId] && summary.readyStatuses[currentPlayerId].isReady;
-            updateReadyButtonState(currentPlayerReady);
-        }
-    }
-}
-
-/**
- * Update ready button state (ready/not ready)
- */
-function updateReadyButtonState(isReady) {
-    const readyBtn = document.getElementById('player-ready-btn');
-    if (!readyBtn) return;
-    
-    if (isReady) {
-        readyBtn.classList.add('ready');
-        readyBtn.innerHTML = '<span class="ready-btn-icon">✅</span><span class="ready-btn-text">Ready!</span>';
-    } else {
-        readyBtn.classList.remove('ready');
-        readyBtn.innerHTML = '<span class="ready-btn-icon">⚡</span><span class="ready-btn-text">Ready</span>';
-    }
-}
-
-/**
- * Update ready message
- */
-function updateReadyMessage(summary) {
-    const messageElement = document.getElementById('ready-status-message');
-    if (!messageElement) return;
-    
-    let message = '';
-    let messageClass = '';
-    
-    if (summary.totalPlayers === 0) {
-        message = 'Waiting for players to join...';
-        messageClass = '';
-    } else if (summary.eligiblePlayers === 0) {
-        message = 'Only host in session - waiting for more players';
-        messageClass = 'warning';
-    } else if (summary.canStartGame) {
-        message = 'All players are ready! Host can start the game.';
-        messageClass = 'success';
-    } else {
-        message = `Waiting for ${summary.eligiblePlayers - summary.readyPlayers} more players to be ready`;
-        messageClass = 'warning';
-    }
-    
-    messageElement.textContent = message;
-    messageElement.className = `ready-message ${messageClass}`;
-}
-
-/**
- * Show ready system
- */
-function showReadySystem() {
-    const readySection = document.querySelector('.ready-section');
-    if (readySection) {
-        readySection.style.display = 'block';
-    }
-}
-
-/**
- * Hide ready system
- */
-function hideReadySystem() {
-    const readySection = document.querySelector('.ready-section');
-    if (readySection) {
-        readySection.style.display = 'none';
+function hideHostControls() {
+    const hostControlsSection = document.querySelector('.host-controls-section');
+    if (hostControlsSection) {
+        hostControlsSection.style.display = 'none';
     }
 }
 
@@ -5164,32 +5368,40 @@ function hideReadySystem() {
  * Get current player ID (helper function)
  */
 function getCurrentPlayerId() {
-    // TODO: Implement proper current player ID detection
-    // For now, return a placeholder
-    return 'current-player-id';
+    // FIXME: Was returning placeholder 'current-player-id' - this broke ready/start button logic
+    console.log('[DEBUG] ===== getCurrentPlayerId() DEBUG =====');
+    console.log('[DEBUG] currentPlayer:', currentPlayer);
+    console.log('[DEBUG] currentPlayer.uid:', currentPlayer?.uid);
+    
+    // Get current player ID from currentPlayer or gameManager
+    if (currentPlayer && currentPlayer.uid) {
+        console.log('[DEBUG] Using currentPlayer.uid:', currentPlayer.uid);
+        return currentPlayer.uid;
+    }
+    
+    // Fallback: try to get from gameManager's current session
+    const sessionId = gameManager?.getCurrentSessionId();
+    console.log('[DEBUG] Fallback - sessionId:', sessionId);
+    console.log('[DEBUG] gameManager.gameSessions:', gameManager?.gameSessions);
+    console.log('[DEBUG] gameManager.players:', gameManager?.players);
+    
+    if (sessionId && gameManager?.gameSessions?.[sessionId]) {
+        const session = gameManager.gameSessions[sessionId];
+        // For now, if we can't determine the current player, try to use the first available player
+        // This is a temporary fix - proper authentication should be implemented
+        const availablePlayers = Object.keys(gameManager.players || {});
+        console.log('[DEBUG] Available players:', availablePlayers);
+        if (availablePlayers.length > 0) {
+            console.log('[DEBUG] getCurrentPlayerId fallback using first available player:', availablePlayers[0]);
+            return availablePlayers[0];
+        }
+    }
+    
+    console.warn('[DEBUG] getCurrentPlayerId could not determine current player ID');
+    console.log('[DEBUG] ===== END getCurrentPlayerId() DEBUG =====');
+    return null;
 }
 
-/**
- * Test ready system functionality
- */
-window.testReadySystem = function() {
-    console.log('[READY_TEST] Testing ready system UI...');
-    
-    try {
-        // Initialize ready system
-        initializeReadySystem();
-        
-        // Update ready status display
-        updateReadyStatusDisplay();
-        
-        console.log('[READY_TEST] Ready system test completed');
-        showNotification('Ready system test completed!', 'Ready System Test');
-        
-    } catch (error) {
-        console.error('[READY_TEST] Ready system test failed:', error);
-        showNotification('Ready system test failed!', 'Ready System Test Error');
-    }
-};
 // ============================================================================
 // HOST CONTROLS - KICK PLAYER FUNCTIONALITY
 // ============================================================================
@@ -5329,30 +5541,64 @@ function handlePlayerKickedEvent(event) {
     showNotification(`${kickedPlayerName} was kicked by ${hostName}`, 'Player Kicked');
 }
 
-/**
- * Initialize host controls event listeners
- */
-function initializeHostControls() {
-    // Listen for player kicked events
-    if (typeof window !== 'undefined') {
-        window.addEventListener('playerKicked', handlePlayerKickedEvent);
-    }
-    
-    console.log('[HOST_CONTROLS] Host controls initialized');
-}
-
 // Initialize host controls when the script loads
 if (typeof window !== 'undefined') {
     document.addEventListener('DOMContentLoaded', initializeHostControls);
 }
 
 
-// Initialize ready system when DOM is loaded
+// Initialize host controls when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     // Wait for other systems to initialize
     setTimeout(() => {
-        initializeReadySystem();
+        initializeHostControls();
     }, 1500);
 });
 
-// ===== END READY SYSTEM =====
+// ===== END HOST CONTROLS =====
+
+// FIXME: Critical bug fix - window.gameManager was never assigned!
+// This is the root cause of "No session or game manager available" errors
+console.log('[CRITICAL_FIX] Assigning gameManager to window.gameManager');
+console.log('[DEBUG] gameManager imported:', gameManager);
+console.log('[DEBUG] gameManager type:', typeof gameManager);
+window.gameManager = gameManager;
+console.log('[DEBUG] window.gameManager assigned:', window.gameManager);
+
+// FIXME: Session persistence will be handled in DOMContentLoaded event
+// Add event listener to persist session ID when it changes
+let lastSessionId = window.currentSessionId;
+setInterval(() => {
+    if (window.currentSessionId !== lastSessionId) {
+        lastSessionId = window.currentSessionId;
+        if (window.currentSessionId) {
+            localStorage.setItem('currentSessionId', window.currentSessionId);
+            console.log('[SESSION_PERSIST] Stored session ID:', window.currentSessionId);
+        } else {
+            localStorage.removeItem('currentSessionId');
+            console.log('[SESSION_PERSIST] Cleared stored session ID');
+        }
+    }
+}, 1000);
+
+// FIXME: Add session restoration on DOM load
+document.addEventListener('DOMContentLoaded', () => {
+    // Wait for other systems to initialize, then restore session
+    setTimeout(() => {
+        const storedSessionId = localStorage.getItem('currentSessionId');
+        if (storedSessionId) {
+            console.log('[SESSION_RESTORE] Found stored session ID:', storedSessionId);
+            window.currentSessionId = storedSessionId;
+            
+            // Try to restore session state from gameManager
+            if (gameManager.gameSessions[storedSessionId]) {
+                console.log('[SESSION_RESTORE] Session found in gameManager, updating lobby display');
+                updateLobbyDisplay();
+            } else {
+                console.warn('[SESSION_RESTORE] Session not found in gameManager, clearing stored ID');
+                localStorage.removeItem('currentSessionId');
+                window.currentSessionId = null;
+            }
+        }
+    }, 2000); // Wait longer for all systems to initialize
+});

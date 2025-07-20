@@ -9,6 +9,7 @@ import {
     getFirestoreGameSession,
     getFirestorePlayer,
     getFirestorePlayersInSession,
+    getFirestoreSessionByShareableCode,
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
 } from './main.js';
 import { GameCard } from './cardModels.js';
@@ -51,36 +52,54 @@ class GameManager {
      * @returns {Promise<object>} - The new game session object.
      */
     async createGameSession(hostId, hostDisplayName) {
-        const sessionInfo = this.generateUniqueSessionId();
-        const newSession = {
-            sessionId: sessionInfo.sessionId,
-            shareableCode: sessionInfo.shareableCode,
-            shareableLink: sessionInfo.shareableLink,
-            hostId: hostId,
-            players: [hostId], // Host is automatically added to players list
-            status: this.SESSION_STATES.LOBBY, // Use session state constants
-            referee: null, // Player ID who has the referee card
-            initialRefereeCard: null, // Store the referee card object if applicable
-            currentCallout: null, // Current active callout object
-            calloutHistory: [], // History of all callouts in this session
-            createdAt: new Date().toISOString(),
-            maxPlayers: 6, // Default maximum players
-            lastStateChange: Date.now(),
-            stateChangeReason: 'Session created'
-        };
-        this.gameSessions[sessionInfo.sessionId] = newSession;
+        console.log("DEBUG: GameManager.createGameSession called with:", hostId, hostDisplayName);
+        try {
+            const sessionInfo = this.generateUniqueSessionId();
+            console.log("DEBUG: Generated session info:", sessionInfo);
+            
+            const newSession = {
+                sessionId: sessionInfo.sessionId,
+                shareableCode: sessionInfo.shareableCode,
+                shareableLink: sessionInfo.shareableLink,
+                hostId: hostId,
+                players: [hostId], // Host is automatically added to players list
+                status: this.SESSION_STATES.LOBBY, // Use session state constants
+                referee: null, // Player ID who has the referee card
+                initialRefereeCard: null, // Store the referee card object if applicable
+                currentCallout: null, // Current active callout object
+                calloutHistory: [], // History of all callouts in this session
+                createdAt: new Date().toISOString(),
+                maxPlayers: 6, // Default maximum players
+                lastStateChange: Date.now(),
+                stateChangeReason: 'Session created'
+            };
+            console.log("DEBUG: Created new session object:", newSession);
+            this.gameSessions[sessionInfo.sessionId] = newSession;
 
-        // Initialize RuleEngine session
-        await this.ruleEngine.initializeSession(sessionInfo.sessionId);
+            console.log("DEBUG: Initializing RuleEngine session");
+            // Initialize RuleEngine session
+            await this.ruleEngine.initializeSession(sessionInfo.sessionId);
 
-        // Synchronize with Firebase (include shareable code)
-        await createFirestoreGameSession(sessionInfo.sessionId, hostId, hostDisplayName, sessionInfo.shareableCode);
-        await initializeFirestorePlayer(sessionInfo.sessionId, hostId, hostDisplayName, true); // Host is also a player
+            console.log("DEBUG: Synchronizing with Firebase");
+            // Synchronize with Firebase (include shareable code)
+            await createFirestoreGameSession(newSession);
+            await initializeFirestorePlayer(hostId, {
+                sessionId: sessionInfo.sessionId,
+                displayName: hostDisplayName,
+                isHost: true,
+                status: 'active',
+                joinedAt: new Date().toISOString()
+            });
 
-        console.log(`Game session ${sessionInfo.sessionId} created by host ${hostDisplayName}.`);
-        console.log(`Shareable code: ${sessionInfo.shareableCode}`);
-        console.log(`Shareable link: ${sessionInfo.shareableLink}`);
-        return newSession;
+            console.log(`Game session ${sessionInfo.sessionId} created by host ${hostDisplayName}.`);
+            console.log(`Shareable code: ${sessionInfo.shareableCode}`);
+            console.log(`Shareable link: ${sessionInfo.shareableLink}`);
+            console.log("DEBUG: Returning session:", newSession);
+            return newSession;
+        } catch (error) {
+            console.error("DEBUG: Error in GameManager.createGameSession:", error); // FIXME: Exception in createGameSession
+            throw error;
+        }
     }
 
     /**
@@ -176,9 +195,31 @@ class GameManager {
      */
     async findSessionByCode(code) {
         try {
-            // This would query Firebase for sessions with matching shareable code
-            // For now, return null as Firebase query implementation depends on main.js
+            // FIXME: Debug logging to validate Firebase search is being called
+            console.log(`[DEBUG] Searching Firebase for session with code: ${code}`);
+            console.log(`[DEBUG] Local sessions available:`, Object.keys(this.gameSessions));
+            
+            // Query Firebase for sessions with matching shareable code
             console.log(`[SESSION] Searching Firebase for session with code: ${code}`);
+            const sessionData = await getFirestoreSessionByShareableCode(code);
+            
+            if (sessionData) {
+                console.log(`[DEBUG] Found session in Firebase:`, sessionData);
+                // Convert Firebase session data to expected format
+                return {
+                    sessionId: sessionData.sessionId || sessionData.id,
+                    shareableCode: sessionData.shareableCode,
+                    hostId: sessionData.hostId,
+                    players: sessionData.players || [],
+                    status: sessionData.status || 'lobby',
+                    maxPlayers: sessionData.maxPlayers || 8,
+                    createdAt: sessionData.createdAt,
+                    referee: sessionData.referee || null,
+                    initialRefereeCard: sessionData.initialRefereeCard || null
+                };
+            }
+            
+            console.log(`[DEBUG] No session found in Firebase with code: ${code}`);
             return null;
         } catch (error) {
             console.error('[SESSION] Error searching Firebase for session:', error);
@@ -200,7 +241,6 @@ class GameManager {
             points: 0, // Will be set by initializePlayerPoints
             status: 'active', // active, disconnected, left
             hasRefereeCard: false,
-            isReady: false, // Ready status for lobby (7.3.1)
             hand: [], // Player's hand of cards
             connectionInfo: {
                 lastSeen: Date.now(),
@@ -226,7 +266,13 @@ class GameManager {
         this.initializePlayerPresence(sessionId, playerId);
 
         // Synchronize with Firebase (false for isHost, as this is for joining players)
-        await initializeFirestorePlayer(sessionId, playerId, displayName, false);
+        await initializeFirestorePlayer(playerId, {
+            sessionId: sessionId,
+            displayName: displayName,
+            isHost: false,
+            points: 20,
+            status: 'active'
+        });
         console.log(`Player ${displayName} (${playerId}) initialized with 20 points and synced with Firebase.`);
         return newPlayer;
     }
@@ -240,6 +286,8 @@ class GameManager {
      */
     async joinSession(sessionCode, playerId, displayName) {
         try {
+            console.log(`[DEBUG RECONNECTION] joinSession called with playerId: ${playerId}, displayName: ${displayName}, sessionCode: ${sessionCode}`);
+            
             // Validate the session code and get session info
             const validationResult = await this.validateSessionCode(sessionCode);
             if (!validationResult.success) {
@@ -247,6 +295,7 @@ class GameManager {
             }
 
             const { sessionId, session } = validationResult;
+            console.log(`[DEBUG RECONNECTION] Found session ${sessionId} with existing players:`, session.players);
 
             // Check if session is in a joinable state (7.2.1 - only allow joining lobby state)
             if (session.status !== this.SESSION_STATES.LOBBY) {
@@ -266,38 +315,60 @@ class GameManager {
                 };
             }
 
-            // Check for duplicate player names (7.2.2 - edge case handling)
+            // Handle player reconnection scenario FIRST (before duplicate name check)
+            const existingPlayer = this.players[playerId];
+            console.log(`[DEBUG RECONNECTION] Checking for existing player with ID ${playerId}:`, existingPlayer);
+            
+            if (existingPlayer) {
+                console.log(`[DEBUG RECONNECTION] Found existing player with status: ${existingPlayer.status}`);
+                
+                // Check if player is reconnecting to the same session
+                if (existingPlayer.sessionId === sessionId) {
+                    if (existingPlayer.status === 'disconnected') {
+                        console.log(`[DEBUG RECONNECTION] Player reconnecting to same session`);
+                        return await this.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
+                    } else if (existingPlayer.status === 'left') {
+                        console.log(`[DEBUG RECONNECTION] Player rejoining after leaving`);
+                        return await this.handlePlayerRejoinAfterLeaving(sessionId, playerId, displayName);
+                    } else if (existingPlayer.status === 'active') {
+                        console.log(`[DEBUG RECONNECTION] Player already active in session`);
+                        return {
+                            success: true,
+                            sessionId: sessionId,
+                            session: session,
+                            message: `You are already in this session`,
+                            alreadyJoined: true
+                        };
+                    }
+                } else {
+                    // Player exists but in different session - allow joining new session
+                    console.log(`[DEBUG RECONNECTION] Player exists in different session, allowing join to new session`);
+                }
+            } else {
+                console.log(`[DEBUG RECONNECTION] No existing player found with this ID`);
+            }
+
+            // Check if player is already in the session players list (by ID)
+            if (session.players && session.players.includes(playerId)) {
+                console.log(`[DEBUG RECONNECTION] Player ID ${playerId} already in session players list - treating as reconnection`);
+                
+                // Store the session in local gameSessions if it's not there (from Firebase lookup)
+                if (!this.gameSessions[sessionId]) {
+                    console.log(`[DEBUG RECONNECTION] Storing Firebase session in local gameSessions`);
+                    this.gameSessions[sessionId] = session;
+                }
+                
+                // Player ID is in session but not in local players - this is a reconnection scenario
+                return await this.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
+            }
+
+            // Check for duplicate player names (only for truly new players)
             const duplicateNameResult = await this.checkForDuplicatePlayerName(sessionId, displayName, playerId);
             if (!duplicateNameResult.success) {
                 return duplicateNameResult;
             }
-
-            // Handle player reconnection scenario (7.2.2 - disconnected players rejoining)
-            const existingPlayer = this.players[playerId];
-            if (existingPlayer && existingPlayer.sessionId === sessionId) {
-                if (existingPlayer.status === 'disconnected') {
-                    // Player is reconnecting to the same session
-                    return await this.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
-                } else if (existingPlayer.status === 'left') {
-                    // Player previously left and is rejoining - treat as new entry (7.2.2)
-                    return await this.handlePlayerRejoinAfterLeaving(sessionId, playerId, displayName);
-                } else if (existingPlayer.status === 'active') {
-                    return {
-                        success: false,
-                        error: 'You are already in this session.',
-                        errorCode: 'ALREADY_JOINED'
-                    };
-                }
-            }
-
-            // Check if player is already in the session players list
-            if (session.players && session.players.includes(playerId)) {
-                return {
-                    success: false,
-                    error: 'You are already in this session.',
-                    errorCode: 'ALREADY_JOINED'
-                };
-            }
+            
+            console.log(`[DEBUG RECONNECTION] Player ${playerId} not found in session, proceeding to add as new player`);
 
             // Add player to the session
             if (!session.players) {
@@ -435,27 +506,41 @@ class GameManager {
     async handlePlayerReconnectionToLobby(sessionId, playerId, displayName) {
         try {
             const session = this.getSession(sessionId);
-            const player = this.players[playerId];
+            console.log(`[DEBUG RECONNECTION] handlePlayerReconnectionToLobby - session found:`, !!session);
+            console.log(`[DEBUG RECONNECTION] handlePlayerReconnectionToLobby - existing player:`, this.players[playerId]);
 
-            if (!session || !player) {
+            if (!session) {
                 return {
                     success: false,
-                    error: 'Session or player not found',
-                    errorCode: 'RECONNECTION_ERROR'
+                    error: 'Session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
                 };
             }
 
-            // Restore player to active status
-            await this.updatePlayerStatus(sessionId, playerId, 'active', 'Player reconnected to lobby');
+            // Player might not exist in local memory but exists in session - this is normal for reconnection
+            let player = this.players[playerId];
+            if (!player) {
+                console.log(`[DEBUG RECONNECTION] Player not in local memory, reinitializing for reconnection`);
+                // Reinitialize the player for reconnection
+                player = await this.initializePlayer(sessionId, playerId, displayName);
+            }
 
             // Ensure player is in session players list
             if (!session.players.includes(playerId)) {
                 session.players.push(playerId);
+                console.log(`[DEBUG RECONNECTION] Added player to session players list`);
             }
 
             // Update display name if it changed
             if (player.displayName !== displayName) {
                 player.displayName = displayName;
+                console.log(`[DEBUG RECONNECTION] Updated display name to: ${displayName}`);
+            }
+
+            // Ensure player status is active
+            if (player.status !== 'active') {
+                await this.updatePlayerStatus(sessionId, playerId, 'active', 'Player reconnected to lobby');
+                console.log(`[DEBUG RECONNECTION] Updated player status to active`);
             }
 
             // Restart presence tracking
@@ -613,11 +698,17 @@ class GameManager {
      */
     async updateSessionPlayerList(sessionId, playerList) {
         try {
-            // This would update Firebase with the new player list
-            // Implementation depends on main.js Firebase functions
+            // FIXME: Actually update Firebase with the new player list
             console.log(`[SESSION] Updating player list for session ${sessionId}:`, playerList);
+            
+            // Import the Firebase function from main.js
+            const { updateFirestoreSessionPlayerList } = await import('./main.js');
+            await updateFirestoreSessionPlayerList(sessionId, playerList);
+            
+            console.log(`[SESSION] Successfully updated Firebase with player list for session ${sessionId}`);
         } catch (error) {
             console.error('[SESSION] Error updating session player list:', error);
+            throw error;
         }
     }
 
@@ -1400,23 +1491,7 @@ class GameManager {
                 };
             }
 
-            // Check if all players are ready using existing ready system
-            const readyCheck = this.checkAllPlayersReady(sessionId);
-            if (!readyCheck.success) {
-                return {
-                    success: false,
-                    error: readyCheck.error || 'Failed to check player ready status',
-                    errorCode: 'READY_CHECK_FAILED'
-                };
-            }
-
-            if (!readyCheck.canStartGame) {
-                return {
-                    success: false,
-                    error: readyCheck.message || 'Not all players are ready',
-                    errorCode: 'PLAYERS_NOT_READY'
-                };
-            }
+            // Simplified: Host can start game with any number of players in lobby
 
             // Update session state
             const result = await this.updateSessionState(
@@ -1438,7 +1513,6 @@ class GameManager {
                 // - Initialize referee card assignment
 
                 console.log(`[HOST_CONTROLS] Session ${sessionId} game started by host ${hostId}`);
-                console.log(`[HOST_CONTROLS] All ${readyCheck.readyCount} players were ready`);
             }
 
             return result;
@@ -2088,28 +2162,55 @@ class GameManager {
      * @returns {object} - Object mapping player IDs to their status info
      */
     getSessionPlayerStatuses(sessionId) {
+        // FIXME: Add debugging to getSessionPlayerStatuses
+        console.log('[DEBUG] getSessionPlayerStatuses called with sessionId:', sessionId);
+        
         const session = this.gameSessions[sessionId];
         if (!session) {
+            console.log('[DEBUG] No session found for sessionId:', sessionId);
+            console.log('[DEBUG] Available sessions:', Object.keys(this.gameSessions));
             return {};
         }
+
+        console.log('[DEBUG] Session found:', session);
+        console.log('[DEBUG] Session players array:', session.players);
+        console.log('[DEBUG] All players in gameManager:', this.players);
 
         const playerStatuses = {};
         for (const playerId of session.players) {
             const player = this.players[playerId];
+            console.log('[DEBUG] Processing player:', playerId, 'Player data:', player);
+            
             if (player) {
+                // FIXME: Simplified player status - no complex connection tracking
                 playerStatuses[playerId] = {
                     displayName: player.displayName,
-                    status: player.status,
+                    status: 'active', // Always show as active since we don't need live connection tracking
                     points: player.points,
                     isHost: session.hostId === playerId,
-                    isReferee: session.referee === playerId,
-                    lastSeen: player.connectionInfo.lastSeen,
-                    connectionCount: player.connectionInfo.connectionCount,
-                    totalDisconnects: player.connectionInfo.totalDisconnects
+                    isReferee: session.referee === playerId
+                };
+                console.log('[DEBUG] Added player to statuses:', playerId, playerStatuses[playerId]);
+            } else {
+                // FIXME: Critical issue - player exists in session but not in gameManager.players
+                console.error('[CRITICAL] Player missing from gameManager.players:', playerId);
+                console.error('[CRITICAL] Session players:', session.players);
+                console.error('[CRITICAL] Available players in gameManager:', Object.keys(this.players));
+                console.error('[CRITICAL] This causes UI to show fewer players than actually in session');
+                
+                // Try to recover by creating a placeholder entry
+                console.warn('[RECOVERY] Attempting to create placeholder for missing player:', playerId);
+                playerStatuses[playerId] = {
+                    displayName: `Player ${playerId.slice(-8)}`, // Cleaner name
+                    status: 'active', // Show as active, not disconnected
+                    points: 20, // Default starting points
+                    isHost: session.hostId === playerId,
+                    isReferee: session.referee === playerId
                 };
             }
         }
 
+        console.log('[DEBUG] Final playerStatuses:', playerStatuses);
         return playerStatuses;
     }
 
