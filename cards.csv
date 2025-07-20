@@ -1,8 +1,7 @@
 cardType,sideA,sideB,id,name,description,rules_for_referee,point_value,discard_rule_on_success
 rule,TALK LIKE CHISTROPHER WALKEN,TALK LIKE ROBERT DENIRO,,,,,,
-rule,ACT LIKE A PIRATE,ACT LIKE A NINJA,,,,,,
+rule,TALK LIKE A PIRATE,TALK LIKE A NINJA,,,,,,
 rule,MAKE A FUNNY FACE,MAKE A SERIOUS FACE,,,,,,
-rule,DO A FUNNY WALK,DO A SERIOUS WALK,,,,,,
 prompt,DO A DANCE,,PROMPT_001,Dance Challenge,Perform a dance of your choice for at least 30 seconds,Referee to judge based on effort and duration. Player must dance for 30 seconds or more.,2,true
 prompt,MAKE A JOKE,,PROMPT_002,Comedy Challenge,Tell a joke that makes at least one other player laugh,Referee to judge based on whether the joke elicited genuine laughter from other players.,1,false
 prompt,DO A CARTWHEEL,,PROMPT_003,Cartwheel Challenge,Perform a cartwheel or attempt one safely,Referee to judge based on effort and safety. Partial attempts count if done safely.,3,true
