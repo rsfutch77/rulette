@@ -298,7 +298,6 @@ const joinGameError = document.getElementById("join-game-error");
 // Game page elements
 const gamePage = document.getElementById("game-page");
 const gameJoinCodeDiv = document.getElementById("game-join-code");
-const playersScoresDiv = document.getElementById("players-scores");
 const gameLogoutBtn = document.getElementById("game-logout-btn");
 const startGameBtn = document.getElementById("start-game-btn");
 const turnOrderDiv = document.getElementById("turn-order");
@@ -1093,94 +1092,25 @@ function getCurrentSessionId() {
   return sessionIds.length > 0 ? sessionIds[0] : null;
 }
 
-// Helper function to update player scores display
+// Helper function to update player scores display - DISABLED (all player displays removed)
 function updatePlayerScores(sessionId) {
-  console.log("DEBUG: Updating player scores for session:", sessionId);
-  
-  if (!sessionId) return;
-  
-  const currentUser = getCurrentUser();
-  const session = gameManager.gameSessions[sessionId];
-  
-  if (!session || !currentUser) return;
-  
-  // Update header scores display
-  updateHeaderPlayerScores(sessionId);
-  
-  // Update detailed player info panel
-  updatePlayerInfoPanel(sessionId);
+  console.log("DEBUG: updatePlayerScores called but disabled - all player displays removed");
+  // Function disabled - both header scores and player info panel have been removed
+  return;
 }
 
-// Update the header player scores display
+// Update the header player scores display - DISABLED (header scores display removed)
 function updateHeaderPlayerScores(sessionId) {
-  const playersScoresDiv = document.getElementById("players-scores");
-  if (!playersScoresDiv) return;
-  
-  const currentUser = getCurrentUser();
-  const session = gameManager.gameSessions[sessionId];
-  
-  if (!session || !currentUser) return;
-  
-  // Clear existing scores
-  playersScoresDiv.innerHTML = '';
-  
-  // Add each player's score
-  session.players.forEach(playerId => {
-    const player = gameManager.players[playerId];
-    if (!player || player.status !== 'active') return;
-    
-    const points = gameManager.getPlayerPoints(playerId) || 0;
-    const displayName = getPlayerDisplayName(playerId);
-    
-    const scoreElement = document.createElement('div');
-    scoreElement.className = 'header-player-score';
-    scoreElement.id = `header-score-${playerId}`;
-    
-    // Add special classes for current player and referee
-    if (playerId === currentUser.uid) {
-      scoreElement.classList.add('current-player');
-    }
-    if (playerId === session.referee) {
-      scoreElement.classList.add('referee');
-    }
-    
-    scoreElement.innerHTML = `
-      <span class="header-score-name">${displayName}</span>
-      <span class="header-score-points" id="header-points-${playerId}">${points}</span>
-    `;
-    
-    playersScoresDiv.appendChild(scoreElement);
-  });
+  console.log("DEBUG: updateHeaderPlayerScores called but disabled - header scores display removed");
+  // Function disabled - header player scores display has been removed
+  return;
 }
 
-// Update the detailed player info panel
+// Update the detailed player info panel - DISABLED (player info panel removed)
 function updatePlayerInfoPanel(sessionId) {
-  const playerInfoPanel = document.getElementById("player-info-panel");
-  const playerCardsContainer = document.getElementById("player-cards-container");
-  
-  if (!playerInfoPanel || !playerCardsContainer) return;
-  
-  const currentUser = getCurrentUser();
-  const session = gameManager.gameSessions[sessionId];
-  
-  if (!session || !currentUser) return;
-  
-  // Show the panel if game is in progress
-  if (session.status === 'in-progress') {
-    playerInfoPanel.style.display = 'block';
-  }
-  
-  // Clear existing player cards
-  playerCardsContainer.innerHTML = '';
-  
-  // Add each player's card
-  session.players.forEach(playerId => {
-    const player = gameManager.players[playerId];
-    if (!player || player.status !== 'active') return;
-    
-    const playerCard = createPlayerCard(sessionId, playerId);
-    playerCardsContainer.appendChild(playerCard);
-  });
+  console.log("DEBUG: updatePlayerInfoPanel called but disabled - player info panel removed");
+  // Function disabled - player info panel has been removed
+  return;
 }
 
 // Create a player card element
@@ -4023,7 +3953,10 @@ function refreshGameUI() {
     try {
         // Refresh player scores and cards
         if (typeof updatePlayerScores === 'function') {
-            updatePlayerScores();
+            const sessionId = getCurrentSessionId();
+            if (sessionId) {
+                updatePlayerScores(sessionId);
+            }
         }
         
         if (typeof updatePlayerCards === 'function') {
@@ -4969,6 +4902,10 @@ function showGameBoard() {
     if (sessionId && gameManager) {
         console.log('[GAME_BOARD] Updating turn UI for session:', sessionId);
         updateTurnUI(sessionId);
+        
+        // FIXME: Update player scores display when game board is shown
+        updatePlayerScores(sessionId);
+        console.log('[GAME_BOARD] Updated player scores display');
     }
 }
 
@@ -5959,7 +5896,15 @@ window.setupFirebaseSessionListener = async function setupFirebaseSessionListene
                         if (shouldUpdate) {
                             console.log('[FIREBASE_LISTENER] Updating local turn state from Firebase (newer data)');
                             gameManager.currentTurn[sessionId] = sessionData.currentTurn;
+                            
+                            // FIXME: Critical fix - Also restore turnOrder from Firebase data
+                            if (sessionData.currentTurn.turnOrder) {
+                                console.log('[FIREBASE_LISTENER] Restoring turnOrder from Firebase:', sessionData.currentTurn.turnOrder);
+                                gameManager.turnOrder[sessionId] = sessionData.currentTurn.turnOrder;
+                            }
+                            
                             console.log('[FIREBASE_LISTENER] Local turn data after update:', gameManager.currentTurn[sessionId]);
+                            console.log('[FIREBASE_LISTENER] Local turnOrder after update:', gameManager.turnOrder[sessionId]);
                             
                             // Update turn UI to reflect the new turn state
                             updateTurnUI(sessionId);
