@@ -2239,7 +2239,7 @@ class GameManager {
                     if (playerData) {
                         console.log('[RECOVERY] Found player data in Firebase, recreating player:', playerData);
                         // Recreate the player object with Firebase data
-                        await this.initializePlayer(session.sessionId, playerId, playerData.displayName || `Player ${playerId.slice(-4)}`);
+                        await this.initializePlayer(session.sessionId, playerId, playerData.displayName || 'Unknown Player');
                         
                         // Update points if available
                         if (playerData.points !== undefined) {
@@ -2266,7 +2266,7 @@ class GameManager {
                         // Fallback to placeholder if Firebase data not found
                         console.log('[RECOVERY] No Firebase data found, creating placeholder for:', playerId);
                         playerStatuses[playerId] = {
-                            displayName: `Player ${playerId.slice(-8)}`,
+                            displayName: 'Unknown Player',
                             status: 'active',
                             points: 20,
                             isHost: session.hostId === playerId,
@@ -2277,7 +2277,7 @@ class GameManager {
                     console.error('[RECOVERY] Error recreating player from Firebase:', error);
                     // Fallback to placeholder
                     playerStatuses[playerId] = {
-                        displayName: `Player ${playerId.slice(-8)}`,
+                        displayName: 'Unknown Player',
                         status: 'active',
                         points: 20,
                         isHost: session.hostId === playerId,

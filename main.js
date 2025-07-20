@@ -1675,8 +1675,8 @@ function updateTurnUI(sessionId) {
   const currentPlayerName = document.getElementById('current-player-name');
   const currentPlayerId = turnInfo.currentPlayerId;
   
-  // Get player display name (simplified for now - in real implementation would fetch from player data)
-  const displayName = currentPlayerId === currentUser.uid ? 'You' : `Player ${currentPlayerId.slice(-4)}`;
+  // Get player display name using the proper helper function
+  const displayName = currentPlayerId === currentUser.uid ? 'You' : getPlayerDisplayName(currentPlayerId);
   
   if (currentPlayerName) {
     currentPlayerName.textContent = displayName;
@@ -2368,7 +2368,7 @@ function updateActiveRulesDisplay() {
         let text = card.getCurrentRule ? card.getCurrentRule() : card.sideA;
         if (card.isClone && card.cloneSource) {
             const sourcePlayer = gameManager.players[card.cloneSource.ownerId];
-            const sourceName = sourcePlayer ? sourcePlayer.displayName || `Player ${card.cloneSource.ownerId.slice(-4)}` : 'Unknown';
+            const sourceName = sourcePlayer ? sourcePlayer.displayName || getPlayerDisplayName(card.cloneSource.ownerId) : 'Unknown';
             div.style.opacity = sourcePlayer ? '1' : '0.5';
             text += ` (Cloned from ${sourceName})`;
         }
