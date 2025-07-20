@@ -1783,7 +1783,8 @@ function updateTurnUI(sessionId) {
   const currentPlayerId = turnInfo.currentPlayerId;
   
   // Get player display name using the proper helper function
-  const displayName = currentPlayerId === currentUser.uid ? 'You' : getPlayerDisplayName(currentPlayerId);
+  const getDisplayName = getPlayerDisplayName || window.getPlayerDisplayName;
+  const displayName = currentPlayerId === currentUser.uid ? 'You' : getDisplayName(currentPlayerId);
   
   if (currentPlayerName) {
     currentPlayerName.textContent = displayName;
@@ -3306,6 +3307,7 @@ window.spinWheelForPlayer = spinWheelForPlayer;
 window.initializeWheelForSession = initializeWheelForSession;
 window.advanceTurn = advanceTurn;
 window.updateTurnUI = updateTurnUI;
+window.getPlayerDisplayName = getPlayerDisplayName;
 window.drawCardWithErrorHandling = drawCardWithErrorHandling;
 window.handlePlayerDisconnection = handlePlayerDisconnection;
 window.simulatePlayerDisconnect = simulatePlayerDisconnect;
