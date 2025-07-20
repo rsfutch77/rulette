@@ -1402,6 +1402,9 @@ function getPlayerDisplayName(playerId) {
   return playerId;
 }
 
+// Expose getPlayerDisplayName globally immediately after definition
+window.getPlayerDisplayName = getPlayerDisplayName;
+
 // Function to manually trigger UI updates (for testing)
 function refreshPlayerUI(sessionId) {
   console.log("DEBUG: Manually refreshing player UI for session:", sessionId);
@@ -3307,7 +3310,6 @@ window.spinWheelForPlayer = spinWheelForPlayer;
 window.initializeWheelForSession = initializeWheelForSession;
 window.advanceTurn = advanceTurn;
 window.updateTurnUI = updateTurnUI;
-window.getPlayerDisplayName = getPlayerDisplayName;
 window.drawCardWithErrorHandling = drawCardWithErrorHandling;
 window.handlePlayerDisconnection = handlePlayerDisconnection;
 window.simulatePlayerDisconnect = simulatePlayerDisconnect;
