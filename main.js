@@ -1785,9 +1785,27 @@ function updateTurnUI(sessionId) {
   const currentPlayerName = document.getElementById('current-player-name');
   const currentPlayerId = turnInfo.currentPlayerId;
   
-  // Get player display name using the proper helper function
-  const getDisplayName = getPlayerDisplayName || window.getPlayerDisplayName;
-  const displayName = currentPlayerId === currentUser.uid ? 'You' : getDisplayName(currentPlayerId);
+  // Get player display name using the proper helper function with fallback
+  let displayName;
+  if (currentPlayerId === currentUser.uid) {
+    displayName = 'You';
+  } else {
+    try {
+      const getDisplayName = (typeof getPlayerDisplayName !== 'undefined') ? getPlayerDisplayName : window.getPlayerDisplayName;
+      if (getDisplayName) {
+        displayName = getDisplayName(currentPlayerId);
+      } else {
+        // Fallback: try to get from gameManager directly
+        const player = gameManager.players[currentPlayerId];
+        displayName = player?.displayName || currentPlayerId.substring(0, 8) + '...';
+      }
+    } catch (error) {
+      console.warn('[TURN_UI] Error getting player display name:', error);
+      // Final fallback
+      const player = gameManager.players[currentPlayerId];
+      displayName = player?.displayName || currentPlayerId.substring(0, 8) + '...';
+    }
+  }
   
   if (currentPlayerName) {
     currentPlayerName.textContent = displayName;
