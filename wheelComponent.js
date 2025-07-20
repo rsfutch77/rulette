@@ -64,10 +64,22 @@ class WheelComponent {
                     // Get current user to determine if they can spin
                     const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
                     if (currentUser) {
+                        console.log('[WHEEL] Button clicked by user:', currentUser.uid);
+                        console.log('[WHEEL] Current turn player:', this.currentPlayerId);
+                        
+                        // IMPORTANT: For multiplayer, each player should only be able to spin on their own turn
+                        // The validation in spinWheelForPlayer will check if it's their turn
                         window.spinWheelForPlayer(window.currentSessionId, currentUser.uid);
                     } else {
                         console.warn('[WHEEL] No current user found for turn-based spin');
-                        this.spinWheel(); // Fallback to basic spin
+                        
+                        // For testing/development: if no current user, try to use the current turn player
+                        if (this.currentPlayerId && window.currentSessionId) {
+                            console.log('[WHEEL] Fallback: using current turn player:', this.currentPlayerId);
+                            window.spinWheelForPlayer(window.currentSessionId, this.currentPlayerId);
+                        } else {
+                            this.spinWheel(); // Final fallback to basic spin
+                        }
                     }
                 } else {
                     // Fallback to basic spin for testing

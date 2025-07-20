@@ -159,6 +159,37 @@ function clearCurrentPlayer() {
   currentPlayer = null;
 }
 
+// Function to switch current player for testing (useful for simulating multiple players)
+function switchToPlayer(playerId, sessionId) {
+  if (!gameManager || !sessionId) {
+    console.error("[PLAYER_SWITCH] Game manager or session ID not available");
+    return false;
+  }
+  
+  const player = gameManager.players[playerId];
+  if (!player) {
+    console.error("[PLAYER_SWITCH] Player not found:", playerId);
+    return false;
+  }
+  
+  // Update current player to match the specified player
+  currentPlayer = {
+    uid: playerId,
+    displayName: player.displayName,
+    isDev: true // Mark as dev for testing
+  };
+  
+  console.log("[PLAYER_SWITCH] Switched to player:", playerId, "(" + player.displayName + ")");
+  
+  // Update UI to reflect the switch
+  const playerNameDisplay = document.getElementById('current-player-name');
+  if (playerNameDisplay) {
+    playerNameDisplay.textContent = player.displayName;
+  }
+  
+  return true;
+}
+
 /**
  * Clear the persistent player ID from localStorage
  * Use this when a player explicitly wants to start fresh
@@ -1625,39 +1656,61 @@ function spinWheelForPlayer(sessionId, playerId) {
   }
   
   // Debug current turn state
-  const currentPlayer = gameManager.getCurrentPlayer(sessionId);
+  const currentTurnPlayer = gameManager.getCurrentPlayer(sessionId);
   const turnInfo = gameManager.getTurnInfo(sessionId);
-  console.log("[GAME] Current player:", currentPlayer, "Turn info:", turnInfo);
+  console.log("[GAME] Current turn player:", currentTurnPlayer, "Turn info:", turnInfo);
   console.log("[GAME] Player trying to spin:", playerId);
   
+  // IMPORTANT FIX: If no specific player is provided, use the current turn player
+  // This handles cases where the player identity might be unclear
+  let actualPlayerId = playerId;
+  if (!actualPlayerId && currentTurnPlayer) {
+    actualPlayerId = currentTurnPlayer;
+    console.log("[GAME] No player ID provided, using current turn player:", actualPlayerId);
+  }
+  
+  if (!actualPlayerId) {
+    console.error("[GAME] No player ID available for spin");
+    showNotification("Unable to determine player identity", "System Error");
+    return false;
+  }
+  
   // Validate player action with comprehensive error checking
-  const validation = gameManager.validatePlayerAction(sessionId, playerId, 'spin');
+  const validation = gameManager.validatePlayerAction(sessionId, actualPlayerId, 'spin');
   if (!validation.valid) {
-    const errorMessage = gameManager.getActionErrorMessage(sessionId, playerId, 'spin', validation.errorCode);
+    const errorMessage = gameManager.getActionErrorMessage(sessionId, actualPlayerId, 'spin', validation.errorCode);
     console.log("[GAME] Player action validation failed:", validation.error, "Error code:", validation.errorCode);
-    showNotification(errorMessage, "Invalid Action");
+    
+    // Special handling: if it's not the player's turn, show who's turn it is
+    if (validation.errorCode === 'NOT_PLAYER_TURN') {
+      const currentPlayer = gameManager.getCurrentPlayer(sessionId);
+      const playerName = gameManager.players[currentPlayer]?.displayName || currentPlayer;
+      showNotification(`It's ${playerName}'s turn to spin`, "Not Your Turn");
+    } else {
+      showNotification(errorMessage, "Invalid Action");
+    }
     return false;
   }
   
   // Get turn info and set it on the wheel
   if (turnInfo) {
-    window.wheelComponent.setCurrentTurn(playerId, turnInfo.turnNumber);
-    console.log("[GAME] Set wheel turn info for player:", playerId, "turn:", turnInfo.turnNumber);
+    window.wheelComponent.setCurrentTurn(actualPlayerId, turnInfo.turnNumber);
+    console.log("[GAME] Set wheel turn info for player:", actualPlayerId, "turn:", turnInfo.turnNumber);
   } else {
     console.error("[GAME] No turn info available for session:", sessionId);
   }
   
   // Attempt to spin
-  const spinResult = window.wheelComponent.spinWheel(playerId);
+  const spinResult = window.wheelComponent.spinWheel(actualPlayerId);
   if (spinResult) {
     // Record the spin in game manager
-    gameManager.recordPlayerSpin(sessionId, playerId);
-    console.log("[GAME] Spin initiated for player", playerId);
+    gameManager.recordPlayerSpin(sessionId, actualPlayerId);
+    console.log("[GAME] Spin initiated for player", actualPlayerId);
     
     // Update UI to show that player has acted
     updateTurnUI(sessionId);
   } else {
-    console.error("[GAME] Wheel spin failed for player:", playerId);
+    console.error("[GAME] Wheel spin failed for player:", actualPlayerId);
   }
   
   return spinResult;
@@ -3199,6 +3252,7 @@ export {
 
 // Expose functions globally for testing and integration
 window.getCurrentUser = getCurrentUser;
+window.switchToPlayer = switchToPlayer;
 window.showNotification = showNotification;
 window.spinWheelForPlayer = spinWheelForPlayer;
 window.initializeWheelForSession = initializeWheelForSession;
