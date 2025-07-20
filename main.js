@@ -1616,25 +1616,35 @@ function stopGameDisplay() {
 
 // Enhanced wheel control with turn management and comprehensive error handling
 function spinWheelForPlayer(sessionId, playerId) {
+  console.log("[GAME] spinWheelForPlayer called for player:", playerId, "session:", sessionId);
+  
   if (!window.wheelComponent || !gameManager) {
     console.error("[GAME] Wheel component or game manager not available");
     showNotification("Game components not ready. Please refresh the page.", "System Error");
     return false;
   }
   
+  // Debug current turn state
+  const currentPlayer = gameManager.getCurrentPlayer(sessionId);
+  const turnInfo = gameManager.getTurnInfo(sessionId);
+  console.log("[GAME] Current player:", currentPlayer, "Turn info:", turnInfo);
+  console.log("[GAME] Player trying to spin:", playerId);
+  
   // Validate player action with comprehensive error checking
   const validation = gameManager.validatePlayerAction(sessionId, playerId, 'spin');
   if (!validation.valid) {
     const errorMessage = gameManager.getActionErrorMessage(sessionId, playerId, 'spin', validation.errorCode);
-    console.log("[GAME] Player action validation failed:", validation.error);
+    console.log("[GAME] Player action validation failed:", validation.error, "Error code:", validation.errorCode);
     showNotification(errorMessage, "Invalid Action");
     return false;
   }
   
   // Get turn info and set it on the wheel
-  const turnInfo = gameManager.getTurnInfo(sessionId);
   if (turnInfo) {
     window.wheelComponent.setCurrentTurn(playerId, turnInfo.turnNumber);
+    console.log("[GAME] Set wheel turn info for player:", playerId, "turn:", turnInfo.turnNumber);
+  } else {
+    console.error("[GAME] No turn info available for session:", sessionId);
   }
   
   // Attempt to spin
@@ -1646,6 +1656,8 @@ function spinWheelForPlayer(sessionId, playerId) {
     
     // Update UI to show that player has acted
     updateTurnUI(sessionId);
+  } else {
+    console.error("[GAME] Wheel spin failed for player:", playerId);
   }
   
   return spinResult;
@@ -1814,16 +1826,26 @@ function completeTurn(sessionId) {
   }
   
   const currentPlayer = gameManager.getCurrentPlayer(sessionId);
-  console.log("[TURN_MGMT] Completing turn for player", currentPlayer);
+  const turnInfo = gameManager.getTurnInfo(sessionId);
+  console.log("[TURN_MGMT] Completing turn for player", currentPlayer, "turn info:", turnInfo);
   
   // Advance to next turn
   const nextPlayer = advanceTurn(sessionId);
   
   if (nextPlayer) {
     console.log("[TURN_MGMT] Turn advanced to player", nextPlayer);
+    
+    // Update wheel component with new turn info
+    const newTurnInfo = gameManager.getTurnInfo(sessionId);
+    if (window.wheelComponent && newTurnInfo) {
+      window.wheelComponent.setCurrentTurn(nextPlayer, newTurnInfo.turnNumber);
+      console.log("[TURN_MGMT] Wheel component updated for new turn");
+    }
+    
     return true;
   }
   
+  console.error("[TURN_MGMT] Failed to advance turn");
   return false;
 }
 

@@ -34,21 +34,25 @@ class WheelComponent {
     
     initializeWheel() {
         const wheel = document.getElementById('wheel');
-        if (!wheel) {
-            console.error('Wheel element not found');
+        const wheelText = document.getElementById('wheel-text');
+        if (!wheel || !wheelText) {
+            console.error('Wheel element or wheel text not found');
             return;
         }
         
-        // Create wheel segments with labels
-        this.cardTypes.forEach((cardType, index) => {
-            const segment = document.createElement('div');
-            segment.className = 'wheel-segment';
-            segment.textContent = cardType.name;
-            segment.style.transform = `rotate(${30 + (index * this.segmentAngle)}deg)`;
-            wheel.appendChild(segment);
-        });
+        // Set initial state to first card type
+        const initialCardType = this.cardTypes[0];
+        wheel.style.backgroundColor = initialCardType.color;
+        wheelText.textContent = initialCardType.name;
         
-        console.log('[WHEEL] Initialized with', this.cardTypes.length, 'segments');
+        // Adjust text color for yellow background
+        if (initialCardType.color === '#FFEAA7') {
+            wheelText.style.color = '#333';
+        } else {
+            wheelText.style.color = 'white';
+        }
+        
+        console.log('[WHEEL] Initialized flashing box with', this.cardTypes.length, 'card types');
     }
     
     bindEvents() {
@@ -173,19 +177,24 @@ class WheelComponent {
      * Set the current player and turn for spin validation
      */
     setCurrentTurn(playerId, turnNumber) {
+        console.log('[WHEEL] setCurrentTurn called - playerId:', playerId, 'turnNumber:', turnNumber);
+        console.log('[WHEEL] Current state - currentPlayerId:', this.currentPlayerId, 'turnNumber:', this.turnNumber, 'hasSpunThisTurn:', this.hasSpunThisTurn);
+        
         // If it's a new turn, reset the spin flag
         if (this.turnNumber !== turnNumber) {
             this.hasSpunThisTurn = false;
             this.turnNumber = turnNumber;
-            console.log('[WHEEL] New turn started:', turnNumber);
+            console.log('[WHEEL] New turn started:', turnNumber, '- reset hasSpunThisTurn to false');
         }
         
         // If it's a new player, reset the spin flag
         if (this.currentPlayerId !== playerId) {
             this.hasSpunThisTurn = false;
             this.currentPlayerId = playerId;
-            console.log('[WHEEL] Current player set to:', playerId);
+            console.log('[WHEEL] Current player set to:', playerId, '- reset hasSpunThisTurn to false');
         }
+        
+        console.log('[WHEEL] Final state - currentPlayerId:', this.currentPlayerId, 'turnNumber:', this.turnNumber, 'hasSpunThisTurn:', this.hasSpunThisTurn);
     }
     
     /**
@@ -247,63 +256,79 @@ class WheelComponent {
             resultDiv.innerHTML = '';
         }
         
-        // Generate cryptographically secure random spin
-        const minSpins = 3;
-        const maxSpins = 5;
-        const spins = minSpins + this.getSecureRandom() * (maxSpins - minSpins);
-        const finalAngle = this.getSecureRandom() * 360;
-        const totalRotation = (spins * 360) + finalAngle;
+        // Generate cryptographically secure random selection
+        const selectedIndex = Math.floor(this.getSecureRandom() * this.cardTypes.length);
         
-        // Apply rotation
+        // Start flashing animation
         const wheel = document.getElementById('wheel');
-        if (wheel) {
+        const wheelText = document.getElementById('wheel-text');
+        if (wheel && wheelText) {
             wheel.classList.add('spinning');
-            this.currentRotation += totalRotation;
-            wheel.style.transform = `rotate(${this.currentRotation}deg)`;
             
-            console.log('[WHEEL] Spinning to', totalRotation, 'degrees (total:', this.currentRotation, ')');
+            console.log('[WHEEL] Flashing through card types, will select:', this.cardTypes[selectedIndex].name);
             
-            // Wait for animation to complete
+            // Flash through different card types during spin
+            let currentFlashIndex = 0;
+            const flashInterval = setInterval(() => {
+                const cardType = this.cardTypes[currentFlashIndex % this.cardTypes.length];
+                wheel.style.backgroundColor = cardType.color;
+                wheelText.textContent = cardType.name;
+                
+                // Adjust text color for yellow background
+                if (cardType.color === '#FFEAA7') {
+                    wheelText.style.color = '#333';
+                } else {
+                    wheelText.style.color = 'white';
+                }
+                
+                currentFlashIndex++;
+            }, 100); // Flash every 100ms
+            
+            // Stop flashing after 3 seconds and show result
             setTimeout(() => {
-                this.handleSpinComplete(finalAngle);
-            }, 4000); // Match CSS animation duration
+                clearInterval(flashInterval);
+                this.handleSpinComplete(selectedIndex);
+            }, 3000);
         }
     }
     
-    handleSpinComplete(finalAngle) {
-        console.log('[WHEEL] Spin complete, final angle:', finalAngle);
+    handleSpinComplete(selectedIndex) {
+        console.log('[WHEEL] Spin complete, selected index:', selectedIndex);
         
         try {
-            // Calculate which segment the pointer landed on
-            // The pointer is at the top (0 degrees), so we need to account for that
-            // Normalize the angle to 0-360 range
-            const normalizedAngle = ((360 - finalAngle) % 360 + 360) % 360;
-            
-            // Determine which segment (each segment is 60 degrees)
-            const segmentIndex = Math.floor(normalizedAngle / this.segmentAngle);
-            
-            // Validate segment index
-            if (segmentIndex < 0 || segmentIndex >= this.cardTypes.length) {
-                throw new Error(`Invalid segment index: ${segmentIndex}. Expected 0-${this.cardTypes.length - 1}`);
+            // Validate selected index
+            if (selectedIndex < 0 || selectedIndex >= this.cardTypes.length) {
+                throw new Error(`Invalid selected index: ${selectedIndex}. Expected 0-${this.cardTypes.length - 1}`);
             }
             
-            const selectedCardType = this.cardTypes[segmentIndex];
+            const selectedCardType = this.cardTypes[selectedIndex];
             
             // Validate selected card type
             if (!selectedCardType) {
-                throw new Error(`No card type found for segment ${segmentIndex}`);
+                throw new Error(`No card type found for index ${selectedIndex}`);
             }
             
-            console.log('[WHEEL] Selected segment:', segmentIndex, 'Card type:', selectedCardType.name);
+            console.log('[WHEEL] Selected card type:', selectedCardType.name);
+            
+            // Set final appearance
+            const wheel = document.getElementById('wheel');
+            const wheelText = document.getElementById('wheel-text');
+            if (wheel && wheelText) {
+                wheel.style.backgroundColor = selectedCardType.color;
+                wheelText.textContent = selectedCardType.name;
+                
+                // Adjust text color for yellow background
+                if (selectedCardType.color === '#FFEAA7') {
+                    wheelText.style.color = '#333';
+                } else {
+                    wheelText.style.color = 'white';
+                }
+                
+                wheel.classList.remove('spinning');
+            }
             
             // Display result
             this.displayResult(selectedCardType);
-            
-            // Clean up
-            const wheel = document.getElementById('wheel');
-            if (wheel) {
-                wheel.classList.remove('spinning');
-            }
             
             this.isSpinning = false;
             
@@ -403,27 +428,41 @@ class WheelComponent {
         
         console.log('[WHEEL] Test spin to segment:', segmentIndex);
         
-        // Calculate angle to land on specific segment
-        const targetAngle = (segmentIndex * this.segmentAngle) + (this.segmentAngle / 2);
-        const spins = 3; // Fixed spins for testing
-        const totalRotation = (spins * 360) + (360 - targetAngle);
-        
         this.isSpinning = true;
         this.hasSpunThisTurn = true;
         this.lastSpinTime = Date.now();
         this.disable();
         
+        // Start flashing animation for test
         const wheel = document.getElementById('wheel');
-        if (wheel) {
+        const wheelText = document.getElementById('wheel-text');
+        if (wheel && wheelText) {
             wheel.classList.add('spinning');
-            this.currentRotation += totalRotation;
-            wheel.style.transform = `rotate(${this.currentRotation}deg)`;
             
+            // Flash through different card types during test spin
+            let currentFlashIndex = 0;
+            const flashInterval = setInterval(() => {
+                const cardType = this.cardTypes[currentFlashIndex % this.cardTypes.length];
+                wheel.style.backgroundColor = cardType.color;
+                wheelText.textContent = cardType.name;
+                
+                // Adjust text color for yellow background
+                if (cardType.color === '#FFEAA7') {
+                    wheelText.style.color = '#333';
+                } else {
+                    wheelText.style.color = 'white';
+                }
+                
+                currentFlashIndex++;
+            }, 100); // Flash every 100ms
+            
+            // Stop flashing after 2 seconds and show test result
             setTimeout(() => {
-                this.handleSpinComplete(360 - targetAngle);
+                clearInterval(flashInterval);
+                this.handleSpinComplete(segmentIndex);
                 // Restore original validation
                 this.canSpin = originalCanSpin;
-            }, 4000);
+            }, 2000);
         }
         
         return true;
