@@ -1603,10 +1603,21 @@ class GameManager {
                 session.gameStartTime = Date.now();
                 session.gameStartedBy = hostId;
 
-                // TODO: Trigger necessary game initialization
+                // Initialize game-specific state
+                console.log(`[GAME_START] Initializing turn management for session ${sessionId}`);
+                
+                // Initialize turn management with current players
+                const playerIds = session.players || [];
+                if (playerIds.length > 0) {
+                    this.initializeTurnOrder(sessionId, playerIds);
+                    console.log(`[GAME_START] Turn management initialized with players:`, playerIds);
+                } else {
+                    console.warn(`[GAME_START] No players found for session ${sessionId}`);
+                }
+
+                // TODO: Additional game initialization
                 // - Shuffle decks
                 // - Deal initial cards
-                // - Start turn management
                 // - Initialize referee card assignment
 
                 console.log(`[HOST_CONTROLS] Session ${sessionId} game started by host ${hostId}`);

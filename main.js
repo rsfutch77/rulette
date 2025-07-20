@@ -4806,6 +4806,13 @@ function showGameBoard() {
     if (window.ruleDisplayManager) {
         window.ruleDisplayManager.show();
     }
+    
+    // Update turn UI to show current player's turn
+    const sessionId = window.currentSessionId;
+    if (sessionId && gameManager) {
+        console.log('[GAME_BOARD] Updating turn UI for session:', sessionId);
+        updateTurnUI(sessionId);
+    }
 }
 
 /**
