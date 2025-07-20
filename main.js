@@ -1647,7 +1647,11 @@ function stopGameDisplay() {
 
 // Enhanced wheel control with turn management and comprehensive error handling
 async function spinWheelForPlayer(sessionId, playerId) {
-  console.log("[GAME] spinWheelForPlayer called for player:", playerId, "session:", sessionId);
+  console.log("[GAME] *** spinWheelForPlayer CALLED ***");
+  console.log("[GAME] sessionId:", sessionId);
+  console.log("[GAME] playerId:", playerId);
+  console.log("[GAME] wheelComponent available:", !!window.wheelComponent);
+  console.log("[GAME] gameManager available:", !!gameManager);
   
   if (!window.wheelComponent || !gameManager) {
     console.error("[GAME] Wheel component or game manager not available");

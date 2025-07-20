@@ -59,16 +59,24 @@ class WheelComponent {
         const spinButton = document.getElementById('spin-wheel-btn');
         if (spinButton) {
             spinButton.addEventListener('click', () => {
+                console.log('[WHEEL] *** BUTTON CLICKED ***');
+                console.log('[WHEEL] currentSessionId:', window.currentSessionId);
+                console.log('[WHEEL] spinWheelForPlayer available:', !!window.spinWheelForPlayer);
+                
                 // In turn-based mode, use the current session and player
                 if (window.currentSessionId && window.spinWheelForPlayer) {
                     // Get current user to determine if they can spin
                     const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+                    console.log('[WHEEL] getCurrentUser function available:', !!window.getCurrentUser);
+                    console.log('[WHEEL] Current user:', currentUser);
+                    
                     if (currentUser) {
-                        console.log('[WHEEL] Button clicked by user:', currentUser.uid);
+                        console.log('[WHEEL] Button clicked by user:', currentUser.uid, '(' + currentUser.displayName + ')');
                         console.log('[WHEEL] Current turn player:', this.currentPlayerId);
                         
                         // IMPORTANT: For multiplayer, each player should only be able to spin on their own turn
                         // The validation in spinWheelForPlayer will check if it's their turn
+                        console.log('[WHEEL] Calling spinWheelForPlayer...');
                         window.spinWheelForPlayer(window.currentSessionId, currentUser.uid);
                     } else {
                         console.warn('[WHEEL] No current user found for turn-based spin');
@@ -78,14 +86,19 @@ class WheelComponent {
                             console.log('[WHEEL] Fallback: using current turn player:', this.currentPlayerId);
                             window.spinWheelForPlayer(window.currentSessionId, this.currentPlayerId);
                         } else {
+                            console.log('[WHEEL] Final fallback: basic spin');
                             this.spinWheel(); // Final fallback to basic spin
                         }
                     }
                 } else {
+                    console.log('[WHEEL] No session or spinWheelForPlayer - using basic spin');
                     // Fallback to basic spin for testing
                     this.spinWheel();
                 }
             });
+            console.log('[WHEEL] Event listener bound to spin button');
+        } else {
+            console.error('[WHEEL] Spin button not found!');
         }
     }
     
