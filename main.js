@@ -564,6 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initRuleDisplayManager();
   initCalloutEventHandlers();
   initCardTransferEventHandlers();
+  initScoreEventHandlers();
 });
 
 // Initialize callout event handlers
@@ -999,6 +1000,35 @@ function initCardTransferEventHandlers() {
   }
 }
 
+// Initialize score event handlers
+function initScoreEventHandlers() {
+  console.log("DEBUG: Initializing score event handlers");
+  
+  // Listen for custom score change events
+  window.addEventListener('playerScoreChanged', (event) => {
+    console.log('[SCORE_EVENT] Player score changed event received:', event.detail);
+    const { sessionId, playerId, oldPoints, newPoints, reason } = event.detail;
+    
+    // The UI update is already triggered by the gameManager, but we can add additional
+    // handling here if needed (e.g., notifications, sound effects, etc.)
+    
+    // Optional: Show a brief notification for significant score changes
+    const change = newPoints - oldPoints;
+    if (Math.abs(change) >= 5) {
+      const player = gameManager?.players?.[playerId];
+      const playerName = player ? player.displayName : 'Unknown Player';
+      const message = change > 0
+        ? `${playerName} gained ${change} points!`
+        : `${playerName} lost ${Math.abs(change)} points!`;
+      
+      // You could show a notification here if desired
+      console.log(`[SCORE_NOTIFICATION] ${message} (Reason: ${reason})`);
+    }
+  });
+  
+  console.log("DEBUG: Score event handlers initialized");
+}
+
 // Handle card transfer confirmation
 async function handleCardTransfer() {
   console.log("DEBUG: Handling card transfer");
@@ -1092,11 +1122,159 @@ function getCurrentSessionId() {
   return sessionIds.length > 0 ? sessionIds[0] : null;
 }
 
-// Helper function to update player scores display - DISABLED (all player displays removed)
+// Helper function to update player scores display
 function updatePlayerScores(sessionId) {
-  console.log("DEBUG: updatePlayerScores called but disabled - all player displays removed");
-  // Function disabled - both header scores and player info panel have been removed
-  return;
+  console.log("DEBUG: updatePlayerScores called for session:", sessionId);
+  
+  if (!sessionId || !gameManager) {
+    console.log("DEBUG: No session ID or game manager available");
+    return;
+  }
+
+  const session = gameManager.gameSessions[sessionId];
+  if (!session) {
+    console.log("DEBUG: Session not found:", sessionId);
+    return;
+  }
+
+  const scoresContainer = document.getElementById('player-scores-container');
+  const scoresList = document.getElementById('player-scores-list');
+  
+  if (!scoresContainer || !scoresList) {
+    console.log("DEBUG: Score display elements not found");
+    return;
+  }
+
+  // Show the scores container
+  scoresContainer.style.display = 'block';
+  
+  // Clear existing scores
+  scoresList.innerHTML = '';
+  
+  // Get current player and referee info
+  const currentUserId = getCurrentUserId();
+  const currentTurnInfo = gameManager.currentTurn[sessionId];
+  const currentPlayerId = currentTurnInfo?.currentPlayer;
+  const refereeId = session.referee;
+  
+  // Get all players in the session and sort by points (descending)
+  const sessionPlayers = session.players || [];
+  const playersWithScores = sessionPlayers
+    .map(playerId => {
+      const player = gameManager.players[playerId];
+      return player ? {
+        id: playerId,
+        name: player.displayName,
+        points: player.points || 0,
+        status: player.status || 'active'
+      } : null;
+    })
+    .filter(player => player !== null)
+    .sort((a, b) => b.points - a.points);
+
+  console.log("DEBUG: Displaying scores for players:", playersWithScores);
+
+  // Create score items for each player
+  playersWithScores.forEach(player => {
+    const scoreItem = document.createElement('div');
+    scoreItem.className = 'player-score-item';
+    scoreItem.id = `player-score-${player.id}`;
+    
+    // Add special styling for current player and referee
+    if (player.id === currentPlayerId) {
+      scoreItem.classList.add('current-player');
+    }
+    if (player.id === refereeId) {
+      scoreItem.classList.add('referee');
+    }
+    
+    // Create badges
+    const badges = [];
+    if (player.id === currentPlayerId) {
+      badges.push('<span class="player-badge current">Turn</span>');
+    }
+    if (player.id === refereeId) {
+      badges.push('<span class="player-badge referee">Referee</span>');
+    }
+    if (player.status === 'disconnected') {
+      badges.push('<span class="player-badge disconnected">Offline</span>');
+    }
+    
+    scoreItem.innerHTML = `
+      <div class="player-score-name" title="${player.name}">${player.name}</div>
+      <div class="player-score-points">${player.points}</div>
+      ${badges.length > 0 ? `<div class="player-score-badges">${badges.join('')}</div>` : ''}
+    `;
+    
+    scoresList.appendChild(scoreItem);
+  });
+
+  console.log("DEBUG: Player scores updated successfully");
+}
+
+// Helper function to animate score changes
+function animateScoreChange(playerId, oldPoints, newPoints) {
+  const scoreItem = document.getElementById(`player-score-${playerId}`);
+  if (!scoreItem) return;
+  
+  // Add animation class
+  scoreItem.classList.add('score-change-animation');
+  
+  // Update the points display
+  const pointsElement = scoreItem.querySelector('.player-score-points');
+  if (pointsElement) {
+    pointsElement.textContent = newPoints;
+    
+    // Show change indicator temporarily
+    const change = newPoints - oldPoints;
+    if (change !== 0) {
+      const changeIndicator = document.createElement('div');
+      changeIndicator.style.cssText = `
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        background: ${change > 0 ? '#28a745' : '#dc3545'};
+        color: white;
+        border-radius: 10px;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        font-weight: bold;
+        z-index: 10;
+        animation: fadeInOut 2s ease-out forwards;
+      `;
+      changeIndicator.textContent = change > 0 ? `+${change}` : `${change}`;
+      
+      // Add fadeInOut animation if not already defined
+      if (!document.querySelector('#score-change-animations')) {
+        const style = document.createElement('style');
+        style.id = 'score-change-animations';
+        style.textContent = `
+          @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            20% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      scoreItem.style.position = 'relative';
+      scoreItem.appendChild(changeIndicator);
+      
+      // Remove the indicator after animation
+      setTimeout(() => {
+        if (changeIndicator.parentNode) {
+          changeIndicator.parentNode.removeChild(changeIndicator);
+        }
+      }, 2000);
+    }
+  }
+  
+  // Remove animation class after animation completes
+  setTimeout(() => {
+    scoreItem.classList.remove('score-change-animation');
+  }, 600);
 }
 
 // Update the header player scores display - DISABLED (header scores display removed)
@@ -4950,6 +5128,12 @@ function hideGameBoard() {
     // Hide rule display
     if (window.ruleDisplayManager) {
         window.ruleDisplayManager.hide();
+    }
+    
+    // Hide player scores display
+    const scoresContainer = document.getElementById('player-scores-container');
+    if (scoresContainer) {
+        scoresContainer.style.display = 'none';
     }
     
     // Show lobby
