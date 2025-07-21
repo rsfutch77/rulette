@@ -298,7 +298,6 @@ const joinGameError = document.getElementById("join-game-error");
 // Game page elements
 const gamePage = document.getElementById("game-page");
 const gameJoinCodeDiv = document.getElementById("game-join-code");
-const gameLogoutBtn = document.getElementById("game-logout-btn");
 const startGameBtn = document.getElementById("start-game-btn");
 const turnOrderDiv = document.getElementById("turn-order");
 // Inspiration Card Modal elements
@@ -1224,6 +1223,8 @@ function animateScoreChange(playerId, oldPoints, newPoints) {
   const pointsElement = scoreItem.querySelector('.player-score-points');
   if (pointsElement) {
     pointsElement.textContent = newPoints;
+    pointsElement.style.backgroundColor = '#4ECDC4'; // Similar to Prompt card color
+    pointsElement.style.color = 'white'; // Ensure readability
     
     // Show change indicator temporarily
     const change = newPoints - oldPoints;
