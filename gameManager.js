@@ -4274,6 +4274,23 @@ class GameManager {
         );
     }
 
+    /**
+     * Check if any player in the session has a rule or modifier card
+     * @param {string} sessionId
+     * @returns {boolean}
+     */
+    anyPlayerHasRuleOrModifier(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session || !session.players) return false;
+
+        for (const playerId of session.players) {
+            if (this.playerHasRuleOrModifier(playerId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     async handleCardDrawn(sessionId, playerId, card, gameContext = {}) {
         console.log(`[GAME_MANAGER] Handling card drawn for player ${playerId} in session ${sessionId}: ${card.name || card.id}`);
         
@@ -4296,6 +4313,21 @@ class GameManager {
             } catch (error) {
                 console.error(`[GAME] Error replacing flip card:`, error);
                 // If replacement fails, proceed with the original flip card
+            }
+        }
+        
+        // Check for clone card replacement logic
+        if (card.type === 'Clone' && !this.anyPlayerHasRuleOrModifier(sessionId)) {
+            const replacementTypes = ['Rule', 'Modifier'];
+            const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
+            
+            try {
+                const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
+                actualCard = this.cardManager.draw(deckKey);
+                displayType = newType;
+                console.log(`[GAME] Replaced clone card with ${newType} for player ${playerId} as no other players had rule/modifier.`);
+            } catch (error) {
+                console.error(`[GAME] Error replacing clone card:`, error);
             }
         }
         
