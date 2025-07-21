@@ -2964,9 +2964,7 @@ class GameManager {
      * @param {object} pointChange - Point change details
      */
     triggerPointChangeEvent(sessionId, pointChange) {
-        // This method can be extended to emit events to UI components
-        // For now, we'll just log and store the event
-        
+        // Store the event for history tracking
         if (!this.pointChangeEvents) {
             this.pointChangeEvents = {};
         }
@@ -2984,8 +2982,38 @@ class GameManager {
 
         console.log(`[POINTS_EVENT] Session ${sessionId}: Point change event triggered for player ${pointChange.playerId}`);
         
-        // TODO: Emit to UI components when event system is implemented
-        // this.emit('pointsChanged', { sessionId, pointChange });
+        // Trigger UI updates automatically
+        try {
+            // Check if we're in a browser environment with the updatePlayerScores function
+            if (typeof window !== 'undefined' && typeof updatePlayerScores === 'function') {
+                console.log(`[POINTS_EVENT] Triggering UI update for score change`);
+                updatePlayerScores(sessionId);
+                
+                // Trigger score change animation if available
+                if (typeof animateScoreChange === 'function') {
+                    animateScoreChange(pointChange.playerId, pointChange.oldPoints, pointChange.newPoints);
+                }
+            }
+            
+            // Emit custom event for other components to listen to
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+                const customEvent = new CustomEvent('playerScoreChanged', {
+                    detail: {
+                        sessionId,
+                        playerId: pointChange.playerId,
+                        oldPoints: pointChange.oldPoints,
+                        newPoints: pointChange.newPoints,
+                        change: pointChange.change,
+                        reason: pointChange.reason,
+                        timestamp: pointChange.timestamp
+                    }
+                });
+                window.dispatchEvent(customEvent);
+                console.log(`[POINTS_EVENT] Dispatched playerScoreChanged event`);
+            }
+        } catch (error) {
+            console.error(`[POINTS_EVENT] Error triggering UI updates:`, error);
+        }
     }
 
     /**
@@ -4232,12 +4260,56 @@ class GameManager {
      * @param {Object} gameContext - Additional game context
      * @returns {object} - {success: boolean, activeRule?: object, error?: string}
      */
+    /**
+     * Check if player has any rule or modifier card
+     * @param {string} playerId
+     * @returns {boolean}
+     */
+    playerHasRuleOrModifier(playerId) {
+        const player = this.players[playerId];
+        if (!player || !player.hand || player.hand.length === 0) return false;
+        
+        return player.hand.some(card =>
+            card.type === 'Rule' || card.type === 'Modifier'
+        );
+    }
+
     async handleCardDrawn(sessionId, playerId, card, gameContext = {}) {
         console.log(`[GAME_MANAGER] Handling card drawn for player ${playerId} in session ${sessionId}: ${card.name || card.id}`);
         
+        let actualCard = card;
+        let displayType = card.type;
+        
+        // If it's a flip card and player has no rule/modifier, replace it
+        if (card.type === 'Flip' && !this.playerHasRuleOrModifier(playerId)) {
+            const replacementTypes = ['Rule', 'Modifier'];
+            const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
+            
+            // Get replacement card
+            try {
+                // Map the card type to the deckKey used in the wheel
+                // Rule -> deckType1, Modifier -> deckType3
+                const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
+                actualCard = this.cardManager.draw(deckKey);
+                displayType = newType;
+                console.log(`[GAME] Replaced flip card with ${newType} for player ${playerId}`);
+            } catch (error) {
+                console.error(`[GAME] Error replacing flip card:`, error);
+                // If replacement fails, proceed with the original flip card
+            }
+        }
+        
+        // Update wheel display to show actual card type
+        if (window.wheelComponent) {
+            const cardType = window.wheelComponent.getCardTypeByName(displayType);
+            if (cardType) {
+                window.wheelComponent.updateWheelDisplay(cardType);
+            }
+        }
+        
         try {
-            // Check if card has a rule to activate
-            if (card.hasRule || card.rule || card.frontRule) {
+            // Check if card has a rule to activate (use actualCard now)
+            if (actualCard.hasRule || actualCard.rule || actualCard.frontRule) {
                 // Prepare game context for rule activation
                 const ruleContext = {
                     currentTurn: this.currentTurn[sessionId]?.turnNumber || 0,

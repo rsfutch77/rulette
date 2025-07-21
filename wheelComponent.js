@@ -441,16 +441,36 @@ class WheelComponent {
         console.log('[WHEEL] Card draw callback set');
     }
     
+    /**
+     * Update wheel display to show specific card type
+     * @param {object} cardType - Card type object with name and color
+     */
+    updateWheelDisplay(cardType) {
+        const wheel = document.getElementById('wheel');
+        const wheelText = document.getElementById('wheel-text');
+        if (wheel && wheelText) {
+            wheel.style.backgroundColor = cardType.color;
+            wheelText.textContent = cardType.name;
+            
+            // Adjust text color for yellow background
+            if (cardType.color === '#FFEAA7') {
+                wheelText.style.color = '#333';
+            } else {
+                wheelText.style.color = 'white';
+            }
+        }
+    }
+
     // Method to get card type info by name
     getCardTypeByName(name) {
         return this.cardTypes.find(type => type.name === name);
     }
-    
+
     // Method to get all card types
     getCardTypes() {
         return [...this.cardTypes];
     }
-    
+
     // Method for testing - spin to specific segment
     testSpin(segmentIndex, playerId = 'test-player') {
         // For testing, temporarily bypass validation
