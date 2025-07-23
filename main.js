@@ -6055,7 +6055,19 @@ window.setupFirebaseSessionListener = async function setupFirebaseSessionListene
                 // Update local session data
                 if (gameManager.gameSessions[sessionId]) {
                     const previousState = gameManager.gameSessions[sessionId].status;
+                    const previousPlayers = gameManager.gameSessions[sessionId].players || [];
                     const newState = sessionData.status;
+                    const newPlayers = sessionData.players || [];
+                    
+                    // Check if player list changed
+                    const playersChanged = previousPlayers.length !== newPlayers.length ||
+                        !previousPlayers.every(player => newPlayers.includes(player)) ||
+                        !newPlayers.every(player => previousPlayers.includes(player));
+                    
+                    console.log('[FIREBASE_LISTENER] Player list comparison:');
+                    console.log('[FIREBASE_LISTENER] Previous players:', previousPlayers);
+                    console.log('[FIREBASE_LISTENER] New players:', newPlayers);
+                    console.log('[FIREBASE_LISTENER] Players changed:', playersChanged);
                     
                     // Update local session
                     gameManager.gameSessions[sessionId] = {
@@ -6100,15 +6112,18 @@ window.setupFirebaseSessionListener = async function setupFirebaseSessionListene
                         }
                     }
                     
-                    // Only trigger UI changes if state actually changed
-                    if (previousState !== newState) {
-                        console.log('[FIREBASE_LISTENER] State changed from', previousState, 'to', newState);
+                    // Trigger UI changes if state changed OR if player list changed
+                    if (previousState !== newState || playersChanged) {
+                        console.log('[FIREBASE_LISTENER] Triggering UI update - State changed:', previousState !== newState, 'Players changed:', playersChanged);
                         
                         // Create state change event
                         const stateChangeEvent = {
                             previousState,
                             newState,
-                            reason: sessionData.stateChangeReason || 'State updated from Firebase',
+                            playersChanged,
+                            previousPlayers,
+                            newPlayers,
+                            reason: sessionData.stateChangeReason || 'Session updated from Firebase',
                             timestamp: sessionData.lastStateChange || Date.now()
                         };
                         
@@ -6124,6 +6139,16 @@ window.setupFirebaseSessionListener = async function setupFirebaseSessionListene
                         console.log('[FIREBASE_LISTENER] Dispatching sessionStateChange event on document');
                         document.dispatchEvent(globalEvent);
                         console.log('[FIREBASE_LISTENER] Event dispatched successfully on document');
+                        
+                        // FIXME: Also directly update lobby display if we're in lobby state
+                        if (newState === 'lobby') {
+                            console.log('[FIREBASE_LISTENER] Directly updating lobby display for lobby state change');
+                            setTimeout(() => {
+                                updateLobbyDisplay();
+                            }, 100); // Small delay to ensure all data is updated
+                        }
+                    } else {
+                        console.log('[FIREBASE_LISTENER] No UI update needed - no significant changes detected');
                     }
                 }
             }
