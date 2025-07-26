@@ -284,6 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCardTransferEventHandlers();
   initScoreEventHandlers();
   initializeLobbyUI();
+  initializeQuitGameUI();
 });
 
 // Initialize score event handlers
@@ -724,7 +725,7 @@ function createPlayerCard(sessionId, playerId) {
   const session = gameManager.gameSessions[sessionId];
   const player = gameManager.players[playerId];
   
-  const points = gameManager.getPlayerPoints(playerId) || 0;
+  const points = gameManager.playerManager.getPlayerPoints(playerId) || 0;
   const displayName = getPlayerDisplayName(playerId);
   const ownedCards = gameManager.getPlayerOwnedCards(playerId) || [];
   
@@ -1435,7 +1436,7 @@ function handlePlayerDisconnection(sessionId, playerId) {
     return;
   }
 
-  const result = gameManager.handlePlayerDisconnect(sessionId, playerId);
+  const result = gameManager.playerManager.handlePlayerDisconnect(sessionId, playerId);
   
   if (result.handled) {
     console.log("[GAME] Player disconnect handled:", result.message);
@@ -2181,7 +2182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log('[SESSION_RESTORE] Session stored in gameManager');
                         
                         // Load existing players in the session to gameManager.players
-                        gameManager.loadExistingPlayersInSession(storedSessionId).then(() => {
+                        gameManager.playerManager.loadExistingPlayersInSession(storedSessionId).then(() => {
                             console.log('[SESSION_RESTORE] Loaded existing players into gameManager');
                             
                             // Hide main menu and show game page
@@ -2249,21 +2250,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.currentSessionId = null;
             }
         
-        // Temporary button for Flip Card Modal
-        const showFlipCardModalBtn = document.getElementById('show-flip-card-modal-btn');
-        if (showFlipCardModalBtn) {
-          showFlipCardModalBtn.addEventListener('click', () => {
-            console.log("DEBUG: Show Flip Card Modal button clicked");
-            if (window.showFlipCardModal && window.gameManager && window.gameManager.getCurrentPlayer()) {
-              const currentPlayerRules = window.gameManager.getCurrentPlayer().getRules();
-              console.log("DEBUG: Current player rules:", currentPlayerRules);
-              window.showFlipCardModal(currentPlayerRules);
-            } else {
-              console.warn("DEBUG: window.showFlipCardModal or gameManager.getCurrentPlayer() not available.");
-              window.showNotification("Flip Card Modal not ready or no current player.", "Error");
-            }
-          });
-        }
         }
     }, 2000); // Wait longer for all systems to initialize
 });

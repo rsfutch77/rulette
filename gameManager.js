@@ -18,6 +18,7 @@ import {
 } from './firebaseOperations.js';
 import { GameCard } from './cardModels.js';
 import { CalloutManager } from './calloutManager.js';
+import { PlayerManager } from './playerSystem.js';
 
 export class GameManager {
     constructor() {
@@ -29,6 +30,7 @@ export class GameManager {
         this.cardManager = null; // Reference to CardManager for cloning
         this.activePrompts = {}; // Track active prompts by session
         this.calloutManager = new CalloutManager(this); // Initialize CalloutManager
+        this.playerManager = new PlayerManager(this); // Initialize PlayerManager
         
         // Session State Management Constants
         this.SESSION_STATES = {
@@ -94,7 +96,7 @@ export class GameManager {
             console.log(`Shareable link: ${sessionInfo.shareableLink}`);
             
             // Load any existing players in the session (in case of session restoration)
-            await this.loadExistingPlayersInSession(sessionInfo.sessionId);
+            await this.playerManager.loadExistingPlayersInSession(sessionInfo.sessionId);
             
             console.log("DEBUG: Returning session:", newSession);
             return newSession;
@@ -271,10 +273,10 @@ export class GameManager {
         this.players[playerId] = newPlayer;
 
         // Initialize points using the new tracking system
-        this.initializePlayerPoints(playerId, 20);
+        this.playerManager.initializePlayerPoints(playerId, 20);
 
         // Initialize player presence tracking
-        this.initializePlayerPresence(sessionId, playerId);
+        this.playerManager.initializePlayerPresence(sessionId, playerId);
 
         // Synchronize with Firebase (false for isHost, as this is for joining players)
         await initializeFirestorePlayer(playerId, {
@@ -303,6 +305,68 @@ export class GameManager {
             // Load each player into local gameManager.players if not already present
             for (const playerData of firestorePlayers) {
                 const playerId = playerData.id;
+                
+                // Skip if player is already loaded locally
+                if (this.players[playerId]) {
+                    console.log(`[DEBUG LOAD_PLAYERS] Player ${playerId} already loaded locally, updating data`);
+                    // Update the existing player data with Firebase data
+                    this.players[playerId].displayName = playerData.displayName || this.players[playerId].displayName;
+                    this.players[playerId].points = playerData.points || this.players[playerId].points;
+                    this.players[playerId].status = playerData.status || this.players[playerId].status;
+                } else {
+                    console.log(`[DEBUG LOAD_PLAYERS] Loading new player ${playerId} (${playerData.displayName}) into local storage`);
+                    
+                    // Create player object in local storage
+                    this.players[playerId] = {
+                        playerId: playerId,
+                        displayName: playerData.displayName || 'Unknown Player',
+                        points: playerData.points || 20,
+                        status: playerData.status || 'active',
+                        hasRefereeCard: false,
+                        hand: [],
+                        ruleCards: playerData.ruleCards || [], // Load rule cards from Firebase
+                        connectionInfo: {
+                            lastSeen: Date.now(),
+                            connectionCount: 1,
+                            firstConnected: playerData.joinedAt ? new Date(playerData.joinedAt).getTime() : Date.now(),
+                            disconnectedAt: null,
+                            reconnectedAt: null,
+                            totalDisconnects: 0
+                        },
+                        gameState: {
+                            savedRole: null,
+                            savedCards: [],
+                            savedPoints: playerData.points || 20,
+                            wasHost: playerData.isHost || false
+                        }
+                    };
+                }
+            }
+            
+            console.log(`[DEBUG LOAD_PLAYERS] Loaded players. Local gameManager.players now has:`, Object.keys(this.players));
+            
+        } catch (error) {
+            console.error(`[DEBUG LOAD_PLAYERS] Error loading existing players for session ${sessionId}:`, error);
+        }
+    }
+
+    /**
+     * Load existing players in a session into local gameManager.players
+     * @param {string} sessionId - The session ID
+     */
+    async loadExistingPlayersInSession(sessionId) {
+        try {
+            console.log(`[DEBUG LOAD_PLAYERS] Loading existing players for session ${sessionId}`);
+            console.log(`[DEBUG LOAD_PLAYERS] Current gameManager.players before loading:`, Object.keys(this.players));
+            
+            // Get all players in the session from Firebase
+            const firestorePlayers = await getFirestorePlayersInSession(sessionId);
+            console.log(`[DEBUG LOAD_PLAYERS] Found ${firestorePlayers.length} players in Firebase:`, firestorePlayers);
+            
+            // Load each player into local gameManager.players if not already present
+            for (const playerData of firestorePlayers) {
+                const playerId = playerData.id;
+                console.log(`[DEBUG LOAD_PLAYERS] Processing player ${playerId} with data:`, playerData);
                 
                 // Skip if player is already loaded locally
                 if (this.players[playerId]) {
@@ -397,10 +461,10 @@ export class GameManager {
                 if (existingPlayer.sessionId === sessionId) {
                     if (existingPlayer.status === 'disconnected') {
                         console.log(`[DEBUG RECONNECTION] Player reconnecting to same session`);
-                        return await this.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
+                        return await this.playerManager.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
                     } else if (existingPlayer.status === 'left') {
                         console.log(`[DEBUG RECONNECTION] Player rejoining after leaving`);
-                        return await this.handlePlayerRejoinAfterLeaving(sessionId, playerId, displayName);
+                        return await this.playerManager.handlePlayerRejoinAfterLeaving(sessionId, playerId, displayName);
                     } else if (existingPlayer.status === 'active') {
                         console.log(`[DEBUG RECONNECTION] Player already active in session`);
                         return {
@@ -432,7 +496,7 @@ export class GameManager {
                 }
                 
                 // Player ID is in session but not in local players - this is a reconnection scenario
-                return await this.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
+                return await this.playerManager.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
             }
 
             // Check for duplicate player names (only for truly new players)
@@ -451,25 +515,30 @@ export class GameManager {
             console.log(`[DEBUG JOIN] Added player ${playerId} to session. Session now has players:`, session.players);
 
             // Initialize the player
-            await this.initializePlayer(sessionId, playerId, displayName);
+            await this.playerManager.initializePlayer(sessionId, playerId, displayName);
             console.log(`[DEBUG JOIN] Player ${playerId} initialized in gameManager.players`);
+            console.log(`[DEBUG JOIN] Current gameManager.players after initializePlayer:`, Object.keys(this.players));
 
             // Load existing players in the session to local gameManager.players
             console.log(`[DEBUG JOIN] Loading existing players in session ${sessionId}`);
-            await this.loadExistingPlayersInSession(sessionId);
+            await this.playerManager.loadExistingPlayersInSession(sessionId);
+            console.log(`[DEBUG JOIN] After loadExistingPlayersInSession, gameManager.players:`, Object.keys(this.players));
 
             // Update session in local storage
             this.gameSessions[sessionId] = session;
             console.log(`[DEBUG JOIN] Session updated in local storage`);
+            console.log(`[DEBUG JOIN] Session players list after update:`, this.gameSessions[sessionId].players);
 
             // Synchronize with Firebase
             await this.updateSessionPlayerList(sessionId, session.players);
             console.log(`[DEBUG JOIN] Session player list synchronized with Firebase`);
             
             // Trigger player status change event for UI updates
-            this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player joined session');
+            this.playerManager.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player joined session');
             
             console.log(`[SESSION] Player ${displayName} (${playerId}) joined session ${sessionId}`);
+            console.log(`[SESSION] Final gameManager.players:`, Object.keys(this.players));
+            console.log(`[SESSION] Final session players:`, this.gameSessions[sessionId].players);
             
             return {
                 success: true,
@@ -603,7 +672,7 @@ export class GameManager {
             if (!player) {
                 console.log(`[DEBUG RECONNECTION] Player not in local memory, reinitializing for reconnection`);
                 // Reinitialize the player for reconnection
-                player = await this.initializePlayer(sessionId, playerId, displayName);
+                player = await this.playerManager.initializePlayer(sessionId, playerId, displayName);
             }
 
             // Ensure player is in session players list
@@ -620,22 +689,22 @@ export class GameManager {
 
             // Ensure player status is active
             if (player.status !== 'active') {
-                await this.updatePlayerStatus(sessionId, playerId, 'active', 'Player reconnected to lobby');
+                await this.playerManager.updatePlayerStatus(sessionId, playerId, 'active', 'Player reconnected to lobby');
                 console.log(`[DEBUG RECONNECTION] Updated player status to active`);
             }
 
             // Restart presence tracking
-            await this.initializePlayerPresence(sessionId, playerId);
+            await this.playerManager.initializePlayerPresence(sessionId, playerId);
 
             // Update Firebase
             await this.updateSessionPlayerList(sessionId, session.players);
 
             // Load existing players in the session to ensure all player data is available
             console.log(`[DEBUG RECONNECTION] Loading existing players in session ${sessionId}`);
-            await this.loadExistingPlayersInSession(sessionId);
+            await this.playerManager.loadExistingPlayersInSession(sessionId);
             
             // Trigger player status change event for UI updates
-            this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player reconnected to lobby');
+            this.playerManager.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player reconnected to lobby');
             
             console.log(`[SESSION] Player ${displayName} (${playerId}) reconnected to lobby in session ${sessionId}`);
 
@@ -693,13 +762,13 @@ export class GameManager {
             }
 
             // Re-initialize the player as if joining for the first time
-            await this.initializePlayer(sessionId, playerId, displayName);
+            await this.playerManager.initializePlayer(sessionId, playerId, displayName);
 
             // Update Firebase
             await this.updateSessionPlayerList(sessionId, session.players);
 
             // Trigger player status change event for UI updates
-            this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player rejoined after leaving');
+            this.playerManager.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player rejoined after leaving');
 
             console.log(`[SESSION] Player ${displayName} (${playerId}) rejoined session ${sessionId} after leaving`);
 
@@ -754,7 +823,7 @@ export class GameManager {
                 console.log(`[SESSION] Player ${playerId} left lobby in session ${sessionId}`);
                 
                 // Trigger specific lobby leave event
-                this.triggerPlayerStatusChangeEvent(sessionId, playerId, 'left', 'Player left lobby');
+                this.playerManager.triggerPlayerStatusChangeEvent(sessionId, playerId, 'left', 'Player left lobby');
                 
                 return {
                     success: true,
@@ -786,8 +855,7 @@ export class GameManager {
             
             console.log(`[SESSION] Updating player list for session ${sessionId}:`, playerList);
             
-            // Import the Firebase function from main.js
-            const { updateFirestoreSessionPlayerList } = await import('./main.js');
+            // Use the statically imported Firebase function
             await updateFirestoreSessionPlayerList(sessionId, playerList);
             
             console.log(`[SESSION] Successfully updated Firebase with player list for session ${sessionId}`);
@@ -867,10 +935,10 @@ export class GameManager {
             }
 
             // Update player status to 'left' instead of immediately removing
-            await this.updatePlayerStatus(sessionId, playerId, 'left', 'Player left session');
+            await this.playerManager.updatePlayerStatus(sessionId, playerId, 'left', 'Player left session');
 
             // Stop presence tracking
-            this.stopPlayerPresenceTracking(sessionId, playerId);
+            this.playerManager.stopPlayerPresenceTracking(sessionId, playerId);
 
             // Remove player from session players list
             if (session.players) {
@@ -964,10 +1032,10 @@ export class GameManager {
             }
 
             // Update player status to 'kicked' before removal
-            await this.updatePlayerStatus(sessionId, targetPlayerId, 'kicked', `Kicked by host ${this.players[hostId]?.displayName || hostId}`);
+            await this.playerManager.updatePlayerStatus(sessionId, targetPlayerId, 'kicked', `Kicked by host ${this.players[hostId]?.displayName || hostId}`);
 
             // Stop presence tracking
-            this.stopPlayerPresenceTracking(sessionId, targetPlayerId);
+            this.playerManager.stopPlayerPresenceTracking(sessionId, targetPlayerId);
 
             // Remove the targetPlayerId from the session's player list
             session.players = session.players.filter(id => id !== targetPlayerId);
@@ -1086,7 +1154,7 @@ export class GameManager {
             console.log(`[PLAYER_LEAVE] Player ${player.displayName} left session ${sessionId}`);
             
             // Save final state before they leave
-            await this.savePlayerStateForReconnection(sessionId, playerId);
+            await this.playerManager.savePlayerStateForReconnection(sessionId, playerId);
             
             // Notify other players
             this.notifyPlayersOfLeave(sessionId, playerId);
@@ -1770,7 +1838,7 @@ export class GameManager {
             
             // Set new timeout (2 minutes)
             presence.disconnectTimeout = setTimeout(() => {
-                this.handlePlayerDisconnect(sessionId, playerId, 'timeout');
+                this.playerManager.handlePlayerDisconnect(sessionId, playerId, 'timeout');
             }, 120000);
             
         } catch (error) {
@@ -1822,11 +1890,11 @@ export class GameManager {
             console.log(`[PLAYER_STATUS] ${player.displayName} status: ${oldStatus} -> ${newStatus} (${reason})`);
             
             // Trigger status change event
-            this.triggerPlayerStatusChangeEvent(sessionId, playerId, oldStatus, newStatus, reason);
+            this.playerManager.triggerPlayerStatusChangeEvent(sessionId, playerId, oldStatus, newStatus, reason);
             
             // Handle special cases based on new status
             if (newStatus === 'disconnected') {
-                await this.savePlayerStateForReconnection(sessionId, playerId);
+                await this.playerManager.savePlayerStateForReconnection(sessionId, playerId);
             } else if (newStatus === 'left') {
                 await this.handlePlayerLeave(sessionId, playerId);
             }
@@ -1868,10 +1936,10 @@ export class GameManager {
             console.log(`[DISCONNECT] Player ${player.displayName} disconnected: ${reason}`);
             
             // Update player status to disconnected
-            await this.updatePlayerStatus(sessionId, playerId, 'disconnected', `Disconnected: ${reason}`);
+            await this.playerManager.updatePlayerStatus(sessionId, playerId, 'disconnected', `Disconnected: ${reason}`);
             
             // Save current state for potential reconnection
-            await this.savePlayerStateForReconnection(sessionId, playerId);
+            await this.playerManager.savePlayerStateForReconnection(sessionId, playerId);
             
             // Handle special roles
             if (session.hostId === playerId) {
@@ -1883,10 +1951,10 @@ export class GameManager {
             }
             
             // Stop presence tracking
-            this.stopPlayerPresenceTracking(sessionId, playerId);
+            this.playerManager.stopPlayerPresenceTracking(sessionId, playerId);
             
             // Notify other players
-            this.notifyPlayersOfDisconnect(sessionId, playerId, reason);
+            this.playerManager.notifyPlayersOfDisconnect(sessionId, playerId, reason);
             
         } catch (error) {
             console.error(`[DISCONNECT] Error handling disconnect for player ${playerId}:`, error);
@@ -1915,16 +1983,16 @@ export class GameManager {
             console.log(`[RECONNECT] Player ${player.displayName} attempting to reconnect`);
             
             // Restore player state
-            const restorationResult = await this.restorePlayerState(sessionId, playerId);
+            const restorationResult = await this.playerManager.restorePlayerState(sessionId, playerId);
             if (!restorationResult.success) {
                 return restorationResult;
             }
             
             // Update status to active
-            await this.updatePlayerStatus(sessionId, playerId, 'active', 'Reconnected');
+            await this.playerManager.updatePlayerStatus(sessionId, playerId, 'active', 'Reconnected');
             
             // Restart presence tracking
-            this.initializePlayerPresence(sessionId, playerId);
+            this.playerManager.initializePlayerPresence(sessionId, playerId);
             
             // Handle special role restoration
             if (player.gameState.savedRole === 'referee') {
@@ -1939,7 +2007,7 @@ export class GameManager {
             }
             
             // Notify other players
-            this.notifyPlayersOfReconnection(sessionId, playerId);
+            this.playerManager.notifyPlayersOfReconnection(sessionId, playerId);
             
             return {
                 success: true,
@@ -2159,6 +2227,7 @@ export class GameManager {
      */
     async getSessionPlayerStatuses(sessionId) {
         console.log('[DEBUG] getSessionPlayerStatuses called with sessionId:', sessionId);
+        console.log('[DEBUG] Current gameSessions:', Object.keys(this.gameSessions));
         
         const session = this.gameSessions[sessionId];
         if (!session) {
@@ -2172,6 +2241,7 @@ export class GameManager {
         console.log('[DEBUG] Session players type:', typeof session.players);
         console.log('[DEBUG] Session players is array:', Array.isArray(session.players));
         console.log('[DEBUG] All players in gameManager:', this.players);
+        console.log('[DEBUG] gameManager.players keys:', Object.keys(this.players));
 
         // Safety check to prevent iteration over undefined players array
         if (!Array.isArray(session.players)) {
@@ -2186,9 +2256,11 @@ export class GameManager {
         }
 
         const playerStatuses = {};
+        console.log('[DEBUG] Iterating through session players:', session.players);
         for (const playerId of session.players) {
             const player = this.players[playerId];
             console.log('[DEBUG] Processing player:', playerId, 'Player data:', player);
+            console.log('[DEBUG] Player exists in gameManager.players:', !!player);
             
             if (player) {
                 
@@ -2202,15 +2274,17 @@ export class GameManager {
                 console.log('[DEBUG] Added player to statuses:', playerId, playerStatuses[playerId]);
             } else {
                 console.warn('[DEBUG] Player not found in gameManager:', playerId);
+                console.log('[DEBUG] Available players in gameManager:', Object.keys(this.players));
                 // Attempt to recover player data from Firebase if available
                 try {
                     // Try to get player data from Firebase
                     const playerData = await getFirestorePlayer(playerId);
+                    console.log('[RECOVERY] Firebase player data for', playerId, ':', playerData);
                     
                     if (playerData) {
                         console.log('[RECOVERY] Found player data in Firebase, recreating player:', playerData);
                         // Recreate the player object with Firebase data
-                        await this.initializePlayer(session.sessionId, playerId, playerData.displayName || 'Unknown Player');
+                        await this.playerManager.initializePlayer(session.sessionId, playerId, playerData.displayName || 'Unknown Player');
                         
                         // Update points if available
                         if (playerData.points !== undefined) {
@@ -2554,7 +2628,7 @@ export class GameManager {
         }
 
         const newPoints = player.points + pointsToAdd;
-        return await this.setPlayerPoints(sessionId, playerId, newPoints, reason);
+        return await this.playerManager.setPlayerPoints(sessionId, playerId, newPoints, reason);
     }
 
     /**
@@ -2585,7 +2659,7 @@ export class GameManager {
 
         // Ensure points don't go below 0
         const newPoints = Math.max(0, player.points - pointsToDeduct);
-        return await this.setPlayerPoints(sessionId, playerId, newPoints, reason);
+        return await this.playerManager.setPlayerPoints(sessionId, playerId, newPoints, reason);
     }
 
     /**
@@ -2627,15 +2701,15 @@ export class GameManager {
         }
 
         // Perform the transfer
-        const deductResult = await this.deductPlayerPoints(sessionId, fromPlayerId, pointsToTransfer, `${reason} (to ${toPlayer.displayName})`);
+        const deductResult = await this.playerManager.deductPlayerPoints(sessionId, fromPlayerId, pointsToTransfer, `${reason} (to ${toPlayer.displayName})`);
         if (!deductResult.success) {
             return deductResult;
         }
 
-        const addResult = await this.addPlayerPoints(sessionId, toPlayerId, pointsToTransfer, `${reason} (from ${fromPlayer.displayName})`);
+        const addResult = await this.playerManager.addPlayerPoints(sessionId, toPlayerId, pointsToTransfer, `${reason} (from ${fromPlayer.displayName})`);
         if (!addResult.success) {
             // Rollback the deduction if adding fails
-            await this.addPlayerPoints(sessionId, fromPlayerId, pointsToTransfer, 'Rollback failed transfer');
+            await this.playerManager.addPlayerPoints(sessionId, fromPlayerId, pointsToTransfer, 'Rollback failed transfer');
             return addResult;
         }
 
@@ -3237,7 +3311,7 @@ export class GameManager {
         // Reset player points to initial values
         for (const playerId of session.players) {
             if (this.players[playerId]) {
-                this.initializePlayerPoints(playerId, 20); // Reset to starting points
+                this.playerManager.initializePlayerPoints(playerId, 20); // Reset to starting points
             }
         }
 
@@ -4496,7 +4570,7 @@ export class GameManager {
             const pointValue = promptCard.point_value || promptCard.pointValue || 1;
             
             // Award points to player using the new tracking system
-            const addResult = await this.addPlayerPoints(
+            const addResult = await this.playerManager.addPlayerPoints(
                 sessionId,
                 promptState.playerId,
                 pointValue,
@@ -5946,7 +6020,7 @@ export class GameManager {
 
             if (isValid) {
                 // Apply point transfer using the new tracking system
-                const transferResult = await this.transferPlayerPoints(
+                const transferResult = await this.playerManager.transferPlayerPoints(
                     sessionId,
                     callout.accusedPlayerId,
                     callout.callerId,
@@ -6336,7 +6410,7 @@ export class GameManager {
             // 1. Clean up player presence tracking
             if (session.players) {
                 for (const playerId of session.players) {
-                    this.stopPlayerPresenceTracking(sessionId, playerId);
+                    this.playerManager.stopPlayerPresenceTracking(sessionId, playerId);
                 }
             }
 
@@ -6575,7 +6649,7 @@ export class GameManager {
             console.log(`[PLAYER_LEAVE] Player ${player.displayName} left session ${sessionId}`);
             
             // Save final state before they leave
-            await this.savePlayerStateForReconnection(sessionId, playerId);
+            await this.playerManager.savePlayerStateForReconnection(sessionId, playerId);
             
             // Notify other players
             this.notifyPlayersOfLeave(sessionId, playerId);

@@ -378,6 +378,7 @@ function updateLobbySessionInfo(session) {
  */
 async function updateLobbyPlayerList(sessionId) {
     console.log('[DEBUG] updateLobbyPlayerList called with sessionId:', sessionId);
+    console.log('[DEBUG] Current gameManager.gameSessions:', Object.keys(gameManager.gameSessions));
     
     if (!gameManager) {
         console.error('[LOBBY] Game manager not available');
@@ -391,6 +392,7 @@ async function updateLobbyPlayerList(sessionId) {
     console.log('[DEBUG] Session data:', session);
     console.log('[DEBUG] Session players array:', session?.players);
     console.log('[DEBUG] GameManager players object:', gameManager.players);
+    console.log('[DEBUG] Player statuses returned:', playerStatuses);
     
     if (!session) {
         console.error('[LOBBY] Session not found for sessionId:', sessionId);
