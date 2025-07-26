@@ -5483,7 +5483,37 @@ export class GameManager {
      * @param {string} reason - Reason for termination (optional)
      * @returns {Promise<object>} - Result object with success status
      */
+    // Delegate session termination to SessionManager
     async terminateSessionByHost(sessionId, hostId, reason = 'Session terminated by host') {
+        return await this.sessionManager.terminateSessionByHost(sessionId, hostId, reason);
+    }
+
+    async terminateSessionAutomatically(sessionId, reason = 'All players left the session') {
+        return await this.sessionManager.terminateSessionAutomatically(sessionId, reason);
+    }
+
+    async cleanupSessionData(sessionId, terminationType = 'unknown') {
+        return await this.sessionManager.cleanupSessionData(sessionId, terminationType);
+    }
+
+    async cleanupFirebaseSessionData(sessionId) {
+        return await this.sessionManager.cleanupFirebaseSessionData(sessionId);
+    }
+
+    scheduleOrphanedSessionCleanup(sessionId) {
+        return this.sessionManager.scheduleOrphanedSessionCleanup(sessionId);
+    }
+
+    async notifyPlayersOfSessionTermination(sessionId, reason, type) {
+        return await this.sessionManager.notifyPlayersOfSessionTermination(sessionId, reason, type);
+    }
+
+    triggerSessionTerminationEvent(sessionId, eventData) {
+        return this.sessionManager.triggerSessionTerminationEvent(sessionId, eventData);
+    }
+
+    // Keep the rest of the functions as they are - they're not session management related
+    async terminateSessionByHostOLD(sessionId, hostId, reason = 'Session terminated by host') {
         try {
             const session = this.getSession(sessionId);
             if (!session) {
