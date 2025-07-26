@@ -15,6 +15,7 @@ import {
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
 } from './firebaseOperations.js';
 import { GameCard } from './cardModels.js';
+import { CardManager } from './cardManager.js';
 import { CalloutManager } from './calloutManager.js';
 import { PlayerManager } from './playerSystem.js';
 import { SessionManager } from './sessionManager.js';
@@ -26,7 +27,7 @@ export class GameManager {
         this.currentTurn = {}; // Tracks current turn for each session
         this.turnOrder = {}; // Tracks turn order for each session
         this.cloneMap = {}; // Maps original card ID to cloned card references
-        this.cardManager = null; // Reference to CardManager for cloning
+        this.cardManager = null; // Reference to CardManager - will be set externally
         this.activePrompts = {}; // Track active prompts by session
         this.calloutManager = new CalloutManager(this); // Initialize CalloutManager
         this.playerManager = new PlayerManager(this); // Initialize PlayerManager
@@ -2599,15 +2600,10 @@ export class GameManager {
      * @param {Array<Object>} cards - An array of card objects to assign to the player's hand.
      */
     async assignPlayerHand(sessionId, playerId, cards) {
-        if (this.players[playerId]) {
-            // Assign ownership to all cards
-            this.assignCardOwnership(playerId, cards);
-            
-            this.players[playerId].hand = cards;
-            await updateFirestorePlayerHand(sessionId, playerId, cards);
-            console.log(`Player ${playerId}'s hand assigned with ${cards.length} cards and synced with Firebase.`);
+        if (this.cardManager) {
+            return await this.cardManager.assignPlayerHand(sessionId, playerId, cards, this);
         } else {
-            console.warn(`Player ${playerId} not found locally.`);
+            console.error('[GAME_MANAGER] CardManager not initialized');
         }
     }
 
@@ -2619,47 +2615,12 @@ export class GameManager {
      * @returns {Promise<string|null>} - The playerId who was assigned the referee card, or null if no active players.
      */
     async assignRefereeCard(sessionId, refereeCard) {
-        const session = this.gameSessions[sessionId];
-        if (!session) {
-            console.warn(`No session found for ${sessionId}.`);
+        if (this.cardManager) {
+            return await this.cardManager.assignRefereeCard(sessionId, refereeCard, this);
+        } else {
+            console.error('[GAME_MANAGER] CardManager not initialized');
             return null;
         }
-
-        // Always query Firestore for players, even if local session shows no players
-        // This ensures we get the most up-to-date player information
-        const activePlayersInSession = (await getFirestorePlayersInSession(sessionId)).filter(player => player.status === 'active');
-
-        if (activePlayersInSession.length === 0) {
-            console.warn(`No active players in session ${sessionId} to assign referee card.`);
-            return null;
-        }
-
-        // Clear previous referee if any (both locally and in Firebase)
-        if (session.referee) {
-            this.players[session.referee].hasRefereeCard = false;
-            // No need to update Firestore for old referee, as new assignment will overwrite game.referee
-        }
-
-        // Use Math.random() to select a player index
-        // For testing, this can be mocked to return a specific value
-        const randomValue = Math.random();
-        const randomIndex = Math.floor(randomValue * activePlayersInSession.length);
-        const refereePlayer = activePlayersInSession[randomIndex];
-        const refereePlayerId = refereePlayer.uid;
-        
-        console.log(`Random value: ${randomValue}, index: ${randomIndex}, selected player: ${refereePlayerId}`);
-
-        this.players[refereePlayerId].hasRefereeCard = true;
-        session.referee = refereePlayerId;
-        session.initialRefereeCard = refereeCard; // Store the actual referee card object
-
-        // Synchronize with Firebase
-        await updateFirestoreRefereeCard(sessionId, refereePlayerId);
-        // #TODO logic to assign the refereeCard object to the player's hand in Firebase, considering it as a "rule card"
-        // This will likely involve getting the player's current hand, adding the refereeCard to it, and calling updateFirestorePlayerHand.
-
-        console.log(`Referee card assigned to player ${refereePlayer.displayName} (${refereePlayerId}) in session ${sessionId} and synced with Firebase.`);
-        return refereePlayerId;
     }
 
     /**

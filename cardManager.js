@@ -2,6 +2,12 @@
 // Card Manager subsystem for deck management, shuffling, discard piles, and draw logic
 
 import { GameCard } from './cardModels.js';
+import {
+    updateFirestorePlayerHand,
+    updateFirestorePlayerRuleCards,
+    updateFirestoreRefereeCard,
+    getFirestorePlayersInSession
+} from './firebaseOperations.js';
 
 export class CardManager {
     constructor(deckDefinitions) {
@@ -161,7 +167,7 @@ export class CardManager {
             
             // If GameManager is available, handle rule activation
             if (gameState.gameManager && gameState.sessionId) {
-                const activationResult = await gameState.gameManager.handleCardDrawn(
+                const activationResult = await this.handleCardDrawn(
                     gameState.sessionId,
                     playerId,
                     card,
@@ -193,6 +199,952 @@ export class CardManager {
      */
     createCloneCard(card, ownerId) {
         return GameCard.createClone(card, ownerId);
+    }
+
+    /**
+     * Assigns a hand of cards to a player and synchronizes with Firebase.
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {Array} cards - Array of cards to assign
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {Promise<void>}
+     */
+    async assignPlayerHand(sessionId, playerId, cards, gameManager) {
+        if (!gameManager || !gameManager.players[playerId]) {
+            console.warn(`Player ${playerId} not found locally.`);
+            return;
+        }
+
+        // Assign ownership to all cards
+        this.assignCardOwnership(playerId, cards);
+        
+        gameManager.players[playerId].hand = cards;
+        await updateFirestorePlayerHand(sessionId, playerId, cards);
+        console.log(`Player ${playerId}'s hand assigned with ${cards.length} cards and synced with Firebase.`);
+    }
+
+    /**
+     * Randomly assigns the referee card to one of the active players in a given session,
+     * and synchronizes with Firebase. This card can be swapped later as a rule card.
+     * @param {string} sessionId - The ID of the game session.
+     * @param {object} refereeCard - The referee card object.
+     * @param {object} gameManager - Reference to the game manager
+     * @returns {Promise<string|null>} - The playerId who was assigned the referee card, or null if no active players.
+     */
+    async assignRefereeCard(sessionId, refereeCard, gameManager) {
+        const session = gameManager.gameSessions[sessionId];
+        if (!session) {
+            console.warn(`No session found for ${sessionId}.`);
+            return null;
+        }
+
+        // Always query Firestore for players, even if local session shows no players
+        // This ensures we get the most up-to-date player information
+        const activePlayersInSession = (await getFirestorePlayersInSession(sessionId)).filter(player => player.status === 'active');
+
+        if (activePlayersInSession.length === 0) {
+            console.warn(`No active players in session ${sessionId} to assign referee card.`);
+            return null;
+        }
+
+        // Clear previous referee if any (both locally and in Firebase)
+        if (session.referee) {
+            gameManager.players[session.referee].hasRefereeCard = false;
+            // No need to update Firestore for old referee, as new assignment will overwrite game.referee
+        }
+
+        // Use Math.random() to select a player index
+        // For testing, this can be mocked to return a specific value
+        const randomValue = Math.random();
+        const randomIndex = Math.floor(randomValue * activePlayersInSession.length);
+        const refereePlayer = activePlayersInSession[randomIndex];
+        const refereePlayerId = refereePlayer.uid;
+        
+        console.log(`Random value: ${randomValue}, index: ${randomIndex}, selected player: ${refereePlayerId}`);
+
+        gameManager.players[refereePlayerId].hasRefereeCard = true;
+        session.referee = refereePlayerId;
+        session.initialRefereeCard = refereeCard; // Store the actual referee card object
+
+        // Synchronize with Firebase
+        await updateFirestoreRefereeCard(sessionId, refereePlayerId);
+        // #TODO logic to assign the refereeCard object to the player's hand in Firebase, considering it as a "rule card"
+        // This will likely involve getting the player's current hand, adding the refereeCard to it, and calling updateFirestorePlayerHand.
+
+        console.log(`Referee card assigned to player ${refereePlayer.displayName} (${refereePlayerId}) in session ${sessionId} and synced with Firebase.`);
+        return refereePlayerId;
+    }
+
+    /**
+     * Handle card drawing and rule activation
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player drawing the card
+     * @param {Object} card - The drawn card
+     * @param {Object} gameContext - Additional game context including gameManager reference
+     * @returns {object} - {success: boolean, activeRule?: object, error?: string}
+     */
+    async handleCardDrawn(sessionId, playerId, card, gameContext = {}) {
+        console.log(`[CARD_MANAGER] Handling card drawn for player ${playerId} in session ${sessionId}: ${card.name || card.id}`);
+        
+        const { gameManager } = gameContext;
+        if (!gameManager) {
+            console.error('[CARD_MANAGER] GameManager reference required for handleCardDrawn');
+            return { success: false, error: 'GameManager reference required' };
+        }
+
+        let actualCard = card;
+        let displayType = card.type;
+        
+        // If it's a flip card and player has no rule/modifier, replace it
+        if (card.type === 'Flip' && !this.playerHasRuleOrModifier(playerId, gameManager)) {
+            const replacementTypes = ['Rule', 'Modifier'];
+            const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
+            
+            // Get replacement card
+            try {
+                // Map the card type to the deckKey used in the wheel
+                // Rule -> deckType1, Modifier -> deckType3
+                const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
+                actualCard = this.draw(deckKey);
+                displayType = newType;
+                console.log(`[CARD_MANAGER] Replaced flip card with ${newType} for player ${playerId}`);
+            } catch (error) {
+                console.error(`[CARD_MANAGER] Error replacing flip card:`, error);
+                // If replacement fails, proceed with the original flip card
+            }
+        }
+        
+        // Check for clone card replacement logic
+        if (card.type === 'Clone' && !this.anyPlayerHasRuleOrModifier(sessionId, gameManager)) {
+            const replacementTypes = ['Rule', 'Modifier'];
+            const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
+            
+            try {
+                const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
+                actualCard = this.draw(deckKey);
+                displayType = newType;
+                console.log(`[CARD_MANAGER] Replaced clone card with ${newType} for player ${playerId} as no other players had rule/modifier.`);
+            } catch (error) {
+                console.error(`[CARD_MANAGER] Error replacing clone card:`, error);
+            }
+        }
+        
+        // Update wheel display to show actual card type
+        if (window.wheelComponent) {
+            const cardType = window.wheelComponent.getCardTypeByName(displayType);
+            if (cardType) {
+                window.wheelComponent.updateWheelDisplay(cardType);
+            }
+        }
+        
+        try {
+            // Handle special card types
+            if (card.type === 'prompt') {
+                return this.activatePromptCard(sessionId, playerId, card, gameManager);
+            }
+
+            return {
+                success: true,
+                message: 'Card drawn successfully (no rule to activate)'
+            };
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error handling card drawn:`, error);
+            return {
+                success: false,
+                error: 'Failed to process card draw',
+                errorCode: 'CARD_PROCESSING_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Check if player has any rule or modifier card
+     * @param {string} playerId
+     * @param {object} gameManager - Reference to game manager
+     * @returns {boolean}
+     */
+    playerHasRuleOrModifier(playerId, gameManager) {
+        const player = gameManager.players[playerId];
+        if (!player || !player.hand || player.hand.length === 0) return false;
+        
+        return player.hand.some(card =>
+            card.type === 'Rule' || card.type === 'Modifier'
+        );
+    }
+
+    /**
+     * Check if any player in the session has a rule or modifier card
+     * @param {string} sessionId
+     * @param {object} gameManager - Reference to game manager
+     * @returns {boolean}
+     */
+    anyPlayerHasRuleOrModifier(sessionId, gameManager) {
+        const session = gameManager.gameSessions[sessionId];
+        if (!session || !session.players) return false;
+
+        for (const playerId of session.players) {
+            if (this.playerHasRuleOrModifier(playerId, gameManager)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Set ownership for cards when they are dealt or acquired
+     * Core implementation for requirement 5.2.1
+     * @param {string} playerId - The player ID
+     * @param {array} cards - Array of cards to assign ownership
+     * @returns {boolean} - Success status
+     */
+    assignCardOwnership(playerId, cards) {
+        if (!cards || !Array.isArray(cards)) {
+            console.error(`[CARD_MANAGER] Cannot assign ownership: Invalid cards array`);
+            return false;
+        }
+
+        let assignedCount = 0;
+        for (const card of cards) {
+            if (card && typeof card.setOwner === 'function') {
+                card.setOwner(playerId);
+                assignedCount++;
+            }
+        }
+
+        console.log(`[CARD_MANAGER] Assigned ownership of ${assignedCount} cards to player ${playerId}`);
+        return true;
+    }
+
+    /**
+     * Apply card effects to players or the game state
+     * Core implementation for requirement 3.3.1
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player applying the card effect
+     * @param {Object} card - The card whose effect is being applied
+     * @param {Object} effectContext - Additional context for the effect
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {object} - {success: boolean, effects?: Array, error?: string}
+     */
+    async applyCardEffect(sessionId, playerId, card, effectContext = {}, gameManager) {
+        console.log(`[CARD_MANAGER] Applying card effect for player ${playerId} in session ${sessionId}: ${card.name || card.id}`);
+        
+        if (!gameManager) {
+            return {
+                success: false,
+                error: 'GameManager reference required',
+                errorCode: 'MISSING_GAME_MANAGER'
+            };
+        }
+
+        try {
+            // Validate session and player
+            const validation = gameManager.validatePlayerAction(sessionId, playerId, 'apply_effect');
+            if (!validation.valid) {
+                return {
+                    success: false,
+                    error: validation.error,
+                    errorCode: validation.errorCode
+                };
+            }
+
+            // Validate card
+            if (!card || !card.type) {
+                return {
+                    success: false,
+                    error: 'Invalid card provided',
+                    errorCode: 'INVALID_CARD'
+                };
+            }
+
+            let result = { success: true, effects: [] };
+
+            // Apply effects based on card type
+            switch (card.type.toLowerCase()) {
+                case 'rule':
+                    result = await this.applyRuleCardEffect(sessionId, playerId, card, effectContext, gameManager);
+                    break;
+                
+                case 'modifier':
+                    result = await this.applyModifierCardEffect(sessionId, playerId, card, effectContext, gameManager);
+                    break;
+                
+                case 'prompt':
+                    result = await this.applyPromptCardEffect(sessionId, playerId, card, effectContext, gameManager);
+                    break;
+                
+                case 'clone':
+                    result = await this.applyCloneCardEffect(sessionId, playerId, card, effectContext, gameManager);
+                    break;
+                
+                case 'flip':
+                    result = await this.applyFlipCardEffect(sessionId, playerId, card, effectContext, gameManager);
+                    break;
+                
+                case 'swap':
+                    result = await this.applySwapCardEffect(sessionId, playerId, card, effectContext, gameManager);
+                    break;
+                
+                default:
+                    return {
+                        success: false,
+                        error: `Unknown card type: ${card.type}`,
+                        errorCode: 'UNKNOWN_CARD_TYPE'
+                    };
+            }
+
+            // Log the effect application
+            if (result.success) {
+                console.log(`[CARD_MANAGER] Successfully applied ${card.type} card effect: ${card.id}`);
+            }
+
+            return result;
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error applying card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply card effect',
+                errorCode: 'EFFECT_APPLICATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply rule card effects - activates new rules in the game
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player applying the rule
+     * @param {Object} ruleCard - The rule card
+     * @param {Object} effectContext - Additional context
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {object} - Effect application result
+     */
+    async applyRuleCardEffect(sessionId, playerId, ruleCard, effectContext = {}, gameManager) {
+        try {
+            // Get the active rule text (front or back side)
+            const ruleText = ruleCard.getCurrentRule ? ruleCard.getCurrentRule() : ruleCard.frontRule || ruleCard.sideA;
+            
+            if (!ruleText) {
+                return {
+                    success: false,
+                    error: 'Rule card has no rule text',
+                    errorCode: 'NO_RULE_TEXT'
+                };
+            }
+
+            // TODO: Skip rule engine activation for now and just handle card storage
+            const player = gameManager.players[playerId];
+            if (player) {
+                console.log(`[DEBUG] Player ${playerId} current ruleCards before adding:`, player.ruleCards);
+                // Add card to player's ruleCards if not already there
+                if (!player.ruleCards.find(c => c.id === ruleCard.id)) {
+                    player.ruleCards.push(ruleCard);
+                    console.log(`[DEBUG] Player ${playerId} ruleCards after adding:`, player.ruleCards);
+                    // Persist the updated ruleCards to Firebase
+                    await updateFirestorePlayerRuleCards(playerId, player.ruleCards);
+                }
+                // Also add to hand if it's not there (for display purposes, if needed elsewhere)
+                if (!player.hand.find(c => c.id === ruleCard.id)) {
+                    player.hand.push(ruleCard);
+                    await this.assignPlayerHand(sessionId, playerId, player.hand, gameManager);
+                }
+
+                // Update rule displays automatically after adding rule card
+                try {
+                    // Update current player's active rules display
+                    if (window.updateActiveRulesDisplay) {
+                        window.updateActiveRulesDisplay();
+                    }
+                    // Update all players' rule cards display
+                    if (window.updatePlayerRuleCards) {
+                        window.updatePlayerRuleCards(sessionId);
+                    }
+                    console.log(`[CARD_MANAGER] Updated rule displays after adding rule card for player ${playerId}`);
+                } catch (displayError) {
+                    console.warn(`[CARD_MANAGER] Error updating rule displays:`, displayError);
+                }
+            }
+
+            // For now, return success without rule engine activation
+            // TODO: Fix rule engine session tracking later
+            return {
+                success: true,
+                effects: [{
+                    type: 'rule_activated',
+                    ruleId: ruleCard.id,
+                    ruleText: ruleText,
+                    playerId: playerId
+                }],
+                message: 'Rule card added to player collection'
+            };
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error applying rule card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply rule card effect',
+                errorCode: 'RULE_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply modifier card effects - modifies existing rules or game mechanics
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player applying the modifier
+     * @param {Object} modifierCard - The modifier card
+     * @param {Object} effectContext - Additional context
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {object} - Effect application result
+     */
+    async applyModifierCardEffect(sessionId, playerId, modifierCard, effectContext = {}, gameManager) {
+        try {
+            const modifierText = modifierCard.getCurrentRule ? modifierCard.getCurrentRule() : modifierCard.frontRule || modifierCard.sideA;
+            
+            if (!modifierText) {
+                return {
+                    success: false,
+                    error: 'Modifier card has no modifier text',
+                    errorCode: 'NO_MODIFIER_TEXT'
+                };
+            }
+            
+            const player = gameManager.players[playerId];
+            if (player) {
+                console.log(`[DEBUG] Player ${playerId} current ruleCards before adding modifier:`, player.ruleCards);
+                // Add card to player's ruleCards if not already there
+                if (!player.ruleCards.find(c => c.id === modifierCard.id)) {
+                    player.ruleCards.push(modifierCard);
+                    console.log(`[DEBUG] Player ${playerId} ruleCards after adding modifier:`, player.ruleCards);
+                    // Persist the updated ruleCards to Firebase
+                    await updateFirestorePlayerRuleCards(playerId, player.ruleCards);
+                }
+                // Also add to hand if it's not there (for display purposes, if needed elsewhere)
+                if (!player.hand.find(c => c.id === modifierCard.id)) {
+                    player.hand.push(modifierCard);
+                    await this.assignPlayerHand(sessionId, playerId, player.hand, gameManager);
+                }
+
+                // Update rule displays automatically after adding modifier card
+                try {
+                    // Update current player's active rules display
+                    if (window.updateActiveRulesDisplay) {
+                        window.updateActiveRulesDisplay();
+                    }
+                    // Update all players' rule cards display
+                    if (window.updatePlayerRuleCards) {
+                        window.updatePlayerRuleCards(sessionId);
+                    }
+                    console.log(`[CARD_MANAGER] Updated rule displays after adding modifier card for player ${playerId}`);
+                } catch (displayError) {
+                    console.warn(`[CARD_MANAGER] Error updating rule displays:`, displayError);
+                }
+            }
+
+            // For now, return success without rule engine activation
+            // TODO: Fix rule engine session tracking later
+            return {
+                success: true,
+                effects: [{
+                    type: 'modifier_applied',
+                    modifierId: modifierCard.id,
+                    modifierText: modifierText,
+                    playerId: playerId
+                }],
+                message: 'Modifier card added to player collection'
+            };
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error applying modifier card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply modifier card effect',
+                errorCode: 'MODIFIER_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Apply prompt card effects - initiates prompt challenges
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who drew the prompt
+     * @param {Object} promptCard - The prompt card
+     * @param {Object} effectContext - Additional context
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {object} - Effect application result
+     */
+    async applyPromptCardEffect(sessionId, playerId, promptCard, effectContext = {}, gameManager) {
+        try {
+            // Use existing activatePromptCard method
+            const promptResult = this.activatePromptCard(sessionId, playerId, promptCard, gameManager);
+            
+            if (promptResult.success) {
+                return {
+                    success: true,
+                    effects: [{
+                        type: 'prompt_activated',
+                        promptId: promptCard.id,
+                        promptText: promptCard.description || promptCard.name || promptCard.frontRule,
+                        playerId: playerId,
+                        pointValue: promptCard.point_value || promptCard.pointValue || 1
+                    }],
+                    promptState: promptResult.promptState
+                };
+            }
+
+            return promptResult;
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error applying prompt card effect:`, error);
+            return {
+                success: false,
+                error: 'Failed to apply prompt card effect',
+                errorCode: 'PROMPT_EFFECT_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Handle drawing and activating a Prompt Card
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who drew the prompt card
+     * @param {Object} promptCard - The prompt card object
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {object} - {success: boolean, promptState?: object, error?: string}
+     */
+    activatePromptCard(sessionId, playerId, promptCard, gameManager) {
+        console.log(`[CARD_MANAGER] Activating prompt card for player ${playerId} in session ${sessionId}`);
+        
+        // Validate session and player
+        const validation = gameManager.validatePlayerAction(sessionId, playerId, 'prompt');
+        if (!validation.valid) {
+            return {
+                success: false,
+                error: validation.error,
+                errorCode: validation.errorCode
+            };
+        }
+
+        // Validate prompt card structure
+        if (!promptCard || promptCard.type !== 'prompt') {
+            return {
+                success: false,
+                error: 'Invalid prompt card provided',
+                errorCode: 'INVALID_PROMPT_CARD'
+            };
+        }
+
+        // Create prompt state
+        const promptState = {
+            sessionId: sessionId,
+            playerId: playerId,
+            promptCard: promptCard,
+            status: 'active', // active, completed, judging, finished
+            startTime: Date.now(),
+            timeLimit: 60000, // 60 seconds default
+            endTime: null,
+            refereeJudgment: null // Will be set by referee
+        };
+
+        // Store active prompt state
+        if (!gameManager.activePrompts) {
+            gameManager.activePrompts = {};
+        }
+        gameManager.activePrompts[sessionId] = promptState;
+
+        console.log(`[CARD_MANAGER] Prompt card activated: ${promptCard.description || promptCard.getCurrentText()}`);
+        
+        return {
+            success: true,
+            promptState: promptState
+        };
+    }
+
+    validateSpecialActionConflicts(sessionId, actionType, actionContext, gameManager) {
+        // TODO: Implement special action conflict validation
+        console.log(`[CARD_MANAGER] validateSpecialActionConflicts placeholder called`);
+        return { canProceed: true, conflicts: [] };
+    }
+
+    handleSpecialActionInteractions(sessionId, actionType, actionContext, gameManager) {
+        // TODO: Implement special action interactions
+        console.log(`[CARD_MANAGER] handleSpecialActionInteractions placeholder called`);
+        return { success: true, interactions: [] };
+    }
+
+    /**
+     * Clone another player's card for the requesting player
+     * @param {string} sessionId
+     * @param {string} playerId - player performing the clone
+     * @param {string} targetPlayerId - owner of the card to clone
+     * @param {string} targetCardId - ID of the card to clone
+     * @param {Object} gameManager - Reference to game manager
+     */
+    cloneCard(sessionId, playerId, targetPlayerId, targetCardId, gameManager) {
+        const validation = gameManager.validatePlayerAction(sessionId, playerId, 'clone');
+        if (!validation.valid) {
+            return { success: false, error: validation.error, errorCode: validation.errorCode };
+        }
+
+        const targetPlayer = gameManager.players[targetPlayerId];
+        if (!targetPlayer) {
+            return { success: false, error: 'Target player not found', errorCode: 'TARGET_NOT_FOUND' };
+        }
+
+        const originalCard = targetPlayer.hand.find(c => c.id === targetCardId);
+        if (!originalCard) {
+            return { success: false, error: 'Card not found for target player', errorCode: 'CARD_NOT_FOUND' };
+        }
+
+        // Create clone with proper ownership
+        const clone = this.createCloneCard(originalCard, targetPlayerId, playerId);
+        
+        // Ensure clone ownership is set
+        clone.setOwner(playerId);
+        
+        gameManager.players[playerId].hand.push(clone);
+
+        if (!gameManager.cloneMap[originalCard.id]) gameManager.cloneMap[originalCard.id] = [];
+        gameManager.cloneMap[originalCard.id].push({ ownerId: playerId, cloneId: clone.id });
+
+        console.log(`[CARD_MANAGER] Player ${playerId} cloned card ${originalCard.id} from ${targetPlayerId}`);
+        return { success: true, clone: clone.getDisplayInfo() };
+    }
+
+    /**
+     * Flip a card in a player's hand or on the board
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID attempting to flip the card
+     * @param {string|Object} cardIdentifier - Card ID string or card object
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {object} - {success: boolean, card?: Object, error?: string, errorCode?: string}
+     */
+    flipCard(sessionId, playerId, cardIdentifier, gameManager) {
+        console.log(`[CARD_MANAGER] Attempting to flip card for player ${playerId} in session ${sessionId}`);
+        
+        // Validate session and player
+        const validation = gameManager.validatePlayerAction(sessionId, playerId, 'flip');
+        if (!validation.valid) {
+            return {
+                success: false,
+                error: validation.error,
+                errorCode: validation.errorCode
+            };
+        }
+
+        try {
+            let card = null;
+            let cardLocation = null;
+
+            // Handle different card identifier types
+            if (typeof cardIdentifier === 'string') {
+                // Find card by ID in player's hand
+                const player = gameManager.players[playerId];
+                card = player.hand.find(c => c.id === cardIdentifier);
+                if (card) {
+                    cardLocation = 'hand';
+                } else {
+                    // TODO: Check for card on the board/active rules when that system is implemented
+                    return {
+                        success: false,
+                        error: 'Card not found in player\'s hand',
+                        errorCode: 'CARD_NOT_FOUND'
+                    };
+                }
+            } else if (cardIdentifier && typeof cardIdentifier === 'object' && cardIdentifier.id) {
+                // Card object provided directly
+                card = cardIdentifier;
+                cardLocation = 'provided';
+            } else {
+                return {
+                    success: false,
+                    error: 'Invalid card identifier provided',
+                    errorCode: 'INVALID_CARD_IDENTIFIER'
+                };
+            }
+
+            // Validate card can be flipped
+            if (!card) {
+                return {
+                    success: false,
+                    error: 'Card not found',
+                    errorCode: 'CARD_NOT_FOUND'
+                };
+            }
+
+            // Check if card type supports flipping
+            if (card.type === 'prompt') {
+                return {
+                    success: false,
+                    error: 'Prompt cards cannot be flipped',
+                    errorCode: 'CARD_NOT_FLIPPABLE'
+                };
+            }
+
+            // Check if card has a back rule
+            if (!card.backRule && !card.sideB) {
+                return {
+                    success: false,
+                    error: 'Card has no alternate side to flip to',
+                    errorCode: 'NO_BACK_RULE'
+                };
+            }
+
+            // Attempt to flip the card
+            const flipResult = card.flip();
+            if (!flipResult) {
+                return {
+                    success: false,
+                    error: 'Failed to flip card',
+                    errorCode: 'FLIP_FAILED'
+                };
+            }
+
+            console.log(`[CARD_MANAGER] Successfully flipped card ${card.id} to ${card.currentSide} side`);
+            console.log(`[CARD_MANAGER] New rule text: ${card.getCurrentRule()}`);
+
+            // Update game state if card is in player's hand
+            if (cardLocation === 'hand') {
+                // The card object is already updated by reference, but we could
+                // trigger a Firebase sync here if needed
+                // TODO: Sync updated card state to Firebase
+            }
+
+            return {
+                success: true,
+                card: card,
+                newRule: card.getCurrentRule(),
+                newSide: card.currentSide,
+                isFlipped: card.isFlipped
+            };
+
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error flipping card:`, error);
+            return {
+                success: false,
+                error: 'An unexpected error occurred while flipping the card',
+                errorCode: 'FLIP_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Transfer a card between players with comprehensive ownership tracking
+     * Core implementation for requirement 5.2.2
+     * @param {string} sessionId - The session ID
+     * @param {string} fromPlayerId - Source player ID
+     * @param {string} toPlayerId - Destination player ID
+     * @param {string|object} cardIdentifier - Card ID string or card object to transfer
+     * @param {string} reason - Reason for the transfer (for logging and events)
+     * @param {object} transferContext - Additional context for the transfer
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {object} - {success: boolean, transfer?: object, error?: string, errorCode?: string}
+     */
+    async transferCard(sessionId, fromPlayerId, toPlayerId, cardIdentifier, reason = 'Card transfer', transferContext = {}, gameManager) {
+        console.log(`[CARD_MANAGER] Initiating transfer: ${cardIdentifier} from ${fromPlayerId} to ${toPlayerId} (${reason})`);
+        
+        try {
+            // Validate session
+            const session = gameManager.gameSessions[sessionId];
+            if (!session) {
+                return {
+                    success: false,
+                    error: 'Game session not found',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+
+            // Validate players
+            const fromPlayer = gameManager.players[fromPlayerId];
+            const toPlayer = gameManager.players[toPlayerId];
+            
+            if (!fromPlayer) {
+                return {
+                    success: false,
+                    error: 'Source player not found',
+                    errorCode: 'FROM_PLAYER_NOT_FOUND'
+                };
+            }
+
+            if (!toPlayer) {
+                return {
+                    success: false,
+                    error: 'Destination player not found',
+                    errorCode: 'TO_PLAYER_NOT_FOUND'
+                };
+            }
+
+            // Find the card to transfer
+            let card = null;
+            let cardIndex = -1;
+
+            if (typeof cardIdentifier === 'string') {
+                // Card ID provided
+                cardIndex = fromPlayer.hand.findIndex(c => c.id === cardIdentifier);
+                if (cardIndex !== -1) {
+                    card = fromPlayer.hand[cardIndex];
+                }
+            } else if (cardIdentifier && typeof cardIdentifier === 'object' && cardIdentifier.id) {
+                // Card object provided
+                cardIndex = fromPlayer.hand.findIndex(c => c.id === cardIdentifier.id);
+                if (cardIndex !== -1) {
+                    card = fromPlayer.hand[cardIndex];
+                }
+            }
+
+            if (!card || cardIndex === -1) {
+                return {
+                    success: false,
+                    error: 'Card not found in source player\'s hand',
+                    errorCode: 'CARD_NOT_FOUND'
+                };
+            }
+
+            // Perform the transfer
+            const [transferredCard] = fromPlayer.hand.splice(cardIndex, 1);
+            
+            // Update card ownership
+            transferredCard.setOwner(toPlayerId);
+            
+            // Add to destination player's hand
+            toPlayer.hand.push(transferredCard);
+
+            // Create transfer record
+            const transferRecord = {
+                sessionId,
+                fromPlayerId,
+                toPlayerId,
+                cardId: transferredCard.id,
+                cardType: transferredCard.type,
+                cardName: transferredCard.name || transferredCard.getCurrentText(),
+                reason,
+                timestamp: Date.now(),
+                transferContext,
+                fromPlayerName: fromPlayer.displayName,
+                toPlayerName: toPlayer.displayName
+            };
+
+            // Update Firebase
+            try {
+                await this.assignPlayerHand(sessionId, fromPlayerId, fromPlayer.hand, gameManager);
+                await this.assignPlayerHand(sessionId, toPlayerId, toPlayer.hand, gameManager);
+            } catch (firebaseError) {
+                console.error(`[CARD_MANAGER] Firebase sync error:`, firebaseError);
+                // Continue with local transfer even if Firebase fails
+            }
+
+            console.log(`[CARD_MANAGER] Successfully transferred card ${transferredCard.id} from ${fromPlayer.displayName} to ${toPlayer.displayName}`);
+            
+            return {
+                success: true,
+                transfer: transferRecord,
+                card: transferredCard.getDisplayInfo()
+            };
+
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error transferring card:`, error);
+            return {
+                success: false,
+                error: 'Failed to transfer card due to unexpected error',
+                errorCode: 'TRANSFER_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Get all cards owned by a specific player across all their locations
+     * @param {string} playerId - The player ID
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {array} - Array of cards owned by the player
+     */
+    getPlayerOwnedCards(playerId, gameManager) {
+        const player = gameManager.players[playerId];
+        if (!player) {
+            return [];
+        }
+
+        // Return cards in player's hand (primary location for card ownership)
+        return player.hand.map(card => {
+            // Ensure ownership is correctly set
+            if (!card.owner || card.owner !== playerId) {
+                card.setOwner(playerId);
+            }
+            return card.getDisplayInfo();
+        });
+    }
+
+    /**
+     * Remove a card from a player's hand and clean up any related clones
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {string} cardId - The card ID to remove
+     * @param {Object} gameManager - Reference to game manager
+     * @returns {boolean} - Success status
+     */
+    removeCardFromPlayer(sessionId, playerId, cardId, gameManager) {
+        const player = gameManager.players[playerId];
+        if (!player) return false;
+        const index = player.hand.findIndex(c => c.id === cardId);
+        if (index === -1) return false;
+
+        const [removed] = player.hand.splice(index, 1);
+
+        // If this card has clones, remove them as well
+        if (gameManager.cloneMap[removed.id]) {
+            gameManager.cloneMap[removed.id].forEach(ref => {
+                this.removeCardFromPlayer(sessionId, ref.ownerId, ref.cloneId, gameManager);
+            });
+            delete gameManager.cloneMap[removed.id];
+        }
+
+        // If this card is a clone, remove from mapping
+        if (removed.isClone && removed.cloneSource) {
+            const list = gameManager.cloneMap[removed.cloneSource.cardId];
+            if (list) {
+                gameManager.cloneMap[removed.cloneSource.cardId] = list.filter(ref => ref.cloneId !== removed.id);
+                if (gameManager.cloneMap[removed.cloneSource.cardId].length === 0) {
+                    delete gameManager.cloneMap[removed.cloneSource.cardId];
+                }
+            }
+        }
+
+        console.log(`[CARD_MANAGER] Removed card ${cardId} from player ${playerId}`);
+        return true;
+    }
+
+    /**
+     * Get user-friendly error message for card flip failures
+     * @param {string} errorCode - The error code from flipCard()
+     * @returns {string} - User-friendly error message
+     */
+    getFlipCardErrorMessage(errorCode) {
+        const errorMessages = {
+            'SESSION_NOT_FOUND': 'Game session not found. Please refresh and try again.',
+            'PLAYER_NOT_FOUND': 'Player not found. Please refresh and try again.',
+            'PLAYER_INACTIVE': 'You cannot flip cards while disconnected.',
+            'TURN_NOT_INITIALIZED': 'Game turn system not ready. Please wait.',
+            'NOT_PLAYER_TURN': 'You can only flip cards during your turn.',
+            'CARD_NOT_FOUND': 'Card not found. It may have been moved or removed.',
+            'INVALID_CARD_IDENTIFIER': 'Invalid card specified. Please try again.',
+            'CARD_NOT_FLIPPABLE': 'This type of card cannot be flipped.',
+            'NO_BACK_RULE': 'This card has no alternate side to flip to.',
+            'FLIP_FAILED': 'Failed to flip the card. Please try again.',
+            'FLIP_ERROR': 'An unexpected error occurred. Please try again.'
+        };
+
+        return errorMessages[errorCode] || 'An unknown error occurred while flipping the card.';
+    }
+
+    swapCards(sessionId, player1Id, player2Id, card1Id, card2Id, gameManager) {
+        // TODO: Move implementation from gameManager.js
+        console.log(`[CARD_MANAGER] swapCards placeholder called`);
+        return { success: false, error: 'Not yet implemented' };
+    }
+
+    swapRefereeRole(sessionId, currentRefereeId, newRefereeId, gameManager) {
+        // TODO: Move implementation from gameManager.js
+        console.log(`[CARD_MANAGER] swapRefereeRole placeholder called`);
+        return { success: false, error: 'Not yet implemented' };
+    }
+
+    updateCloneMapForSwap(card1Id, card2Id, player1Id, player2Id, gameManager) {
+        // TODO: Move implementation from gameManager.js
+        console.log(`[CARD_MANAGER] updateCloneMapForSwap placeholder called`);
     }
 
     // Determines which deck to draw from based on game context (e.g., player row)
