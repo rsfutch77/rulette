@@ -269,6 +269,11 @@ function clearPersistentPlayerID() {
   });
   
   console.log("[WHEEL] Wheel component initialized and integrated");
+  
+  // Attempt session reconnect if session exists in localStorage
+  if (tryReconnectToSession()) {
+    console.log("[SESSION] Reconnected to existing session");
+  }
 
   // ...rest of your initialization code that depends on cardManager...
 })();
@@ -467,6 +472,8 @@ async function handleCreateGame() {
       // FIXME: Critical bug fix - set window.currentSessionId when creating session
       window.currentSessionId = session.sessionId;
       console.log('[SESSION] Set currentSessionId to:', session.sessionId);
+      // Save session ID to localStorage for persistence
+      localStorage.setItem('rulette_session_id', session.sessionId);
       
       // Hide main menu and show lobby
       console.log("DEBUG: Hiding main menu and showing lobby");
@@ -497,6 +504,56 @@ async function handleCreateGame() {
     console.error('[CREATE_GAME] Error:', error); // FIXME: Exception in handleCreateGame
     showNotification('Failed to create game: ' + error.message, 'Creation Error');
   }
+}
+
+// Added session persistence functions
+function tryReconnectToSession() {
+  const sessionId = localStorage.getItem('rulette_session_id');
+  
+  // Handle undefined or invalid session IDs
+  if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
+    console.log('[SESSION] No valid saved session ID found, redirecting to home page');
+    // Clear any invalid session data
+    localStorage.removeItem('rulette_session_id');
+    return false;
+  }
+
+  console.log('[SESSION] Found saved session ID:', sessionId);
+  
+  const playerName = localStorage.getItem('rulette_player_name');
+  const playerId = localStorage.getItem('rulette_player_id');
+  
+  if (!playerName || !playerId) {
+    console.log('[SESSION] No player info found for reconnect');
+    return false;
+  }
+  
+  // Set current player from localStorage
+  currentPlayer = {
+    uid: playerId,
+    displayName: playerName,
+    email: null,
+    isDev: false
+  };
+  
+  window.currentSessionId = sessionId;
+  console.log('[SESSION] Reconnecting to session:', sessionId);
+  
+  // Hide main menu and show game page
+  document.getElementById('main-menu').style.display = 'none';
+  document.getElementById('game-page').style.display = 'block';
+  
+  // Set up Firebase listener for session updates
+  if (typeof window.setupFirebaseSessionListener === 'function') {
+    window.setupFirebaseSessionListener();
+  }
+  
+  return true;
+}
+
+function clearSession() {
+  localStorage.removeItem('rulette_session_id');
+  window.currentSessionId = null;
 }
 
 // Simplified game joining for new UI
@@ -555,6 +612,9 @@ async function handleJoinGame(gameCode) {
     showNotification(errorMsg, 'Join Error');
   }
 }
+
+// Save session ID to localStorage after successful join
+localStorage.setItem('rulette_session_id', window.currentSessionId);
 
 // Initialize notification elements and rule display manager when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -3709,6 +3769,7 @@ window.testSwapCardEffect = function() {
  */
 function showEndGameModal(gameResults) {
     console.log('[END_GAME] Showing end-game modal:', gameResults);
+    clearSession(); // Clear session storage when game ends
     
     try {
         const modal = document.getElementById('end-game-modal');
@@ -4441,7 +4502,12 @@ async function handleCreateSession() {
         
         // Update lobby display now that we have a session ID
         setTimeout(() => {
-            updateLobbyDisplay();
+            if (window.currentSessionId && window.currentSessionId !== "undefined") {
+              updateLobbyDisplay();
+            } else {
+              console.error("[SESSION] Cannot update lobby display - invalid session ID");
+              redirectToHomePage();
+            }
         }, 1000);
         
     } catch (error) {
@@ -4502,7 +4568,12 @@ async function handleJoinSession() {
                 console.log('[SESSION] Redirecting to lobby...');
                 
                 // Update lobby display now that we have a session ID
-                updateLobbyDisplay();
+                if (window.currentSessionId && window.currentSessionId !== "undefined") {
+                  updateLobbyDisplay();
+                } else {
+                  console.error("[SESSION] Cannot update lobby display - invalid session ID");
+                  redirectToHomePage();
+                }
             }, 2000);
             
         } else {
@@ -4764,11 +4835,11 @@ function updateSessionTerminationButtonVisibility() {
     
     try {
         const currentUser = getCurrentUser();
-        const isHost = window.gameManager?.isHost(currentUser?.uid);
-        const sessionExists = window.gameManager?.currentSession;
+        const session = window.gameManager?.currentSession;
+        const isHost = session ? session.hostId === currentUser?.uid : false;
         
         // Show button only if user is host and session exists
-        if (isHost && sessionExists) {
+        if (isHost && session) {
             terminateBtn.style.display = 'inline-block';
         } else {
             terminateBtn.style.display = 'none';
@@ -4896,10 +4967,10 @@ function setupSessionTerminationEventListeners() {
     if (!window.gameManager) return;
     
     // Listen for session termination events
-    window.gameManager.addEventListener('sessionTerminated', handleSessionTerminationEvent);
+    window.addEventListener('sessionTerminated', handleSessionTerminationEvent);
     
     // Listen for host changes to update button visibility
-    window.gameManager.addEventListener('hostChanged', updateSessionTerminationButtonVisibility);
+    window.addEventListener('hostChanged', updateSessionTerminationButtonVisibility);
     
     // Listen for session state changes
     window.addEventListener('sessionStateChange', (event) => {
@@ -6197,12 +6268,13 @@ let lastSessionId = window.currentSessionId;
 setInterval(() => {
     if (window.currentSessionId !== lastSessionId) {
         lastSessionId = window.currentSessionId;
-        if (window.currentSessionId) {
+        // FIXME: Add validation to prevent storing undefined/null values
+        if (window.currentSessionId && window.currentSessionId !== 'undefined' && window.currentSessionId !== 'null') {
             localStorage.setItem('currentSessionId', window.currentSessionId);
             console.log('[SESSION_PERSIST] Stored session ID:', window.currentSessionId);
         } else {
             localStorage.removeItem('currentSessionId');
-            console.log('[SESSION_PERSIST] Cleared stored session ID');
+            console.log('[SESSION_PERSIST] Cleared stored session ID (was invalid):', window.currentSessionId);
         }
     }
 }, 1000);
@@ -6212,16 +6284,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // Wait for other systems to initialize, then restore session
     setTimeout(() => {
         const storedSessionId = localStorage.getItem('currentSessionId');
-        if (storedSessionId) {
+        
+        // FIXME: Clean up corrupted localStorage entries
+        if (storedSessionId === 'undefined' || storedSessionId === 'null') {
+            console.warn('[SESSION_RESTORE] Found corrupted session ID, cleaning up:', storedSessionId);
+            localStorage.removeItem('currentSessionId');
+            return;
+        }
+        
+        // FIXME: Add validation to prevent undefined string values
+        if (storedSessionId && storedSessionId !== 'undefined' && storedSessionId !== 'null') {
             console.log('[SESSION_RESTORE] Found stored session ID:', storedSessionId);
             window.currentSessionId = storedSessionId;
             
-            // Try to restore session state from gameManager
-            if (gameManager.gameSessions[storedSessionId]) {
-                console.log('[SESSION_RESTORE] Session found in gameManager, updating lobby display');
+            // Set current player from localStorage
+            const playerName = localStorage.getItem('rulette_player_name');
+            const playerId = localStorage.getItem('rulette_player_id');
+            
+            if (playerName && playerId) {
+                currentPlayer = {
+                    uid: playerId,
+                    displayName: playerName,
+                    email: null,
+                    isDev: false
+                };
+                
+                // Hide main menu and show game page
+                const mainMenu = document.getElementById('main-menu');
+                const gamePage = document.getElementById('game-page');
+                if (mainMenu) mainMenu.style.display = 'none';
+                if (gamePage) gamePage.style.display = 'block';
+                
+                // Set up Firebase listener for session updates
+                if (typeof window.setupFirebaseSessionListener === 'function') {
+                    window.setupFirebaseSessionListener();
+                }
+                
+                // Update lobby display
                 updateLobbyDisplay();
+                
+                console.log('[SESSION_RESTORE] Successfully restored session and player');
             } else {
-                console.warn('[SESSION_RESTORE] Session not found in gameManager, clearing stored ID');
+                console.warn('[SESSION_RESTORE] Missing player info, clearing stored session');
                 localStorage.removeItem('currentSessionId');
                 window.currentSessionId = null;
             }
