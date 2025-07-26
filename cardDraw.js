@@ -62,6 +62,13 @@ function handleCardDraw(selectedCardType) {
             return;
         }
         
+        // Handle swap card type separately
+        if (deckKey === 'deckType6') { // Assuming deckType6 is the swap deck based on error
+            console.log('[CARD_DRAW] Swap card drawn. Opening swap modal.');
+            window.showSwapCardModal(); // Call the new swap modal function
+            return; // Exit as no card is drawn to display
+        }
+
         // Draw card from appropriate deck
         const drawnCard = drawCardFromDeck(deckKey);
         
@@ -147,7 +154,7 @@ function displayDrawnCard(card, cardType) {
                     <div style="width: 24px; height: 24px; background: #4ECDC4; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center;">
                         <span style="color: white; font-weight: bold; font-size: 14px;">P</span>
                     </div>
-                    ${cardType.name} Card - ${card.type.toUpperCase()}
+                    ${cardType.name} Card
                 </div>
             `;
             title.style.color = cardType.color;
@@ -169,7 +176,7 @@ function displayDrawnCard(card, cardType) {
                 ` : ''}
             `;
         } else {
-            title.textContent = `${cardType.name} Card - ${card.type.toUpperCase()}`;
+            title.textContent = `${cardType.name} Card}`;
             title.style.color = cardType.color;
             question.textContent = card.getCurrentText();
         }
@@ -493,6 +500,7 @@ function showCloneCardModal(cloneCard) {
 }
 
 window.showCloneCardModal = showCloneCardModal;
+window.showSwapCardModal = showSwapCardModal;
 
 // Expose card flipping functions for game integration
 window.flipCardInUI = flipCardInUI;
@@ -526,3 +534,13 @@ window.flipCardById = flipCardById;
 window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
 window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
 window.updateActiveRulesDisplay = updateActiveRulesDisplay;
+
+/**
+ * Placeholder function to show the swap card selection modal.
+ * This will be implemented in a future task.
+ */
+function showSwapCardModal() {
+    console.log('[SWAP_CARD] Showing swap card modal.');
+    window.showNotification('Swap card modal functionality is not yet implemented.', 'Under Construction');
+    // TODO: Implement the actual modal for selecting players and cards to swap
+}
