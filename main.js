@@ -1967,10 +1967,10 @@ function updateTurnUI(sessionId) {
   
   // Get player display name using the proper helper function with fallback
   let displayName;
-  let possessiveText = "'s Turn";
+  let turnText = "'s Turn";
   if (currentPlayerId === currentUser.uid) {
     displayName = 'You';
-    possessiveText = "r Turn"; // Change to "r Turn" to form "Your Turn"
+    turnText = "r Turn"; // Change to "r Turn" to form "Your Turn"
   } else {
     try {
       const getDisplayName = (typeof getPlayerDisplayName !== 'undefined') ? getPlayerDisplayName : window.getPlayerDisplayName;
@@ -1990,7 +1990,7 @@ function updateTurnUI(sessionId) {
   }
   
   if (currentPlayerName) {
-    currentPlayerName.textContent = displayName + possessiveText;
+    currentPlayerName.textContent = displayName + turnText;
   }
   
   // Update turn number
