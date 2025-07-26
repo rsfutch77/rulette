@@ -4091,29 +4091,57 @@ document.addEventListener('DOMContentLoaded', () => {
                         gameManager.gameSessions[storedSessionId] = sessionData;
                         console.log('[SESSION_RESTORE] Session stored in gameManager');
                         
-                        // Hide main menu and show game page
-                        const mainMenu = document.getElementById('main-menu');
-                        const gamePage = document.getElementById('game-page');
-                        if (mainMenu) mainMenu.style.display = 'none';
-                        if (gamePage) gamePage.style.display = 'block';
-                        
-                        // Set up Firebase listener for session updates
-                        if (typeof window.setupFirebaseSessionListener === 'function') {
-                            window.setupFirebaseSessionListener();
-                        }
-                        
-                        // Initialize wheel component during session restore
-                        if (window.wheelComponent) {
-                            window.wheelComponent.show();
-                            console.log('[SESSION_RESTORE] Wheel component shown');
-                        } else {
-                            console.warn('[SESSION_RESTORE] Wheel component not available');
-                        }
-                        
-                        // Update lobby display
-                        updateLobbyDisplay();
-                        
-                        console.log('[SESSION_RESTORE] Successfully restored session and player');
+                        // Load existing players in the session to gameManager.players
+                        gameManager.loadExistingPlayersInSession(storedSessionId).then(() => {
+                            console.log('[SESSION_RESTORE] Loaded existing players into gameManager');
+                            
+                            // Hide main menu and show game page
+                            const mainMenu = document.getElementById('main-menu');
+                            const gamePage = document.getElementById('game-page');
+                            if (mainMenu) mainMenu.style.display = 'none';
+                            if (gamePage) gamePage.style.display = 'block';
+                            
+                            // Set up Firebase listener for session updates
+                            if (typeof window.setupFirebaseSessionListener === 'function') {
+                                window.setupFirebaseSessionListener();
+                            }
+                            
+                            // Initialize wheel component during session restore
+                            if (window.wheelComponent) {
+                                window.wheelComponent.show();
+                                console.log('[SESSION_RESTORE] Wheel component shown');
+                            } else {
+                                console.warn('[SESSION_RESTORE] Wheel component not available');
+                            }
+                            
+                            // Update lobby display
+                            updateLobbyDisplay();
+                            
+                            // Update player scores display during session restoration
+                            updatePlayerScores(storedSessionId);
+                            console.log('[SESSION_RESTORE] Updated player scores display');
+                            
+                            console.log('[SESSION_RESTORE] Successfully restored session and player');
+                        }).catch(error => {
+                            console.error('[SESSION_RESTORE] Error loading players:', error);
+                            // Continue with restoration even if player loading fails
+                            
+                            // Hide main menu and show game page
+                            const mainMenu = document.getElementById('main-menu');
+                            const gamePage = document.getElementById('game-page');
+                            if (mainMenu) mainMenu.style.display = 'none';
+                            if (gamePage) gamePage.style.display = 'block';
+                            
+                            // Set up Firebase listener for session updates
+                            if (typeof window.setupFirebaseSessionListener === 'function') {
+                                window.setupFirebaseSessionListener();
+                            }
+                            
+                            // Update lobby display
+                            updateLobbyDisplay();
+                            
+                            console.log('[SESSION_RESTORE] Restored session with limited player data');
+                        });
                     } else {
                         console.error('[SESSION_RESTORE] Session not found in Firebase:', storedSessionId);
                         // Clean up invalid session
