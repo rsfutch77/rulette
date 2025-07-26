@@ -1158,30 +1158,49 @@ function updatePlayerScores(sessionId) {
     scoreItem.className = 'player-score-item';
     scoreItem.id = `player-score-${player.id}`;
     
+    // Add inline styles as fallback to ensure styling is applied
+    scoreItem.style.cssText = `
+      background: #fff;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      min-width: 120px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: all 0.3s ease;
+      position: relative;
+      margin: 0.25rem;
+      display: inline-block;
+    `;
+    
     // Add special styling for current player and referee
     if (player.id === currentPlayerId) {
       scoreItem.classList.add('current-player');
+      scoreItem.style.borderColor = '#28a745';
+      scoreItem.style.background = 'linear-gradient(135deg, #f8fff9, #e8f5e8)';
     }
     if (player.id === refereeId) {
       scoreItem.classList.add('referee');
+      scoreItem.style.borderColor = '#ffc107';
+      scoreItem.style.background = 'linear-gradient(135deg, #fffdf0, #fff3cd)';
     }
     
     // Create badges
     const badges = [];
     if (player.id === currentPlayerId) {
-      badges.push('<span class="player-badge current">Turn</span>');
+      badges.push('<span class="player-badge current" style="background: #28a745; color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; margin: 0 2px;">Turn</span>');
     }
     if (player.id === refereeId) {
-      badges.push('<span class="player-badge referee">Referee</span>');
+      badges.push('<span class="player-badge referee" style="background: #ffc107; color: #212529; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; margin: 0 2px;">Referee</span>');
     }
     if (player.status === 'disconnected') {
-      badges.push('<span class="player-badge disconnected">Offline</span>');
+      badges.push('<span class="player-badge disconnected" style="background: #6c757d; color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; margin: 0 2px;">Offline</span>');
     }
     
     scoreItem.innerHTML = `
-      <div class="player-score-name" title="${player.name}">${player.name}</div>
-      <div class="player-score-points">${player.points}</div>
-      ${badges.length > 0 ? `<div class="player-score-badges">${badges.join('')}</div>` : ''}
+      <div class="player-score-name" style="font-weight: bold; font-size: 0.9rem; color: #495057; margin-bottom: 0.25rem;" title="${player.name}">${player.name}</div>
+      <div class="player-score-points" style="font-size: 1.2rem; font-weight: bold; color: #007bff; margin-bottom: 0.25rem;">${player.points}</div>
+      ${badges.length > 0 ? `<div class="player-score-badges" style="display: flex; gap: 0.25rem; justify-content: center; flex-wrap: wrap; margin-top: 0.25rem;">${badges.join('')}</div>` : ''}
     `;
     
     scoresList.appendChild(scoreItem);
