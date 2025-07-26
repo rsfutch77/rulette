@@ -4,11 +4,11 @@
 
 import { gameManager } from './gameManager.js';
 import { getCurrentUser, getCurrentUserId } from './playerSystem.js';
-import { 
+import {
     getFirestoreGameSession,
     updateFirestoreTurnInfo,
-    initializeFirestoreTurnManagement 
-} from './main.js';
+    initializeFirestoreTurnManagement
+} from './firebaseOperations.js';
 
 /**
  * Initialize lobby UI and event listeners

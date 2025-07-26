@@ -232,6 +232,11 @@
     
     
     <!-- Test buttons for card draw mechanism -->
+    <div style="margin-top: 2rem; text-align: center;">
+      <button id="show-flip-card-modal-btn" style="padding: 0.7rem 1.5rem; font-size: 1rem; border: none; border-radius: 5px; background: #007bff; color: #fff; cursor: pointer;">
+        Show Flip Card Modal (Test)
+      </button>
+    </div>
   </div>
   
   <script>
@@ -252,7 +257,23 @@
   
   <script type="module" src="./firebase-init.js"></script>
   <script type="module" src="./cardDraw.js"></script>
+  <script type="module" src="./flipCardModal.js"></script>
   <script type="module" src="./main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const showFlipCardModalBtn = document.getElementById('show-flip-card-modal-btn');
+        if (showFlipCardModalBtn) {
+            showFlipCardModalBtn.addEventListener('click', () => {
+                console.log("DEBUG: Show Flip Card Modal button clicked.");
+                if (window.showFlipCardModal) {
+                    window.showFlipCardModal();
+                } else {
+                    console.error("DEBUG: window.showFlipCardModal is not available.");
+                }
+            });
+        }
+    });
+  </script>
   <!-- Game Card Popup Modal -->
   <div id="game-card-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; padding:2rem; border-radius:1rem; max-width:400px; margin:auto; box-shadow:0 2px 16px rgba(0,0,0,0.3); position:relative;">
@@ -333,6 +354,17 @@
       <button id="close-end-game-btn" style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; cursor:pointer; color:#999; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" title="Close">
         ✕
       </button>
+    </div>
+  </div>
+
+  <!-- Flip Card Modal -->
+  <div id="flipCardModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:2000; align-items:center; justify-content:center;">
+    <div class="modal-content" style="background:#fff; border-radius:12px; padding:2rem; max-width:600px; width:90%; box-shadow:0 10px 30px rgba(0,0,0,0.3); text-align:center; position:relative;">
+      <span class="close-button" style="position:absolute; top:10px; right:20px; font-size:30px; cursor:pointer;">&times;</span>
+      <h2 style="margin-top:0; margin-bottom:1rem; color:#333;">Select a Card to Flip</h2>
+      <div id="playerRuleCardsContainer" style="display:flex; flex-wrap:wrap; justify-content:center; gap:1rem; margin-top:1.5rem;">
+        <!-- Player's rule cards will be displayed here -->
+      </div>
     </div>
   </div>
 

@@ -15,12 +15,12 @@ import {
     getFirestorePlayersInSession,
     getFirestoreSessionByShareableCode,
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
-} from './main.js';
+} from './firebaseOperations.js';
 import { GameCard } from './cardModels.js';
 import { RuleEngine } from './ruleEngine.js';
 import { CalloutManager } from './calloutManager.js';
 
-class GameManager {
+export class GameManager {
     constructor() {
         this.gameSessions = {}; // Stores active game sessions
         this.players = {}; // Stores all connected players
