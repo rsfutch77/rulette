@@ -243,6 +243,7 @@ Roles and responsibilities:
 [ ] 9.1 UI Layout and Navigation (4 Points)
 [ ] 9.1.1 Design the main game screens: lobby, game board, player status, card display, referee panel (2 Points)
 [ ] 9.1.2 Ensure clear navigation between screens and states (2 Points)
+[ ] 9.1.3 Display player's current rule cards at the bottom of each player's page (3 Points)
 [ ] 9.2 Visual Design and Theming (3 Points)
 [ ] 9.2.1 Develop a cohesive visual theme and color palette (2 Points)
 [ ] 9.2.2 Apply consistent styling to all UI components (1 Point)
