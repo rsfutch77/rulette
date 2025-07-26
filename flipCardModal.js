@@ -5,13 +5,30 @@
  */
 function showFlipCardModal() {
     const flipCardModal = document.getElementById('flipCardModal');
+    if (!flipCardModal) {
+        console.error("Flip card modal element not found");
+        return;
+    }
     flipCardModal.style.display = 'block';
-    // Assume window.gameManager.getCurrentPlayer().getRules() provides the cards
+    
+    // Check for required objects and properties
     if (window.gameManager && window.gameManager.getCurrentPlayer) {
-        const playerCards = window.gameManager.getCurrentPlayer().getRules();
-        displayPlayerCards(playerCards);
+        const currentPlayer = window.gameManager.getCurrentPlayer();
+        if (currentPlayer && currentPlayer.ruleCards) {
+            displayPlayerCards(currentPlayer.ruleCards);
+        } else {
+            console.warn("Current player or ruleCards not available");
+            showNotification({
+                message: 'Player rules not loaded yet',
+                title: 'Error'
+            });
+        }
     } else {
-        console.warn("gameManager or getCurrentPlayer not available. Cannot display player cards.");
+        console.warn("gameManager not initialized or getCurrentPlayer not available");
+        showNotification({
+            message: 'Game manager not ready',
+            title: 'Error'
+        });
     }
 }
 

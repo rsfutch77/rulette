@@ -100,8 +100,6 @@ function setupSessionCreation() {
     const createAnotherBtn = document.getElementById('create-another-btn');
     
     createBtn?.addEventListener('click', handleCreateSession);
-    copyCodeBtn?.addEventListener('click', () => copyToClipboard('session-code-text'));
-    copyLinkBtn?.addEventListener('click', () => copyToClipboard('session-link-text'));
     startLobbyBtn?.addEventListener('click', handleStartLobby);
     createAnotherBtn?.addEventListener('click', handleCreateAnother);
 }
@@ -276,29 +274,6 @@ function handleCreateAnother() {
 function handleRetryJoin() {
     showJoinStatus('');
     joinGameCodeInput?.focus();
-}
-
-// Copy text to clipboard
-async function copyToClipboard(elementId) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    
-    const text = element.tagName === 'INPUT' ? element.value : element.textContent;
-    
-    try {
-        await navigator.clipboard.writeText(text);
-        showNotification('Copied to clipboard!', 'success');
-    } catch (error) {
-        console.error('[SESSION] Failed to copy to clipboard:', error);
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showNotification('Copied to clipboard!', 'success');
-    }
 }
 
 // Reset session forms

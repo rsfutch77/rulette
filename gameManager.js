@@ -17,7 +17,6 @@ import {
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
 } from './firebaseOperations.js';
 import { GameCard } from './cardModels.js';
-import { RuleEngine } from './ruleEngine.js';
 import { CalloutManager } from './calloutManager.js';
 
 export class GameManager {
@@ -28,7 +27,6 @@ export class GameManager {
         this.turnOrder = {}; // Tracks turn order for each session
         this.cloneMap = {}; // Maps original card ID to cloned card references
         this.cardManager = null; // Reference to CardManager for cloning
-        this.ruleEngine = new RuleEngine(this); // Initialize RuleEngine with reference to GameManager
         this.activePrompts = {}; // Track active prompts by session
         this.calloutManager = new CalloutManager(this); // Initialize CalloutManager
         
@@ -79,10 +77,6 @@ export class GameManager {
             };
             console.log("DEBUG: Created new session object:", newSession);
             this.gameSessions[sessionInfo.sessionId] = newSession;
-
-            console.log("DEBUG: Initializing RuleEngine session");
-            // Initialize RuleEngine session
-            await this.ruleEngine.initializeSession(sessionInfo.sessionId);
 
             console.log("DEBUG: Synchronizing with Firebase");
             // Synchronize with Firebase (include shareable code)
@@ -3468,13 +3462,6 @@ export class GameManager {
             turn.turnNumber++;
         }
 
-        // Process rule expirations for the new turn
-        try {
-            await this.ruleEngine.handleTurnProgression(sessionId, turn.turnNumber);
-        } catch (error) {
-            console.error(`Error processing rule expirations for session ${sessionId}:`, error);
-        }
-        
         // Synchronize turn advancement with Firebase
         try {
             await updateFirestoreTurnInfo(sessionId, {
@@ -3875,33 +3862,7 @@ export class GameManager {
         }
         
         try {
-            // Check if card has a rule to activate (use actualCard now)
-            if (actualCard.hasRule || actualCard.rule || actualCard.frontRule) {
-                // Prepare game context for rule activation
-                const ruleContext = {
-                    currentTurn: this.currentTurn[sessionId]?.turnNumber || 0,
-                    gameState: {
-                        sessionId,
-                        playerId,
-                        players: this.players,
-                        session: this.gameSessions[sessionId]
-                    },
-                    ...gameContext
-                };
-
-                // Activate rule through RuleEngine
-                const activeRule = await this.ruleEngine.handleCardDrawn(sessionId, playerId, card, ruleContext);
-                
-                if (activeRule) {
-                    console.log(`[GAME_MANAGER] Rule activated from card ${card.id}: ${activeRule.id}`);
-                    return {
-                        success: true,
-                        activeRule: activeRule,
-                        ruleText: activeRule.ruleText
-                    };
-                }
-            }
-
+            
             // Handle special card types
             if (card.type === 'prompt') {
                 return this.activatePromptCard(sessionId, playerId, card);
@@ -3933,9 +3894,7 @@ export class GameManager {
         console.log(`[GAME_MANAGER] Handling successful callout: ${callingPlayerId} called out ${targetPlayerId}`);
         
         try {
-            // Process callout through RuleEngine
-            const result = await this.ruleEngine.handleCalloutSuccess(sessionId, targetPlayerId, callingPlayerId, ruleId);
-            
+
             // Apply game state changes based on callout result
             if (result && result.cardTransfers) {
                 for (const transfer of result.cardTransfers) {
@@ -4097,14 +4056,6 @@ export class GameManager {
                 // Continue with local transfer even if Firebase fails
             }
 
-            // Notify RuleEngine of card transfer
-            try {
-                await this.ruleEngine.handleCardTransfer(sessionId, fromPlayerId, toPlayerId, transferredCard.id);
-            } catch (ruleEngineError) {
-                console.error(`[CARD_TRANSFER] RuleEngine notification error:`, ruleEngineError);
-                // Continue with transfer even if rule engine notification fails
-            }
-
             // Trigger card transfer event
             this.triggerCardTransferEvent(sessionId, transferRecord);
 
@@ -4264,75 +4215,12 @@ export class GameManager {
     // ===== END CARD OWNERSHIP AND TRANSFER SYSTEM =====
 
     /**
-     * Get effective rules for a player (rules they must follow)
-     * @param {string} sessionId - The session ID
-     * @param {string} playerId - The player ID
-     * @returns {object} - Rule information for the player
-     */
-    getEffectiveRulesForPlayer(sessionId, playerId) {
-        try {
-            return this.ruleEngine.getEffectiveRulesForPlayer(sessionId, playerId);
-        } catch (error) {
-            console.error(`[GAME_MANAGER] Error getting effective rules for player ${playerId}:`, error);
-            return {
-                globalRules: [],
-                playerRules: [],
-                targetRules: [],
-                allRules: []
-            };
-        }
-    }
-
-    /**
-     * Check if a player action is restricted by active rules
-     * @param {string} sessionId - The session ID
-     * @param {string} playerId - The player ID
-     * @param {string} actionType - Type of action (e.g., 'draw', 'spin', 'callout')
-     * @param {object} actionContext - Additional context for the action
-     * @returns {object} - {allowed: boolean, restrictions?: Array, reason?: string}
-     */
-    checkActionRestrictions(sessionId, playerId, actionType, actionContext = {}) {
-        try {
-            const effectiveRules = this.getEffectiveRulesForPlayer(sessionId, playerId);
-            const restrictions = [];
-
-            // Check each rule for action restrictions
-            for (const rule of effectiveRules.allRules) {
-                if (rule.ruleText && rule.ruleText.toLowerCase().includes(actionType.toLowerCase())) {
-                    // This is a simplified check - in a full implementation,
-                    // you'd have more sophisticated rule parsing
-                    restrictions.push({
-                        ruleId: rule.id,
-                        ruleText: rule.ruleText,
-                        restriction: `Rule may affect ${actionType} action`
-                    });
-                }
-            }
-
-            return {
-                allowed: restrictions.length === 0,
-                restrictions: restrictions,
-                reason: restrictions.length > 0 ? `Action may be restricted by ${restrictions.length} active rule(s)` : null
-            };
-        } catch (error) {
-            console.error(`[GAME_MANAGER] Error checking action restrictions:`, error);
-            return {
-                allowed: true,
-                restrictions: [],
-                reason: null
-            };
-        }
-    }
-
-    /**
      * Clean up rules when game session ends
      * @param {string} sessionId - The session ID
      */
     async cleanupGameSession(sessionId) {
         try {
-            // Clean up rules through RuleEngine
-            await this.ruleEngine.handleGameEnd(sessionId);
-            
+
             // Clean up local game state
             delete this.gameSessions[sessionId];
             delete this.currentTurn[sessionId];
@@ -4869,16 +4757,7 @@ export class GameManager {
                     errorCode: 'NO_MODIFIER_TEXT'
                 };
             }
-
-            // Apply modifier through rule engine
-            const modifierResult = await this.ruleEngine.activateRule(sessionId, {
-                id: modifierCard.id,
-                ruleText: modifierText,
-                type: 'modifier',
-                ...modifierCard
-            }, playerId, effectContext);
-
-            // TODO Skip rule engine activation for now and just handle card storage
+            
             const player = this.players[playerId];
             if (player) {
                 console.log(`[DEBUG] Player ${playerId} current ruleCards before adding modifier:`, player.ruleCards);
@@ -5476,11 +5355,7 @@ export class GameManager {
             // Update Firebase
             await this.assignPlayerHand(sessionId, player1Id, player1.hand);
             await this.assignPlayerHand(sessionId, player2Id, player2.hand);
-
-            // Notify rule engine of card transfers
-            await this.ruleEngine.handleCardTransfer(sessionId, player1Id, player2Id, card1Id);
-            await this.ruleEngine.handleCardTransfer(sessionId, player2Id, player1Id, card2Id);
-
+            //TODO this should happen for all players in a loop, not just player 1 and 2
             return {
                 success: true,
                 swappedCards: {
@@ -5732,21 +5607,6 @@ export class GameManager {
                 activeRule: targetCard.getCurrentRule()
             });
         }
-
-        // Check for active rules that might affect cloning
-        const activeRules = await this.ruleEngine.getActiveRules(sessionId);
-        const cloneRestrictions = activeRules.filter(rule =>
-            rule.ruleText && rule.ruleText.toLowerCase().includes('clone')
-        );
-
-        if (cloneRestrictions.length > 0) {
-            interactions.push({
-                type: 'clone_rule_interaction',
-                description: 'Active rules may affect clone behavior',
-                affectingRules: cloneRestrictions.map(r => ({ id: r.id, text: r.ruleText }))
-            });
-        }
-
         return {
             success: true,
             interactions: interactions,
@@ -5815,23 +5675,6 @@ export class GameManager {
                 type: 'flip_original_with_clones',
                 description: 'Flipping original card does not affect existing clones',
                 affectedClones: clones.map(c => ({ ownerId: c.ownerId, cloneId: c.cloneId }))
-            });
-        }
-
-        // Check for active rules that might affect flipping
-        const activeRules = await this.ruleEngine.getActiveRules(sessionId);
-        const flipRestrictions = activeRules.filter(rule =>
-            rule.ruleText && (
-                rule.ruleText.toLowerCase().includes('flip') ||
-                rule.ruleText.toLowerCase().includes('cannot be flipped')
-            )
-        );
-
-        if (flipRestrictions.length > 0) {
-            interactions.push({
-                type: 'flip_rule_interaction',
-                description: 'Active rules may restrict or modify flip behavior',
-                affectingRules: flipRestrictions.map(r => ({ id: r.id, text: r.ruleText }))
             });
         }
 
@@ -5935,22 +5778,6 @@ export class GameManager {
                 });
             }
 
-            // Check for active rules that might affect referee swapping
-            const activeRules = await this.ruleEngine.getActiveRules(sessionId);
-            const refereeRestrictions = activeRules.filter(rule =>
-                rule.ruleText && (
-                    rule.ruleText.toLowerCase().includes('referee') ||
-                    rule.ruleText.toLowerCase().includes('cannot be swapped')
-                )
-            );
-
-            if (refereeRestrictions.length > 0) {
-                interactions.push({
-                    type: 'referee_swap_rule_interaction',
-                    description: 'Active rules may restrict referee swapping',
-                    affectingRules: refereeRestrictions.map(r => ({ id: r.id, text: r.ruleText }))
-                });
-            }
         }
 
         return {
@@ -6022,69 +5849,6 @@ export class GameManager {
 
         // The clone map structure remains the same since it tracks original card IDs
         // The actual ownership change is handled by the swapCards method
-    }
-
-    /**
-     * Validate special action conflicts and restrictions
-     * @param {string} sessionId - The session ID
-     * @param {string} actionType - Type of special action
-     * @param {Object} actionContext - Action context
-     * @returns {object} - Validation result
-     */
-    async validateSpecialActionConflicts(sessionId, actionType, actionContext) {
-        const activeRules = await this.ruleEngine.getActiveRules(sessionId);
-        const conflicts = [];
-
-        // Check for rules that might conflict with the action
-        for (const rule of activeRules) {
-            if (!rule.ruleText) continue;
-            
-            const ruleText = rule.ruleText.toLowerCase();
-            
-            // Check for action-specific restrictions
-            if (actionType === 'clone' && ruleText.includes('cannot clone')) {
-                conflicts.push({
-                    type: 'clone_restriction',
-                    ruleId: rule.id,
-                    ruleText: rule.ruleText,
-                    severity: 'blocking'
-                });
-            }
-            
-            if (actionType === 'flip' && ruleText.includes('cannot flip')) {
-                conflicts.push({
-                    type: 'flip_restriction',
-                    ruleId: rule.id,
-                    ruleText: rule.ruleText,
-                    severity: 'blocking'
-                });
-            }
-            
-            if (actionType === 'swap' && ruleText.includes('cannot swap')) {
-                conflicts.push({
-                    type: 'swap_restriction',
-                    ruleId: rule.id,
-                    ruleText: rule.ruleText,
-                    severity: 'blocking'
-                });
-            }
-        }
-
-        // Check for player-specific restrictions
-        const player = this.players[actionContext.playerId];
-        if (player && player.status !== 'active') {
-            conflicts.push({
-                type: 'player_status_restriction',
-                description: `Player status '${player.status}' prevents special actions`,
-                severity: 'blocking'
-            });
-        }
-
-        return {
-            hasConflicts: conflicts.length > 0,
-            conflicts: conflicts,
-            canProceed: !conflicts.some(c => c.severity === 'blocking')
-        };
     }
 
     /**
@@ -6380,13 +6144,6 @@ export class GameManager {
             await this.assignPlayerHand(sessionId, fromPlayerId, fromPlayer.hand);
             await this.assignPlayerHand(sessionId, toPlayerId, toPlayer.hand);
 
-            // Notify RuleEngine of card transfer
-            try {
-                await this.ruleEngine.handleCardTransfer(sessionId, fromPlayerId, toPlayerId, cardId);
-            } catch (error) {
-                console.error(`[GAME_MANAGER] Error notifying rule engine of card transfer:`, error);
-            }
-
             console.log(`[GAME_MANAGER] Card ${cardId} transferred successfully`);
             return { success: true };
         } catch (error) {
@@ -6581,11 +6338,6 @@ export class GameManager {
                 for (const playerId of session.players) {
                     this.stopPlayerPresenceTracking(sessionId, playerId);
                 }
-            }
-
-            // 2. Clean up rule engine session data
-            if (this.ruleEngine && typeof this.ruleEngine.cleanupSession === 'function') {
-                await this.ruleEngine.cleanupSession(sessionId);
             }
 
             // 3. Clean up callout manager data

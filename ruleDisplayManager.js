@@ -3,12 +3,9 @@
  * Implements requirements 3.4.1 and 3.4.2 for rule display and tracking
  */
 
-import { RuleStates, RuleTypes, DurationTypes, RulePriorities } from './ruleTypes.js';
-
 export class RuleDisplayManager {
     constructor(gameManager) {
         this.gameManager = gameManager;
-        this.ruleEngine = gameManager.ruleEngine;
         this.currentSessionId = null;
         this.updateInterval = null;
         
@@ -35,30 +32,6 @@ export class RuleDisplayManager {
             console.warn('Rule display elements not found in DOM');
             return;
         }
-    }
-
-    /**
-     * Setup event listeners for rule engine events
-     */
-    setupEventListeners() {
-        if (!this.ruleEngine) return;
-        
-        // Listen for rule engine events
-        this.ruleEngine.on('ruleActivated', (data) => {
-            this.refreshRuleDisplay();
-        });
-        
-        this.ruleEngine.on('ruleDeactivated', (data) => {
-            this.refreshRuleDisplay();
-        });
-        
-        this.ruleEngine.on('ruleSuspended', (data) => {
-            this.refreshRuleDisplay();
-        });
-        
-        this.ruleEngine.on('ruleResumed', (data) => {
-            this.refreshRuleDisplay();
-        });
     }
 
     /**
@@ -113,14 +86,14 @@ export class RuleDisplayManager {
      * Refresh the rule display with current active rules
      */
     async refreshRuleDisplay() {
-        if (!this.currentSessionId || !this.ruleEngine) {
+        if (!this.currentSessionId) {
             return;
         }
 
         try {
             // Get all active rules for the session
-            const activeRules = this.ruleEngine.getActiveRules(this.currentSessionId);
-            
+            //TODO
+
             // Update rules count badge
             this.updateRulesCount(activeRules.length);
             
@@ -458,32 +431,14 @@ export class RuleDisplayManager {
      * Get rules for a specific player
      */
     async getRulesForPlayer(playerId) {
-        if (!this.currentSessionId || !this.ruleEngine) {
-            return [];
-        }
-
-        try {
-            return this.ruleEngine.getRulesForPlayer(this.currentSessionId, playerId);
-        } catch (error) {
-            console.error('Error getting rules for player:', error);
-            return [];
-        }
+//TODO
     }
 
     /**
      * Get effective rules that apply to a specific player
      */
     async getEffectiveRulesForPlayer(playerId) {
-        if (!this.currentSessionId || !this.ruleEngine) {
-            return { allRules: [], globalRules: [], playerRules: [], targetRules: [] };
-        }
-
-        try {
-            return this.ruleEngine.getEffectiveRulesForPlayer(this.currentSessionId, playerId);
-        } catch (error) {
-            console.error('Error getting effective rules for player:', error);
-            return { allRules: [], globalRules: [], playerRules: [], targetRules: [] };
-        }
+        //TODO
     }
 
     /**
@@ -491,22 +446,6 @@ export class RuleDisplayManager {
      */
     forceRefresh() {
         this.refreshRuleDisplay();
-    }
-
-    /**
-     * Get current rule statistics
-     */
-    async getRuleStatistics() {
-        if (!this.currentSessionId || !this.ruleEngine) {
-            return null;
-        }
-
-        try {
-            return this.ruleEngine.getRuleStatistics(this.currentSessionId);
-        } catch (error) {
-            console.error('Error getting rule statistics:', error);
-            return null;
-        }
     }
 }
 
