@@ -119,7 +119,6 @@ function getTurnOrderDiceRoll() {
 }
 
 
-// FIXME: The code assumed card data was available synchronously, but it is loaded asynchronously.
 // Refactored to load card data before initializing CardManager.
 (async () => {
   const {
@@ -206,8 +205,8 @@ import {
   where,
   getDocs,
   deleteDoc,
-  arrayUnion, // FIXME: Added for join game functionality
-  onSnapshot // FIXME: Added for real-time game updates
+  arrayUnion, 
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js";
 
 // Player setup elements
@@ -232,7 +231,6 @@ const inspirationChoices = document.getElementById("inspiration-card-choices");
 const inspirationResult = document.getElementById("inspiration-card-result");
 // Prescription Sheet Modal elements
 // Notification Modal elements
-// FIXME: These elements might not be available when the script runs initially
 let notificationModal, notificationTitle, notificationMessage, notificationCloseBtn;
 
 // Function to initialize rule display manager
@@ -403,7 +401,6 @@ async function handleCreateGame() {
       
       // Note: window.currentSessionId already set above at line 439, no need to duplicate
       
-      // FIXME: Set up Firebase listener for real-time updates after creating session
       // Use setTimeout to ensure the function is available after the file loads
       setTimeout(() => {
           if (typeof window.setupFirebaseSessionListener === 'function') {
@@ -494,15 +491,14 @@ async function handleJoinGame(gameCode) {
       // Update lobby with session info
       if (result.session) {
           updateLobbySessionInfo(result.session);
-          // FIXME: Add missing lobby player list update after join
           console.log('[DEBUG] Updating lobby player list after join');
           
-          // FIXME: Set window.currentSessionId to ensure lobby display works properly
+          // Set window.currentSessionId to ensure lobby display works properly
           console.log('[DEBUG_READY_BUTTON] Setting window.currentSessionId to:', result.sessionId);
           window.currentSessionId = result.sessionId;
           console.log('[DEBUG_READY_BUTTON] window.currentSessionId now set to:', window.currentSessionId);
           
-          // FIXME: Set up Firebase listener for real-time updates after joining
+          // Firebase listener for real-time updates after joining
           // Use setTimeout to ensure the function is available after the file loads
           setTimeout(() => {
               if (typeof window.setupFirebaseSessionListener === 'function') {
@@ -1083,8 +1079,6 @@ function updatePlayerHands(sessionId) {
   // This would update any UI elements that show player card counts or hands
 }
 
-// FIXME: Removed duplicate getPlayerDisplayName function - keeping enhanced version at line 1085
-
 // Helper function to get current session ID (implement based on your session management)
 function getCurrentSessionId() {
   // This should return the current active session ID
@@ -1663,11 +1657,6 @@ function showNotification(message, title = "Notification", callback = null) {
   };
 }
 
-// Expose a helper for triggering test notifications
-window.testNotification = function(message = "Test notification", title = "Test") {
-  console.log("DEBUG: Manual test notification triggered");
-  showNotification(message, title);
-};
 // Rule display control functions
 function startRuleDisplay(sessionId) {
   console.log("[RULE_DISPLAY] Starting rule display for session:", sessionId);
@@ -2042,48 +2031,6 @@ window.updateTurnUI = updateTurnUI;
 window.initializeTurnManagement = initializeTurnManagement;
 window.completeTurn = completeTurn;
 
-
-// Test function to demonstrate turn management and randomized spin logic
-window.testTurnManagement = function() {
-  console.log("DEBUG: Testing turn management system");
-  
-  // Create a test session
-  const testSessionId = "test-session-123";
-  const testPlayers = ["player1", "player2", "player3"];
-  
-  // Set current session for testing
-  window.currentSessionId = testSessionId;
-  
-  // Initialize turn management
-  if (initializeTurnManagement(testSessionId, testPlayers)) {
-    showWheel();
-    
-    console.log("Turn management initialized. Current player:", gameManager.getCurrentPlayer(testSessionId));
-    console.log("Turn info:", gameManager.getTurnInfo(testSessionId));
-    
-    // Test spinning for current player
-    setTimeout(() => {
-      const currentPlayer = gameManager.getCurrentPlayer(testSessionId);
-      console.log("Attempting spin for current player:", currentPlayer);
-      
-      const spinResult = spinWheelForPlayer(testSessionId, currentPlayer);
-      console.log("Spin result:", spinResult);
-      
-      // Test trying to spin again (should fail)
-      setTimeout(() => {
-        console.log("Attempting second spin (should fail):");
-        const secondSpinResult = spinWheelForPlayer(testSessionId, currentPlayer);
-        console.log("Second spin result:", secondSpinResult);
-        
-        // Test spinning for wrong player (should fail)
-        const wrongPlayer = testPlayers.find(p => p !== currentPlayer);
-        console.log("Attempting spin for wrong player:", wrongPlayer, "(should fail)");
-        const wrongPlayerResult = spinWheelForPlayer(testSessionId, wrongPlayer);
-        console.log("Wrong player spin result:", wrongPlayerResult);
-      }, 1000);
-    }, 1000);
-  }
-};
 
 // ===== EDGE CASES AND ERROR HANDLING =====
 
@@ -2523,7 +2470,6 @@ function hidePromptUI() {
  * @param {string} playerId - The player ID
  * @returns {string} - The display name
  */
-// FIXME: Removed duplicate getPlayerDisplayName function - keeping enhanced version at line 1085
 
 // Firestore game session functions
 async function createFirestoreGameSession(sessionData) {
@@ -2583,7 +2529,7 @@ async function updateFirestoreRefereeCard(sessionId, refereeCard) {
   }
 }
 
-// FIXME: Add missing function to update session player list in Firebase
+// Update session player list in Firebase
 async function updateFirestoreSessionPlayerList(sessionId, playerList) {
   try {
     const sessionRef = doc(db, 'gameSessions', sessionId);
@@ -2663,7 +2609,6 @@ async function getFirestorePlayer(playerId) {
 
 async function getFirestorePlayersInSession(sessionId) {
   try {
-    // FIXME: Debug logging to validate Firebase db object
     console.log("[DEBUG] Firebase db object:", db);
     console.log("[DEBUG] Firebase db type:", typeof db);
     console.log("[DEBUG] Firebase db constructor:", db?.constructor?.name);
@@ -2687,8 +2632,7 @@ async function getFirestorePlayersInSession(sessionId) {
 
 async function getFirestoreSessionByShareableCode(shareableCode) {
   try {
-    // FIXME: Debug logging to validate Firebase query for shareable code
-    console.log("[DEBUG] Querying Firebase for session with shareable code:", shareableCode);
+   console.log("[DEBUG] Querying Firebase for session with shareable code:", shareableCode);
     
     const sessionsQuery = query(
       collection(db, 'gameSessions'),
@@ -3493,54 +3437,9 @@ function resetGameUIToLobby() {
     }
 }
 
-/**
- * Test function for end-game UI system
- */
-function testEndGameUI() {
-    console.log('[TEST] Testing end-game UI system...');
-    
-    // Create mock game results for testing
-    const mockGameResults = {
-        endCondition: 'zero_points',
-        winners: ['player1'],
-        finalStandings: [
-            {
-                playerId: 'player1',
-                displayName: 'Alice',
-                points: 5,
-                cardCount: 3
-            },
-            {
-                playerId: 'player2',
-                displayName: 'Bob',
-                points: 0,
-                cardCount: 2
-            },
-            {
-                playerId: 'player3',
-                displayName: 'Charlie',
-                points: 2,
-                cardCount: 4
-            }
-        ],
-        finalReferee: 'player1',
-        gameDuration: 125000, // 2 minutes 5 seconds
-        totalPlayers: 3,
-        totalCardsPlayed: 15,
-        totalPointsTransferred: 8
-    };
-    
-    // Test showing the end-game modal
-    showEndGameModal(mockGameResults);
-    
-    console.log('[TEST] End-game UI test completed - modal should be visible');
-    showNotification('End-game UI test completed. Check the modal display.', 'Test Complete');
-}
-
 // Make end-game functions available globally
 window.showEndGameModal = showEndGameModal;
 window.hideEndGameModal = hideEndGameModal;
-window.testEndGameUI = testEndGameUI;
 window.handleGameRestart = handleGameRestart;
 window.handleReturnToLobby = handleReturnToLobby;
 
@@ -3974,26 +3873,6 @@ function checkForJoinCodeInURL() {
     }
 }
 
-/**
- * Test session management functionality
- */
-function testSessionManagement() {
-    console.log('[SESSION TEST] Testing session management UI...');
-    
-    // Test session ID generation
-    const sessionInfo = gameManager.generateUniqueSessionId();
-    console.log('[SESSION TEST] Generated session info:', sessionInfo);
-    
-    // Test session creation and joining
-    const testResults = gameManager.testSessionCreationAndJoining();
-    console.log('[SESSION TEST] Session functionality test results:', testResults);
-    
-    return {
-        sessionGeneration: sessionInfo,
-        functionalityTests: testResults
-    };
-}
-
 // Initialize session management when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     initializeSessionManagement();
@@ -4002,7 +3881,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // Make session functions globally available for testing
 window.showSessionModal = showSessionModal;
 window.hideSessionModal = hideSessionModal;
-window.testSessionManagement = testSessionManagement;
 
 
 // ============================================================================
@@ -4203,33 +4081,6 @@ function setupSessionTerminationEventListeners() {
     });
 }
 
-/**
- * Test session termination functionality
- */
-function testSessionTermination() {
-    console.log('🧪 Testing Session Termination UI...');
-    
-    try {
-        // Test UI initialization
-        initializeSessionTerminationUI();
-        
-        // Test button visibility logic
-        updateSessionTerminationButtonVisibility();
-        
-        // Test modal show/hide
-        showSessionTerminationModal();
-        setTimeout(() => {
-            hideSessionTerminationModal();
-        }, 1000);
-        
-        console.log('✅ Session termination UI test completed');
-        return true;
-    } catch (error) {
-        console.error('❌ Session termination UI test failed:', error);
-        return false;
-    }
-}
-
 // Make functions globally available
 window.initializeSessionTerminationUI = initializeSessionTerminationUI;
 window.updateSessionTerminationButtonVisibility = updateSessionTerminationButtonVisibility;
@@ -4383,7 +4234,6 @@ window.updateQuitButtonVisibility = updateQuitButtonVisibility;
 
 // ===== END HOST CONTROLS =====
 
-// FIXME: Critical bug fix - window.gameManager was never assigned!
 // This is the root cause of "No session or game manager available" errors
 console.log('[CRITICAL_FIX] Assigning gameManager to window.gameManager');
 console.log('[DEBUG] gameManager imported:', gameManager);
@@ -4391,13 +4241,12 @@ console.log('[DEBUG] gameManager type:', typeof gameManager);
 window.gameManager = gameManager;
 console.log('[DEBUG] window.gameManager assigned:', window.gameManager);
 
-// FIXME: Session persistence will be handled in DOMContentLoaded event
 // Add event listener to persist session ID when it changes
 let lastSessionId = window.currentSessionId;
 setInterval(() => {
     if (window.currentSessionId !== lastSessionId) {
         lastSessionId = window.currentSessionId;
-        // FIXME: Add validation to prevent storing undefined/null values
+        // Validation to prevent storing undefined/null values
         if (window.currentSessionId && window.currentSessionId !== 'undefined' && window.currentSessionId !== 'null') {
             localStorage.setItem('currentSessionId', window.currentSessionId);
             console.log('[SESSION_PERSIST] Stored session ID:', window.currentSessionId);
@@ -4408,7 +4257,7 @@ setInterval(() => {
     }
 }, 1000);
 
-// FIXME: Add session restoration on DOM load
+// Session restoration on DOM load
 document.addEventListener('DOMContentLoaded', () => {
     // Wait for other systems to initialize, then restore session
     setTimeout(() => {
@@ -4432,7 +4281,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (playerName && playerId) {
                 setCurrentPlayer(playerName);
                 
-                // FIXME: Load session data from Firebase before showing UI
                 console.log('[SESSION_RESTORE] Loading session data from Firebase...');
                 
                 // Load session data from Firebase first
@@ -4456,7 +4304,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             window.setupFirebaseSessionListener();
                         }
                         
-                        // FIXME: Initialize wheel component during session restore
+                        // Initialize wheel component during session restore
                         if (window.wheelComponent) {
                             window.wheelComponent.show();
                             console.log('[SESSION_RESTORE] Wheel component shown');

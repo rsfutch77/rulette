@@ -183,14 +183,6 @@ class CalloutManager {
     }
 
     /**
-     * Clears callout history for a player (useful for testing or admin functions)
-     * @param {string} playerId - ID of the player
-     */
-    clearPlayerCalloutHistory(playerId) {
-        delete this.playerCalloutHistory[playerId];
-    }
-
-    /**
      * Checks if a referee is on cooldown for making decisions
      * @param {string} refereeId - ID of the referee making the decision
      * @returns {object} - Result with allowed flag and message

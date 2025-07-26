@@ -46,7 +46,7 @@ function setupLobbyEventListeners() {
         document.addEventListener('sessionStateChange', handleSessionStateChange);
         console.log('[EVENT_SETUP] sessionStateChange event listener added successfully');
         
-        // FIXME: Set up Firebase real-time listener for session state changes
+        // Set up Firebase real-time listener for session state changes
         // Use setTimeout to ensure the function is available after the file loads
         setTimeout(() => {
             if (typeof setupFirebaseSessionListener === 'function') {
@@ -142,7 +142,7 @@ function showGameBoard() {
             window.updateTurnUI(sessionId);
         }
         
-        // FIXME: Update player scores display when game board is shown
+        // Update player scores display when game board is shown
         if (typeof window.updatePlayerScores === 'function') {
             window.updatePlayerScores(sessionId);
             console.log('[GAME_BOARD] Updated player scores display');
@@ -207,7 +207,7 @@ function hideGameBoard() {
  * Update the entire lobby display
  */
 async function updateLobbyDisplay() {
-    // FIXME: Add comprehensive debugging for lobby display issues
+    // Debugging for lobby display issues
     console.log('[DEBUG] ===== updateLobbyDisplay() START =====');
     console.log('[DEBUG] updateLobbyDisplay called');
     console.log('[DEBUG] window.currentSessionId:', window.currentSessionId);
@@ -230,7 +230,7 @@ async function updateLobbyDisplay() {
     console.log('[DEBUG] LOCAL session has players:', session?.players);
     console.log('[DEBUG] LOCAL session players count:', session?.players?.length || 0);
     
-    // FIXME: Add Firebase session check to compare with local data
+    // Firebase session check to compare with local data
     console.log('[FIREBASE_SYNC] Checking if local session data is stale...');
     
     if (!session) {
@@ -239,12 +239,12 @@ async function updateLobbyDisplay() {
         return;
     }
     
-    // FIXME: Refresh session data from Firebase to get latest player list
+    // Refresh session data from Firebase to get latest player list
     try {
         console.log('[FIREBASE_SYNC] Fetching latest session data from Firebase...');
         const firebaseSessionDoc = await getFirestoreGameSession(sessionId);
         if (firebaseSessionDoc && firebaseSessionDoc.exists()) {
-            // FIXME: Convert Firestore document to actual data
+            // Convert Firestore document to actual data
             const firebaseSession = firebaseSessionDoc.data();
             console.log('[FIREBASE_SYNC] Firebase session raw doc:', firebaseSessionDoc);
             console.log('[FIREBASE_SYNC] Firebase session data:', firebaseSession);
@@ -261,7 +261,6 @@ async function updateLobbyDisplay() {
                 console.log('[FIREBASE_SYNC] Firebase players:', firebasePlayerCount, firebaseSession.players);
                 console.log('[FIREBASE_SYNC] Updating local session with Firebase data...');
                 
-                // FIXME: Safely merge Firebase data, preserving local players array if Firebase data is invalid
                 console.log('[FIREBASE_SYNC] Before merge - Local players:', session.players);
                 console.log('[FIREBASE_SYNC] Before merge - Firebase players:', firebaseSession.players);
                 
@@ -351,7 +350,6 @@ function updateLobbySessionInfo(session) {
  * Update the player list in the lobby
  */
 async function updateLobbyPlayerList(sessionId) {
-    // FIXME: Add comprehensive debugging for lobby player list update
     console.log('[DEBUG] updateLobbyPlayerList called with sessionId:', sessionId);
     
     if (!gameManager) {
@@ -376,7 +374,7 @@ async function updateLobbyPlayerList(sessionId) {
     console.log('[LOBBY] Updating player list with statuses:', playerStatuses);
     console.log('[DEBUG] Player statuses keys:', Object.keys(playerStatuses));
     
-    // FIXME: Handle case where playerStatuses might be empty or have different structure
+    // Handle case where playerStatuses might be empty or have different structure
     if (!playerStatuses || Object.keys(playerStatuses).length === 0) {
         console.warn('[LOBBY] No player statuses returned, checking session.players directly');
         console.log('[DEBUG] Session.players:', session.players);
@@ -639,7 +637,6 @@ async function handleStartGameButtonClick() {
         
         console.log(`[HOST_CONTROLS] Host ${currentUserId} attempting to start game for session ${sessionId}`);
         
-        // FIXME: Add diagnostic logging to track multiplayer sync issue
         console.log('[DEBUG_MULTIPLAYER] Current session players:', gameManager.gameSessions[sessionId]?.players);
         console.log('[DEBUG_MULTIPLAYER] All connected players:', Object.keys(gameManager.players));
         
@@ -669,7 +666,6 @@ async function handleStartGameButtonClick() {
         }
         console.log(`[HOST_CONTROLS] Game started successfully by host ${currentUserId}`);
         
-        // FIXME: CRITICAL BUG - Only host transitions because showGameBoard() is called directly here
         // instead of relying on sessionStateChange events. Other players don't get this call.
         // The sessionStateChange event should handle UI transitions for ALL players.
         console.log('[DEBUG_MULTIPLAYER] PROBLEM: Only host calls showGameBoard() - other players miss this!');
@@ -701,7 +697,7 @@ function updateHostControls() {
         console.log('[HOST_CONTROLS] ===== DEBUGGING HOST CONTROLS =====');
         console.log('[HOST_CONTROLS] Updating host controls display');
         
-        // FIXME: Add comprehensive debugging for host controls visibility issue
+        // Debugging for host controls visibility issue
         const sessionId = window.currentSessionId;
         console.log('[HOST_CONTROLS] sessionId:', sessionId);
         console.log('[HOST_CONTROLS] window.currentSessionId:', window.currentSessionId);
@@ -731,7 +727,6 @@ function updateHostControls() {
         const isHost = session.hostId === currentPlayerId;
         console.log('[HOST_CONTROLS] isHost check:', isHost, '(', session.hostId, '===', currentPlayerId, ')');
         
-        // FIXME: Add debug logging to diagnose ready button visibility issues
         console.log('[DEBUG_READY_BUTTON] Debugging ready button visibility issue...');
         console.log('[DEBUG_READY_BUTTON] Host comparison details:');
         console.log('[DEBUG_READY_BUTTON] - session.hostId:', JSON.stringify(session.hostId));
@@ -805,7 +800,6 @@ function hideHostControls() {
  * Get current player ID (helper function)
  */
 function getCurrentPlayerId() {
-    // FIXME: Was returning placeholder 'current-player-id' - this broke ready/start button logic
     console.log('[DEBUG] ===== getCurrentPlayerId() DEBUG =====');
     const currentPlayer = getCurrentUser();
     console.log('[DEBUG] currentPlayer:', currentPlayer);
@@ -1015,7 +1009,6 @@ async function setupFirebaseSessionListener() {
                 const sessionData = docSnapshot.data();
                 console.log('[FIREBASE_LISTENER] Session state changed:', sessionData);
                 
-                // FIXME: Add comprehensive logging for turn state debugging
                 console.log('[FIREBASE_LISTENER] Current turn data from Firebase:', sessionData.currentTurn);
                 console.log('[FIREBASE_LISTENER] Local turn data before update:', gameManager.currentTurn[sessionId]);
                 
@@ -1042,7 +1035,6 @@ async function setupFirebaseSessionListener() {
                         ...sessionData
                     };
                     
-                    // FIXME: Critical fix - Update local turn state from Firebase, but avoid race conditions
                     if (sessionData.currentTurn) {
                         console.log('[FIREBASE_LISTENER] Updating local turn state from Firebase');
                         
@@ -1063,7 +1055,6 @@ async function setupFirebaseSessionListener() {
                             console.log('[FIREBASE_LISTENER] Updating local turn state from Firebase (newer data)');
                             gameManager.currentTurn[sessionId] = sessionData.currentTurn;
                             
-                            // FIXME: Critical fix - Also restore turnOrder from Firebase data
                             if (sessionData.currentTurn.turnOrder) {
                                 console.log('[FIREBASE_LISTENER] Restoring turnOrder from Firebase:', sessionData.currentTurn.turnOrder);
                                 gameManager.turnOrder[sessionId] = sessionData.currentTurn.turnOrder;
@@ -1109,7 +1100,7 @@ async function setupFirebaseSessionListener() {
                         document.dispatchEvent(globalEvent);
                         console.log('[FIREBASE_LISTENER] Event dispatched successfully on document');
                         
-                        // FIXME: Also directly update lobby display if we're in lobby state
+                        // Directly update lobby display if we're in lobby state
                         if (newState === 'lobby') {
                             console.log('[FIREBASE_LISTENER] Directly updating lobby display for lobby state change');
                             setTimeout(() => {
@@ -1215,41 +1206,6 @@ function testLobbyUI() {
 }
 
 /**
- * Add test players for lobby testing
- */
-function addTestPlayers(sessionId) {
-    const testPlayers = [
-        { id: 'test-player-1', name: 'Alice', status: 'active' },
-        { id: 'test-player-2', name: 'Bob', status: 'disconnected' },
-        { id: 'test-player-3', name: 'Charlie', status: 'active' }
-    ];
-    
-    testPlayers.forEach(player => {
-        // Add player to session
-        gameManager.players[player.id] = {
-            uid: player.id,
-            displayName: player.name,
-            sessionId: sessionId,
-            status: player.status,
-            points: Math.floor(Math.random() * 10),
-            connectionInfo: {
-                lastSeen: Date.now() - Math.floor(Math.random() * 300000), // Random time in last 5 minutes
-                connectionCount: Math.floor(Math.random() * 5) + 1,
-                totalDisconnects: Math.floor(Math.random() * 3)
-            }
-        };
-        
-        // Add to session player list
-        const session = gameManager.gameSessions[sessionId];
-        if (session && !session.players.includes(player.id)) {
-            session.players.push(player.id);
-        }
-    });
-    
-    console.log('[TEST] Added test players to session');
-}
-
-/**
  * Refresh lobby player list manually
  */
 function refreshLobbyPlayerList() {
@@ -1283,7 +1239,6 @@ export {
     handlePlayerKickedEvent,
     setupFirebaseSessionListener,
     cleanupFirebaseListeners,
-    testLobbyUI,
     refreshLobbyPlayerList
 };
 
@@ -1297,7 +1252,6 @@ if (typeof window !== 'undefined') {
     window.updateLobbyDisplay = updateLobbyDisplay;
     window.setupFirebaseSessionListener = setupFirebaseSessionListener;
     window.cleanupFirebaseListeners = cleanupFirebaseListeners;
-    window.testLobbyUI = testLobbyUI;
     window.refreshLobbyPlayerList = refreshLobbyPlayerList;
 }
 

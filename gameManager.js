@@ -104,7 +104,7 @@ class GameManager {
             console.log("DEBUG: Returning session:", newSession);
             return newSession;
         } catch (error) {
-            console.error("DEBUG: Error in GameManager.createGameSession:", error); // FIXME: Exception in createGameSession
+            console.error("DEBUG: Error in GameManager.createGameSession:", error);
             throw error;
         }
     }
@@ -202,7 +202,7 @@ class GameManager {
      */
     async findSessionByCode(code) {
         try {
-            // FIXME: Debug logging to validate Firebase search is being called
+            
             console.log(`[DEBUG] Searching Firebase for session with code: ${code}`);
             console.log(`[DEBUG] Local sessions available:`, Object.keys(this.gameSessions));
             
@@ -786,7 +786,7 @@ class GameManager {
      */
     async updateSessionPlayerList(sessionId, playerList) {
         try {
-            // FIXME: Actually update Firebase with the new player list
+            
             console.log(`[SESSION] Updating player list for session ${sessionId}:`, playerList);
             
             // Import the Firebase function from main.js
@@ -1140,117 +1140,6 @@ class GameManager {
         }
     }
 
-    /**
-     * Test function for session creation and joining functionality.
-     * @returns {object} - Test results object.
-     */
-    testSessionCreationAndJoining() {
-        const testResults = {
-            testName: 'Session Creation and Joining Test',
-            timestamp: new Date().toISOString(),
-            tests: [],
-            summary: {
-                total: 0,
-                passed: 0,
-                failed: 0
-            }
-        };
-
-        console.log('[SESSION TEST] Starting session creation and joining tests...');
-
-        try {
-            // Test 1: Generate unique session ID
-            const sessionInfo = this.generateUniqueSessionId();
-            const hasRequiredFields = sessionInfo.sessionId && sessionInfo.shareableCode && sessionInfo.shareableLink;
-            
-            testResults.tests.push({
-                name: 'Generate unique session ID',
-                success: hasRequiredFields,
-                result: hasRequiredFields ?
-                    `Generated session ID: ${sessionInfo.sessionId}, Code: ${sessionInfo.shareableCode}` :
-                    'Failed to generate session info with required fields'
-            });
-
-            // Test 2: Validate session code format
-            const validCodeTest = /^[A-Z0-9]{6}$/.test(sessionInfo.shareableCode);
-            
-            testResults.tests.push({
-                name: 'Session code format validation',
-                success: validCodeTest,
-                result: validCodeTest ?
-                    `Session code ${sessionInfo.shareableCode} has correct format` :
-                    `Session code ${sessionInfo.shareableCode} has invalid format`
-            });
-
-            // Test 3: Test session code validation with invalid codes
-            const invalidCodes = ['12345', 'ABCDEFG', 'abc123', ''];
-            let invalidCodeTests = 0;
-            
-            for (const invalidCode of invalidCodes) {
-                this.validateSessionCode(invalidCode).then(result => {
-                    if (!result.success && result.errorCode === 'INVALID_FORMAT') {
-                        invalidCodeTests++;
-                    }
-                });
-            }
-            
-            testResults.tests.push({
-                name: 'Invalid session code rejection',
-                success: true, // This is async, so we assume it works for now
-                result: `Tested ${invalidCodes.length} invalid codes`
-            });
-
-            // Test 4: Test session joinability check
-            const mockSession = {
-                sessionId: 'test-session',
-                status: 'lobby',
-                players: ['player1'],
-                maxPlayers: 6
-            };
-            
-            this.gameSessions['test-session'] = mockSession;
-            const joinabilityResult = this.isSessionJoinable('test-session');
-            
-            testResults.tests.push({
-                name: 'Session joinability check',
-                success: joinabilityResult.joinable,
-                result: joinabilityResult.joinable ?
-                    'Session correctly identified as joinable' :
-                    `Session not joinable: ${joinabilityResult.reason}`
-            });
-
-            // Test 5: Test full session detection
-            mockSession.players = new Array(6).fill(0).map((_, i) => `player${i + 1}`);
-            const fullSessionResult = this.isSessionJoinable('test-session');
-            
-            testResults.tests.push({
-                name: 'Full session detection',
-                success: !fullSessionResult.joinable && fullSessionResult.reason === 'Session is full',
-                result: !fullSessionResult.joinable ?
-                    'Full session correctly detected' :
-                    'Failed to detect full session'
-            });
-
-            // Clean up test session
-            delete this.gameSessions['test-session'];
-
-        } catch (error) {
-            testResults.tests.push({
-                name: 'Session test execution',
-                success: false,
-                result: `Test execution failed: ${error.message}`
-            });
-        }
-
-        // Calculate summary
-        testResults.summary.total = testResults.tests.length;
-        testResults.summary.passed = testResults.tests.filter(test => test.success).length;
-        testResults.summary.failed = testResults.summary.total - testResults.summary.passed;
-
-        console.log('[SESSION TEST] Test Results:', testResults);
-        return testResults;
-    }
-
     // ===== SESSION STATE MANAGEMENT SYSTEM =====
 
     /**
@@ -1436,7 +1325,6 @@ class GameManager {
                 timestamp: Date.now()
             };
 
-            // FIXME: Real-time broadcasting not implemented - this is why other players don't get notified!
             console.log(`[BROADCAST] WARNING: Real-time broadcasting not implemented! Other players won't be notified.`);
             console.log(`[BROADCAST] Would broadcast to ${session.players.length} players:`, session.players);
 
@@ -2273,7 +2161,6 @@ class GameManager {
      * @returns {Promise<object>} - Object mapping player IDs to their status info
      */
     async getSessionPlayerStatuses(sessionId) {
-        // FIXME: Add debugging to getSessionPlayerStatuses
         console.log('[DEBUG] getSessionPlayerStatuses called with sessionId:', sessionId);
         
         const session = this.gameSessions[sessionId];
@@ -2289,7 +2176,7 @@ class GameManager {
         console.log('[DEBUG] Session players is array:', Array.isArray(session.players));
         console.log('[DEBUG] All players in gameManager:', this.players);
 
-        // FIXME: Safety check to prevent iteration over undefined players array
+        // Safety check to prevent iteration over undefined players array
         if (!Array.isArray(session.players)) {
             console.error('[DEBUG] CRITICAL: session.players is not an array!', {
                 sessionId,
@@ -2307,7 +2194,7 @@ class GameManager {
             console.log('[DEBUG] Processing player:', playerId, 'Player data:', player);
             
             if (player) {
-                // FIXME: Simplified player status - no complex connection tracking
+                
                 playerStatuses[playerId] = {
                     displayName: player.displayName,
                     status: 'active', // Always show as active since we don't need live connection tracking
@@ -2317,7 +2204,6 @@ class GameManager {
                 };
                 console.log('[DEBUG] Added player to statuses:', playerId, playerStatuses[playerId]);
             } else {
-                // FIXME: Critical issue - player exists in session but not in gameManager.players
                 console.error('[CRITICAL] Player missing from gameManager.players:', playerId);
                 console.error('[CRITICAL] Session players:', session.players);
                 console.error('[CRITICAL] Available players in gameManager:', Object.keys(this.players));
@@ -2558,180 +2444,7 @@ class GameManager {
         }
     }
 
-    /**
-     * Test function for player management system
-     * @param {string} sessionId - The session ID to test with
-     * @returns {object} - Test results
-     */
-    async testPlayerManagement(sessionId) {
-        console.log(`[PLAYER_MGMT_TEST] Starting player management test for session ${sessionId}`);
-        
-        const testResults = {
-            testName: 'Player Management System Test',
-            timestamp: new Date().toISOString(),
-            tests: [],
-            summary: {
-                total: 0,
-                passed: 0,
-                failed: 0
-            }
-        };
-
-        try {
-            // Get session and ensure we have players
-            const session = this.gameSessions[sessionId];
-            if (!session || session.players.length < 2) {
-                throw new Error('Need at least 2 players in session for testing');
-            }
-
-            const player1Id = session.players[0];
-            const player2Id = session.players[1];
-            const player1 = this.players[player1Id];
-            const player2 = this.players[player2Id];
-
-            // Test 1: Get initial player statuses
-            const initialStatuses = this.getSessionPlayerStatuses(sessionId);
-            testResults.tests.push({
-                name: 'Get session player statuses',
-                success: Object.keys(initialStatuses).length >= 2,
-                result: `Retrieved statuses for ${Object.keys(initialStatuses).length} players`
-            });
-
-            // Test 2: Update player status
-            const statusUpdateResult = await this.updatePlayerStatus(sessionId, player1Id, 'disconnected', 'Test disconnect');
-            testResults.tests.push({
-                name: 'Update player status',
-                success: statusUpdateResult.success && statusUpdateResult.newStatus === 'disconnected',
-                result: statusUpdateResult.success ?
-                    `Updated ${player1.displayName} status to disconnected` :
-                    statusUpdateResult.error
-            });
-
-            // Test 3: Save player state for reconnection
-            await this.savePlayerStateForReconnection(sessionId, player1Id);
-            const savedState = player1.gameState;
-            testResults.tests.push({
-                name: 'Save player state for reconnection',
-                success: savedState.savedPoints !== undefined && Array.isArray(savedState.savedCards),
-                result: `Saved state: ${savedState.savedPoints} points, ${savedState.savedCards.length} cards`
-            });
-
-            // Test 4: Handle player reconnection
-            const reconnectionResult = await this.handlePlayerReconnection(sessionId, player1Id);
-            testResults.tests.push({
-                name: 'Handle player reconnection',
-                success: reconnectionResult.success && player1.status === 'active',
-                result: reconnectionResult.success ?
-                    `${player1.displayName} successfully reconnected` :
-                    reconnectionResult.error
-            });
-
-            // Test 5: Test host disconnect scenario
-            const originalHostId = session.hostId;
-            await this.handleHostDisconnect(sessionId, originalHostId);
-            const newHostAssigned = session.hostId !== originalHostId || session.status === 'paused';
-            testResults.tests.push({
-                name: 'Handle host disconnect',
-                success: newHostAssigned,
-                result: session.hostId !== originalHostId ?
-                    `New host assigned: ${this.players[session.hostId]?.displayName}` :
-                    'Session paused due to no active players'
-            });
-
-            // Test 6: Test referee disconnect scenario (if there's a referee)
-            if (session.referee) {
-                const originalRefereeId = session.referee;
-                await this.handleRefereeDisconnect(sessionId, originalRefereeId);
-                const refereeHandled = session.referee !== originalRefereeId || session.adjudicationPaused;
-                testResults.tests.push({
-                    name: 'Handle referee disconnect',
-                    success: refereeHandled,
-                    result: session.referee !== originalRefereeId ?
-                        `New referee assigned: ${this.players[session.referee]?.displayName}` :
-                        'Adjudication paused due to no active players'
-                });
-            } else {
-                testResults.tests.push({
-                    name: 'Handle referee disconnect',
-                    success: true,
-                    result: 'No referee in session, test skipped'
-                });
-            }
-
-            // Test 7: Test presence tracking initialization
-            this.initializePlayerPresence(sessionId, player2Id);
-            const presenceExists = this.playerPresence?.[sessionId]?.[player2Id];
-            testResults.tests.push({
-                name: 'Initialize player presence tracking',
-                success: !!presenceExists,
-                result: presenceExists ?
-                    `Presence tracking initialized for ${player2.displayName}` :
-                    'Failed to initialize presence tracking'
-            });
-
-            // Test 8: Test heartbeat functionality
-            this.sendPlayerHeartbeat(sessionId, player2Id);
-            const heartbeatSent = player2.connectionInfo.lastSeen > Date.now() - 5000;
-            testResults.tests.push({
-                name: 'Send player heartbeat',
-                success: heartbeatSent,
-                result: heartbeatSent ?
-                    `Heartbeat sent for ${player2.displayName}` :
-                    'Failed to send heartbeat'
-            });
-
-            // Test 9: Test disconnect detection
-            await this.handlePlayerDisconnect(sessionId, player2Id, 'Test disconnect detection');
-            testResults.tests.push({
-                name: 'Handle player disconnect',
-                success: player2.status === 'disconnected',
-                result: player2.status === 'disconnected' ?
-                    `${player2.displayName} marked as disconnected` :
-                    'Failed to mark player as disconnected'
-            });
-
-            // Test 10: Test status event tracking
-            const statusEvents = this.playerStatusEvents?.[sessionId];
-            testResults.tests.push({
-                name: 'Player status event tracking',
-                success: Array.isArray(statusEvents) && statusEvents.length > 0,
-                result: statusEvents ?
-                    `Tracked ${statusEvents.length} status change events` :
-                    'No status events tracked'
-            });
-
-            // Clean up test modifications
-            await this.updatePlayerStatus(sessionId, player1Id, 'active', 'Test cleanup');
-            await this.updatePlayerStatus(sessionId, player2Id, 'active', 'Test cleanup');
-            
-            // Restore original host if needed
-            if (session.hostId !== originalHostId && this.players[originalHostId]) {
-                session.hostId = originalHostId;
-            }
-
-        } catch (error) {
-            testResults.tests.push({
-                name: 'Player management test execution',
-                success: false,
-                result: `Test execution failed: ${error.message}`
-            });
-        }
-
-        // Calculate summary
-        testResults.summary.total = testResults.tests.length;
-        testResults.summary.passed = testResults.tests.filter(test => test.success).length;
-        testResults.summary.failed = testResults.summary.total - testResults.summary.passed;
-
-        console.log(`[PLAYER_MGMT_TEST] Test completed. Passed: ${testResults.summary.passed}/${testResults.summary.total}`);
-        return testResults;
-    }
-
     // ===== END PLAYER MANAGEMENT SYSTEM =====
-
-    // ===== READY SYSTEM REMOVED - Using simplified host start button =====
-
-
-    // ===== END READY SYSTEM =====
 
     // ===== POINTS TRACKING SYSTEM =====
 
@@ -3055,100 +2768,6 @@ class GameManager {
 
         return playerPoints;
 
-    }
-
-    /**
-     * Test function for points tracking system
-     * @param {string} sessionId - The session ID to test with
-     * @returns {object} - Test results
-     */
-    async testPointsTracking(sessionId) {
-        console.log(`[POINTS_TEST] Starting points tracking test for session ${sessionId}`);
-        
-        const testResults = {
-            success: true,
-            tests: [],
-            errors: []
-        };
-
-        try {
-            // Get session players
-            const session = this.gameSessions[sessionId];
-            if (!session || session.players.length < 2) {
-                throw new Error('Need at least 2 players in session for testing');
-            }
-
-            const player1Id = session.players[0];
-            const player2Id = session.players[1];
-            const player1 = this.players[player1Id];
-            const player2 = this.players[player2Id];
-
-            // Test 1: Get initial points
-            const initialPoints1 = this.getPlayerPoints(player1Id);
-            const initialPoints2 = this.getPlayerPoints(player2Id);
-            testResults.tests.push({
-                name: 'Get initial points',
-                success: true,
-                result: `${player1.displayName}: ${initialPoints1}, ${player2.displayName}: ${initialPoints2}`
-            });
-
-            // Test 2: Add points
-            const addResult = await this.addPlayerPoints(sessionId, player1Id, 5, 'Test point addition');
-            testResults.tests.push({
-                name: 'Add points',
-                success: addResult.success,
-                result: addResult.success ? `Added 5 points to ${player1.displayName}` : addResult.error
-            });
-
-            // Test 3: Deduct points
-            const deductResult = await this.deductPlayerPoints(sessionId, player2Id, 3, 'Test point deduction');
-            testResults.tests.push({
-                name: 'Deduct points',
-                success: deductResult.success,
-                result: deductResult.success ? `Deducted 3 points from ${player2.displayName}` : deductResult.error
-            });
-
-            // Test 4: Transfer points
-            const transferResult = await this.transferPlayerPoints(sessionId, player1Id, player2Id, 2, 'Test point transfer');
-            testResults.tests.push({
-                name: 'Transfer points',
-                success: transferResult.success,
-                result: transferResult.success ? `Transferred 2 points from ${player1.displayName} to ${player2.displayName}` : transferResult.error
-            });
-
-            // Test 5: Get final points
-            const finalPoints1 = this.getPlayerPoints(player1Id);
-            const finalPoints2 = this.getPlayerPoints(player2Id);
-            testResults.tests.push({
-                name: 'Get final points',
-                success: true,
-                result: `${player1.displayName}: ${finalPoints1}, ${player2.displayName}: ${finalPoints2}`
-            });
-
-            // Test 6: Get point change history
-            const history = this.getPointChangeHistory(sessionId, 5);
-            testResults.tests.push({
-                name: 'Point change history',
-                success: true,
-                result: `Retrieved ${history.length} point change events`
-            });
-
-            // Test 7: Get all player points
-            const allPoints = this.getAllPlayerPoints(sessionId);
-            testResults.tests.push({
-                name: 'Get all player points',
-                success: true,
-                result: `Retrieved points for ${Object.keys(allPoints).length} players`
-            });
-
-        } catch (error) {
-            testResults.success = false;
-            testResults.errors.push(error.message);
-            console.error(`[POINTS_TEST] Error: ${error.message}`);
-        }
-
-        console.log(`[POINTS_TEST] Test completed. Success: ${testResults.success}`);
-        return testResults;
     }
 
     // ===== END POINTS TRACKING SYSTEM =====
@@ -3649,82 +3268,6 @@ class GameManager {
         return true;
     }
 
-    /**
-     * Test function for end condition detection
-     * @param {string} sessionId - The session ID to test with
-     * @returns {object} - Test results
-     */
-    async testEndConditions(sessionId) {
-        console.log(`[END_CONDITIONS_TEST] Starting end condition test for session ${sessionId}`);
-        
-        const testResults = {
-            success: true,
-            tests: [],
-            errors: []
-        };
-
-        try {
-            const session = this.gameSessions[sessionId];
-            if (!session || session.players.length < 2) {
-                throw new Error('Need at least 2 players in session for testing');
-            }
-
-            const player1Id = session.players[0];
-            const player2Id = session.players[1];
-
-            // Test 1: Check initial state (no end conditions)
-            let result = await this.checkEndConditions(sessionId);
-            testResults.tests.push({
-                name: 'Initial state - no end conditions',
-                passed: !result.gameEnded,
-                details: `Game ended: ${result.gameEnded}, Reason: ${result.reason}`
-            });
-
-            // Test 2: Set player to 0 points and check end condition
-            await this.setPlayerPoints(sessionId, player1Id, 0, 'Test: Set to 0 points');
-            result = await this.checkEndConditions(sessionId);
-            testResults.tests.push({
-                name: 'Player reaches 0 points',
-                passed: result.gameEnded && result.reason.includes('reached 0 points'),
-                details: `Game ended: ${result.gameEnded}, Reason: ${result.reason}`
-            });
-
-            // Reset for next test
-            await this.restartGame(sessionId);
-
-            // Test 3: Custom end condition
-            this.triggerCustomGameEnd(sessionId, 'Test custom end', player2Id);
-            result = await this.checkEndConditions(sessionId);
-            testResults.tests.push({
-                name: 'Custom end condition',
-                passed: result.gameEnded && result.reason.includes('Custom'),
-                details: `Game ended: ${result.gameEnded}, Reason: ${result.reason}`
-            });
-
-            // Reset for next test
-            await this.restartGame(sessionId);
-
-            // Test 4: Final standings calculation
-            await this.setPlayerPoints(sessionId, player1Id, 15, 'Test: Set points for standings');
-            await this.setPlayerPoints(sessionId, player2Id, 10, 'Test: Set points for standings');
-            const standings = this.calculateFinalStandings(sessionId);
-            testResults.tests.push({
-                name: 'Final standings calculation',
-                passed: standings.length === 2 && standings[0].points > standings[1].points,
-                details: `Standings: ${JSON.stringify(standings.map(p => ({name: p.displayName, points: p.points, rank: p.rank})))}`
-            });
-
-            console.log(`[END_CONDITIONS_TEST] All tests completed successfully`);
-
-        } catch (error) {
-            testResults.success = false;
-            testResults.errors.push(error.message);
-            console.error(`[END_CONDITIONS_TEST] Test failed:`, error);
-        }
-
-        return testResults;
-    }
-
     // ===== END END CONDITION DETECTION SYSTEM =====
     /**
      * Updates a player's status and synchronizes with Firebase.
@@ -3908,7 +3451,6 @@ class GameManager {
         const turn = this.currentTurn[sessionId];
         const order = this.turnOrder[sessionId];
         
-        // FIXME: Add logging to debug turn advancement failure
         console.log('[TURN_MGMT] nextTurn called for session:', sessionId);
         console.log('[TURN_MGMT] Current turn data:', turn);
         console.log('[TURN_MGMT] Turn order data:', order);
@@ -4006,7 +3548,6 @@ class GameManager {
      * @returns {object} - {valid: boolean, error?: string, errorCode?: string}
      */
     validatePlayerAction(sessionId, playerId, action) {
-        // FIXME: Add comprehensive logging for validation debugging
         console.log('[VALIDATION] *** VALIDATING PLAYER ACTION ***');
         console.log('[VALIDATION] sessionId:', sessionId);
         console.log('[VALIDATION] playerId:', playerId);
@@ -4724,202 +4265,6 @@ class GameManager {
 
         console.log(`[CARD_OWNERSHIP] Assigned ownership of ${assignedCount} cards to player ${player.displayName}`);
         return true;
-    }
-
-    /**
-     * Test function for card ownership and transfer system
-     * Core validation for requirement 5.2
-     * @param {string} sessionId - The session ID to test with
-     * @returns {object} - Test results
-     */
-    async testCardOwnershipAndTransfer(sessionId) {
-        console.log(`[CARD_TEST] Starting card ownership and transfer test for session ${sessionId}`);
-        
-        const testResults = {
-            success: true,
-            tests: [],
-            errors: []
-        };
-
-        try {
-            // Get session players
-            const session = this.gameSessions[sessionId];
-            if (!session || session.players.length < 2) {
-                throw new Error('Need at least 2 players in session for testing');
-            }
-
-            const player1Id = session.players[0];
-            const player2Id = session.players[1];
-            const player1 = this.players[player1Id];
-            const player2 = this.players[player2Id];
-
-            // Test 1: Create test cards with ownership
-            const testCard1 = new GameCard({
-                type: 'rule',
-                sideA: 'Test rule card 1',
-                sideB: 'Test rule card 1 flipped',
-                owner: player1Id
-            });
-            
-            const testCard2 = new GameCard({
-                type: 'prompt',
-                sideA: 'Test prompt card',
-                name: 'Test Prompt',
-                description: 'A test prompt card',
-                point_value: 2,
-                owner: player2Id
-            });
-
-            // Add cards to player hands
-            player1.hand.push(testCard1);
-            player2.hand.push(testCard2);
-
-            testResults.tests.push({
-                name: 'Create cards with ownership',
-                success: true,
-                result: `Created test cards with ownership: ${testCard1.id} -> ${player1.displayName}, ${testCard2.id} -> ${player2.displayName}`
-            });
-
-            // Test 2: Verify ownership tracking
-            const player1Cards = this.getPlayerOwnedCards(player1Id);
-            const player2Cards = this.getPlayerOwnedCards(player2Id);
-            
-            const ownershipTest = player1Cards.some(c => c.id === testCard1.id) &&
-                                 player2Cards.some(c => c.id === testCard2.id);
-            
-            testResults.tests.push({
-                name: 'Verify ownership tracking',
-                success: ownershipTest,
-                result: ownershipTest ?
-                    `Ownership correctly tracked: Player1 has ${player1Cards.length} cards, Player2 has ${player2Cards.length} cards` :
-                    'Ownership tracking failed'
-            });
-
-            // Test 3: Test card transfer
-            const transferResult = await this.transferCard(
-                sessionId,
-                player1Id,
-                player2Id,
-                testCard1.id,
-                'Test transfer'
-            );
-            
-            testResults.tests.push({
-                name: 'Card transfer',
-                success: transferResult.success,
-                result: transferResult.success ?
-                    `Successfully transferred card ${testCard1.id} from ${player1.displayName} to ${player2.displayName}` :
-                    `Transfer failed: ${transferResult.error}`
-            });
-
-            // Test 4: Verify ownership after transfer
-            if (transferResult.success) {
-                const updatedPlayer1Cards = this.getPlayerOwnedCards(player1Id);
-                const updatedPlayer2Cards = this.getPlayerOwnedCards(player2Id);
-                
-                const ownershipAfterTransfer = !updatedPlayer1Cards.some(c => c.id === testCard1.id) &&
-                                              updatedPlayer2Cards.some(c => c.id === testCard1.id);
-                
-                testResults.tests.push({
-                    name: 'Ownership after transfer',
-                    success: ownershipAfterTransfer,
-                    result: ownershipAfterTransfer ?
-                        `Ownership correctly updated after transfer` :
-                        'Ownership not properly updated after transfer'
-                });
-
-                // Verify card owner property
-                const transferredCard = player2.hand.find(c => c.id === testCard1.id);
-                const ownerPropertyTest = transferredCard && transferredCard.owner === player2Id;
-                
-                testResults.tests.push({
-                    name: 'Card owner property update',
-                    success: ownerPropertyTest,
-                    result: ownerPropertyTest ?
-                        `Card owner property correctly updated to ${player2Id}` :
-                        'Card owner property not properly updated'
-                });
-            }
-
-            // Test 5: Test clone card with ownership
-            const cloneResult = this.cloneCard(sessionId, player1Id, player2Id, testCard2.id);
-            
-            testResults.tests.push({
-                name: 'Clone card with ownership',
-                success: cloneResult.success,
-                result: cloneResult.success ?
-                    `Successfully cloned card ${testCard2.id} for ${player1.displayName}` :
-                    `Clone failed: ${cloneResult.error}`
-            });
-
-            // Test 6: Verify clone ownership
-            if (cloneResult.success) {
-                const clonedCard = player1.hand.find(c => c.isClone && c.cloneSource.cardId === testCard2.id);
-                const cloneOwnershipTest = clonedCard && clonedCard.owner === player1Id;
-                
-                testResults.tests.push({
-                    name: 'Clone ownership verification',
-                    success: cloneOwnershipTest,
-                    result: cloneOwnershipTest ?
-                        `Clone card correctly owned by ${player1.displayName}` :
-                        'Clone card ownership not properly set'
-                });
-            }
-
-            // Test 7: Test transfer restrictions
-            const restrictedTransferResult = await this.transferCard(
-                sessionId,
-                player1Id,
-                player1Id, // Same player
-                player1.hand[0]?.id,
-                'Test restricted transfer'
-            );
-            
-            testResults.tests.push({
-                name: 'Transfer restrictions',
-                success: !restrictedTransferResult.success,
-                result: !restrictedTransferResult.success ?
-                    `Correctly blocked invalid transfer: ${restrictedTransferResult.error}` :
-                    'Failed to block invalid transfer'
-            });
-
-            // Test 8: Test transfer history
-            const transferHistory = this.getCardTransferHistory(sessionId, 5);
-            
-            testResults.tests.push({
-                name: 'Transfer history tracking',
-                success: transferHistory.length > 0,
-                result: `Transfer history contains ${transferHistory.length} events`
-            });
-
-            // Test 9: Test assign card ownership
-            const newTestCard = new GameCard({
-                type: 'modifier',
-                sideA: 'Test modifier card'
-            });
-            
-            const assignResult = this.assignCardOwnership(player1Id, [newTestCard]);
-            
-            testResults.tests.push({
-                name: 'Assign card ownership',
-                success: assignResult && newTestCard.owner === player1Id,
-                result: assignResult ?
-                    `Successfully assigned ownership of new card to ${player1.displayName}` :
-                    'Failed to assign card ownership'
-            });
-
-            // Clean up test cards
-            player1.hand = player1.hand.filter(c => !c.id.includes('test') && c.type !== 'modifier');
-            player2.hand = player2.hand.filter(c => !c.id.includes('test'));
-
-        } catch (error) {
-            testResults.success = false;
-            testResults.errors.push(error.message);
-            console.error(`[CARD_TEST] Error: ${error.message}`);
-        }
-
-        console.log(`[CARD_TEST] Test completed. Success: ${testResults.success}`);
-        return testResults;
     }
 
     // ===== END CARD OWNERSHIP AND TRANSFER SYSTEM =====
@@ -7015,203 +6360,6 @@ class GameManager {
         }
     }
 
-    // #TODO Implement logic to assign player to a session
-    // #TODO Implement lobby system (simplified - no ready state)
-    // #TODO Implement game start and state transition
-    // #TODO Implement session persistence and rejoin
-    /**
-     * Comprehensive test function for session state management.
-     * @returns {object} - Test results object.
-     */
-    testSessionStateManagement() {
-        const testResults = {
-            testName: 'Session State Management Test',
-            timestamp: new Date().toISOString(),
-            tests: [],
-            summary: {
-                total: 0,
-                passed: 0,
-                failed: 0
-            }
-        };
-
-        console.log('[SESSION_STATE_TEST] Starting session state management tests...');
-
-        try {
-            // Test 1: Session state constants
-            const hasAllStates = Object.keys(this.SESSION_STATES).length === 4 &&
-                this.SESSION_STATES.LOBBY === 'lobby' &&
-                this.SESSION_STATES.IN_GAME === 'in-game' &&
-                this.SESSION_STATES.PAUSED === 'paused' &&
-                this.SESSION_STATES.COMPLETED === 'completed';
-
-            testResults.tests.push({
-                name: 'Session state constants defined',
-                success: hasAllStates,
-                result: hasAllStates ?
-                    'All session state constants properly defined' :
-                    'Session state constants missing or incorrect'
-            });
-
-            // Test 2: State transition validation
-            const validTransition = this.validateSessionStateTransition('lobby', 'in-game');
-            const invalidTransition = this.validateSessionStateTransition('completed', 'in-game');
-
-            testResults.tests.push({
-                name: 'State transition validation',
-                success: validTransition.valid && !invalidTransition.valid,
-                result: validTransition.valid && !invalidTransition.valid ?
-                    'State transition validation working correctly' :
-                    'State transition validation failed'
-            });
-
-            // Test 3: Session state history tracking
-            const sessionId = 'test-session-state';
-            const mockSession = {
-                sessionId,
-                status: this.SESSION_STATES.LOBBY,
-                players: ['player1'],
-                hostId: 'player1',
-                createdAt: new Date().toISOString(),
-                lastStateChange: Date.now(),
-                stateChangeReason: 'Test session created'
-            };
-
-            this.gameSessions[sessionId] = mockSession;
-            this.sessionStateHistory[sessionId] = [];
-
-            // Simulate state change
-            const stateChangeEvent = {
-                previousState: this.SESSION_STATES.LOBBY,
-                newState: this.SESSION_STATES.IN_GAME,
-                reason: 'Test state change',
-                timestamp: Date.now(),
-                metadata: { test: true }
-            };
-
-            this.sessionStateHistory[sessionId].push(stateChangeEvent);
-
-            const historyTracked = this.getSessionStateHistory(sessionId).length === 1;
-
-            testResults.tests.push({
-                name: 'Session state history tracking',
-                success: historyTracked,
-                result: historyTracked ?
-                    'Session state history properly tracked' :
-                    'Session state history tracking failed'
-            });
-
-            // Test 4: Session state retrieval
-            const sessionState = this.getSessionState(sessionId);
-            const stateRetrievalWorking = sessionState &&
-                sessionState.sessionId === sessionId &&
-                sessionState.status === this.SESSION_STATES.LOBBY &&
-                sessionState.stateHistory.length === 1;
-
-            testResults.tests.push({
-                name: 'Session state retrieval',
-                success: stateRetrievalWorking,
-                result: stateRetrievalWorking ?
-                    'Session state retrieval working correctly' :
-                    'Session state retrieval failed'
-            });
-
-            // Test 5: Event listener system
-            let eventTriggered = false;
-            const removeListener = this.addSessionStateListener(sessionId, (event) => {
-                eventTriggered = true;
-            });
-
-            this.triggerSessionStateChangeEvent(sessionId, stateChangeEvent);
-
-            testResults.tests.push({
-                name: 'Session state event system',
-                success: eventTriggered,
-                result: eventTriggered ?
-                    'Session state event system working correctly' :
-                    'Session state event system failed'
-            });
-
-            // Clean up listener
-            removeListener();
-
-            // Test 6: Session state persistence methods
-            const persistenceMethods = [
-                'syncSessionStateWithFirebase',
-                'broadcastSessionStateChange',
-                'handleSessionStatePersistenceOnHostDisconnect',
-                'restoreSessionStateForClient'
-            ];
-
-            const allMethodsExist = persistenceMethods.every(method =>
-                typeof this[method] === 'function'
-            );
-
-            testResults.tests.push({
-                name: 'Session state persistence methods',
-                success: allMethodsExist,
-                result: allMethodsExist ?
-                    'All session state persistence methods implemented' :
-                    'Some session state persistence methods missing'
-            });
-
-            // Test 7: Session state management methods
-            const managementMethods = [
-                'updateSessionState',
-                'startGameSession',
-                'pauseGameSession',
-                'resumeGameSession',
-                'completeGameSession',
-                'resetSessionToLobby'
-            ];
-
-            const allManagementMethodsExist = managementMethods.every(method =>
-                typeof this[method] === 'function'
-            );
-
-            testResults.tests.push({
-                name: 'Session state management methods',
-                success: allManagementMethodsExist,
-                result: allManagementMethodsExist ?
-                    'All session state management methods implemented' :
-                    'Some session state management methods missing'
-            });
-
-            // Test 8: Session state integration with existing methods
-            const integrationWorking =
-                this.gameSessions[sessionId].status === this.SESSION_STATES.LOBBY &&
-                typeof this.gameSessions[sessionId].lastStateChange === 'number' &&
-                typeof this.gameSessions[sessionId].stateChangeReason === 'string';
-
-            testResults.tests.push({
-                name: 'Session state integration',
-                success: integrationWorking,
-                result: integrationWorking ?
-                    'Session state properly integrated with existing systems' :
-                    'Session state integration issues detected'
-            });
-
-            // Clean up test session
-            delete this.gameSessions[sessionId];
-            delete this.sessionStateHistory[sessionId];
-
-        } catch (error) {
-            testResults.tests.push({
-                name: 'Session state test execution',
-                success: false,
-                result: `Test execution failed: ${error.message}`
-            });
-        }
-
-        // Calculate summary
-        testResults.summary.total = testResults.tests.length;
-        testResults.summary.passed = testResults.tests.filter(test => test.success).length;
-        testResults.summary.failed = testResults.summary.total - testResults.summary.passed;
-
-        console.log('[SESSION_STATE_TEST] Test Results:', testResults);
-        return testResults;
-    }
-
     // ===== SESSION TERMINATION AND CLEANUP METHODS =====
 
     /**
@@ -7670,252 +6818,6 @@ class GameManager {
     }
 
     /**
-     * Test function for session termination and cleanup
-     */
-    testSessionTerminationAndCleanup() {
-        console.log('\n=== Testing Session Termination and Cleanup ===');
-        
-        try {
-            // Test host-initiated termination method
-            if (typeof this.terminateSessionByHost === 'function') {
-                console.log('✓ Host-initiated termination method available');
-            } else {
-                throw new Error('Host-initiated termination method missing');
-            }
-            
-            // Test automatic termination method
-            if (typeof this.terminateSessionAutomatically === 'function') {
-                console.log('✓ Automatic termination method available');
-            } else {
-                throw new Error('Automatic termination method missing');
-            }
-            
-            // Test session data cleanup method
-            if (typeof this.cleanupSessionData === 'function') {
-                console.log('✓ Session data cleanup method available');
-            } else {
-                throw new Error('Session data cleanup method missing');
-            }
-            
-            // Test Firebase cleanup method
-            if (typeof this.cleanupFirebaseSessionData === 'function') {
-                console.log('✓ Firebase data deletion method available');
-            } else {
-                throw new Error('Firebase cleanup method missing');
-            }
-            
-            // Test termination event system
-            if (typeof this.triggerSessionTerminationEvent === 'function') {
-                console.log('✓ Session termination event system available');
-            } else {
-                throw new Error('Termination event system missing');
-            }
-
-            // Test race condition protection
-            if (typeof this.handlePlayerLeave === 'function') {
-                console.log('✓ Enhanced player leave handling with race condition protection available');
-            } else {
-                throw new Error('Enhanced player leave handling missing');
-            }
-
-            // Test orphaned session cleanup
-            if (typeof this.scheduleOrphanedSessionCleanup === 'function') {
-                console.log('✓ Orphaned session cleanup scheduling available');
-            } else {
-                throw new Error('Orphaned session cleanup method missing');
-            }
-            
-            console.log('✅ All session termination and cleanup functionality working correctly');
-            
-        } catch (error) {
-            console.error('❌ Session termination and cleanup test failed:', error);
-        }
-    }
-
-    // #TODO Implement logic to assign player to a session
-    // #TODO Implement lobby system (simplified - no ready state)
-    // #TODO Implement game start and state transition
-    // #TODO Implement session persistence and rejoin
-    /**
-     * Comprehensive test function for join/leave edge cases (7.2 requirements)
-     */
-    async testJoinLeaveEdgeCases() {
-        console.log('\n=== Testing Join/Leave Logic and Edge Cases (7.2) ===');
-        
-        try {
-            // Test 1: Duplicate player name detection
-            console.log('\n1. Testing duplicate player name detection...');
-            const testSessionId = 'test-join-leave-session';
-            
-            // Create test session
-            this.gameSessions[testSessionId] = {
-                sessionId: testSessionId,
-                shareableCode: 'TEST01',
-                hostId: 'host-player',
-                players: ['host-player'],
-                status: this.SESSION_STATES.LOBBY,
-                maxPlayers: 6
-            };
-            
-            // Add existing player
-            this.players['host-player'] = {
-                sessionId: testSessionId,
-                displayName: 'Alice',
-                status: 'active'
-            };
-            
-            // Test duplicate name detection
-            const duplicateResult = await this.checkForDuplicatePlayerName(testSessionId, 'Alice', 'new-player');
-            if (!duplicateResult.success && duplicateResult.errorCode === 'DUPLICATE_PLAYER_NAME') {
-                console.log('✓ Duplicate name detection works');
-                console.log('✓ Name suggestions provided:', duplicateResult.suggestions);
-            } else {
-                console.log('✗ Duplicate name detection failed');
-            }
-            
-            // Test unique name acceptance
-            const uniqueResult = await this.checkForDuplicatePlayerName(testSessionId, 'Bob', 'new-player');
-            if (uniqueResult.success) {
-                console.log('✓ Unique name acceptance works');
-            } else {
-                console.log('✗ Unique name acceptance failed');
-            }
-            
-            // Test 2: Player reconnection to lobby
-            console.log('\n2. Testing player reconnection to lobby...');
-            
-            // Add disconnected player
-            this.players['disconnected-player'] = {
-                sessionId: testSessionId,
-                displayName: 'Charlie',
-                status: 'disconnected',
-                gameState: { points: 5, cards: [] }
-            };
-            
-            const reconnectResult = await this.handlePlayerReconnectionToLobby(testSessionId, 'disconnected-player', 'Charlie');
-            if (reconnectResult.success && reconnectResult.reconnected) {
-                console.log('✓ Player reconnection to lobby works');
-            } else {
-                console.log('✗ Player reconnection to lobby failed');
-            }
-            
-            // Test 3: Player rejoining after leaving
-            console.log('\n3. Testing player rejoin after leaving...');
-            
-            // Add player who left
-            this.players['left-player'] = {
-                sessionId: testSessionId,
-                displayName: 'David',
-                status: 'left',
-                gameState: { points: 3, cards: [] }
-            };
-            
-            const rejoinResult = await this.handlePlayerRejoinAfterLeaving(testSessionId, 'left-player', 'David');
-            if (rejoinResult.success && rejoinResult.rejoined) {
-                console.log('✓ Player rejoin after leaving works (treated as new entry)');
-            } else {
-                console.log('✗ Player rejoin after leaving failed');
-            }
-            
-            // Test 4: Enhanced joinSession method
-            console.log('\n4. Testing enhanced joinSession method...');
-            
-            // Test joining lobby state
-            const joinResult = await this.joinSession('TEST01', 'new-player-1', 'Eve');
-            if (joinResult.success) {
-                console.log('✓ Joining lobby state works');
-            } else {
-                console.log('✗ Joining lobby state failed:', joinResult.error);
-            }
-            
-            // Test joining non-lobby state
-            this.gameSessions[testSessionId].status = this.SESSION_STATES.IN_GAME;
-            const joinInGameResult = await this.joinSession('TEST01', 'new-player-2', 'Frank');
-            if (!joinInGameResult.success && joinInGameResult.errorCode === 'SESSION_NOT_JOINABLE') {
-                console.log('✓ Joining non-lobby state properly rejected');
-            } else {
-                console.log('✗ Joining non-lobby state should be rejected');
-            }
-            
-            // Reset to lobby for further tests
-            this.gameSessions[testSessionId].status = this.SESSION_STATES.LOBBY;
-            
-            // Test joining full session
-            this.gameSessions[testSessionId].maxPlayers = 2;
-            this.gameSessions[testSessionId].players = ['host-player', 'new-player-1'];
-            const joinFullResult = await this.joinSession('TEST01', 'new-player-3', 'Grace');
-            if (!joinFullResult.success && joinFullResult.errorCode === 'SESSION_FULL') {
-                console.log('✓ Joining full session properly rejected');
-            } else {
-                console.log('✗ Joining full session should be rejected');
-            }
-            
-            // Test 5: leaveLobby method
-            console.log('\n5. Testing leaveLobby method...');
-            
-            const leaveResult = await this.leaveLobby(testSessionId, 'new-player-1');
-            if (leaveResult.success && leaveResult.leftLobby) {
-                console.log('✓ Leaving lobby works');
-            } else {
-                console.log('✗ Leaving lobby failed:', leaveResult.error);
-            }
-            
-            // Test leaving non-lobby state
-            this.gameSessions[testSessionId].status = this.SESSION_STATES.IN_GAME;
-            const leaveInGameResult = await this.leaveLobby(testSessionId, 'host-player');
-            if (!leaveInGameResult.success && leaveInGameResult.errorCode === 'CANNOT_LEAVE_LOBBY') {
-                console.log('✓ Leaving non-lobby state properly rejected');
-            } else {
-                console.log('✗ Leaving non-lobby state should be rejected');
-            }
-            
-            // Test 6: Alternative name generation
-            console.log('\n6. Testing alternative name generation...');
-            
-            const existingPlayers = [
-                { displayName: 'Alice' },
-                { displayName: 'Alice2' },
-                { displayName: 'Alice_new' }
-            ];
-            
-            const suggestions = this.generateAlternativePlayerNames('Alice', existingPlayers);
-            if (suggestions.length > 0 && !suggestions.includes('Alice2') && !suggestions.includes('Alice_new')) {
-                console.log('✓ Alternative name generation works:', suggestions);
-            } else {
-                console.log('✗ Alternative name generation failed');
-            }
-            
-            // Test 7: Session state transition validation
-            console.log('\n7. Testing session state transition validation...');
-            
-            // Reset session to lobby
-            this.gameSessions[testSessionId].status = this.SESSION_STATES.LOBBY;
-            
-            // Test valid transition
-            const validTransition = this.validateSessionStateTransition(testSessionId, this.SESSION_STATES.IN_GAME);
-            if (validTransition) {
-                console.log('✓ Valid state transition (lobby -> in-game) accepted');
-            } else {
-                console.log('✗ Valid state transition should be accepted');
-            }
-            
-            // Test invalid transition
-            this.gameSessions[testSessionId].status = this.SESSION_STATES.COMPLETED;
-            const invalidTransition = this.validateSessionStateTransition(testSessionId, this.SESSION_STATES.LOBBY);
-            if (!invalidTransition) {
-                console.log('✓ Invalid state transition (completed -> lobby) rejected');
-            } else {
-                console.log('✗ Invalid state transition should be rejected');
-            }
-            
-            console.log('\n✅ All join/leave edge case tests passed!');
-            
-        } catch (error) {
-            console.error('❌ Join/leave edge case test failed:', error);
-        }
-    }
-
-    /**
      * Get the current session ID from the global window object
      * @returns {string|null} - The current session ID or null if none is set
      */
@@ -7924,6 +6826,5 @@ class GameManager {
     }
 }
 
-// FIXME: Missing export statement was causing import error in main.js
 // Export an instance of GameManager for use in main.js
 export const gameManager = new GameManager();

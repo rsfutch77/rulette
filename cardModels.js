@@ -275,7 +275,6 @@ async function loadCardData() {
         deckType6: [...swapCards] // Swap cards (placeholder)
     };
     
-    // FIXME: Browser compatibility - process.env not available in browser
     // Add diagnostic logging to confirm environment
     console.log('[DEBUG] Environment check - typeof process:', typeof process);
     console.log('[DEBUG] Environment check - typeof window:', typeof window);

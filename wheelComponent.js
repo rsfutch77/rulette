@@ -63,7 +63,7 @@ class WheelComponent {
                 console.log('[WHEEL] currentSessionId:', window.currentSessionId);
                 console.log('[WHEEL] spinWheelForPlayer available:', !!window.spinWheelForPlayer);
                 
-                // FIXME: Add comprehensive logging for button click debugging
+                // Add comprehensive logging for button click debugging
                 const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
                 console.log('[WHEEL] getCurrentUser function available:', !!window.getCurrentUser);
                 console.log('[WHEEL] Current user:', currentUser);
@@ -471,58 +471,6 @@ class WheelComponent {
         return [...this.cardTypes];
     }
 
-    // Method for testing - spin to specific segment
-    testSpin(segmentIndex, playerId = 'test-player') {
-        // For testing, temporarily bypass validation
-        const originalCanSpin = this.canSpin;
-        this.canSpin = () => true;
-        
-        if (this.isSpinning) {
-            this.canSpin = originalCanSpin;
-            return false;
-        }
-        
-        console.log('[WHEEL] Test spin to segment:', segmentIndex);
-        
-        this.isSpinning = true;
-        this.hasSpunThisTurn = true;
-        this.lastSpinTime = Date.now();
-        this.disable();
-        
-        // Start flashing animation for test
-        const wheel = document.getElementById('wheel');
-        const wheelText = document.getElementById('wheel-text');
-        if (wheel && wheelText) {
-            wheel.classList.add('spinning');
-            
-            // Flash through different card types during test spin
-            let currentFlashIndex = 0;
-            const flashInterval = setInterval(() => {
-                const cardType = this.cardTypes[currentFlashIndex % this.cardTypes.length];
-                wheel.style.backgroundColor = cardType.color;
-                wheelText.textContent = cardType.name;
-                
-                // Adjust text color for yellow background
-                if (cardType.color === '#FFEAA7') {
-                    wheelText.style.color = '#333';
-                } else {
-                    wheelText.style.color = 'white';
-                }
-                
-                currentFlashIndex++;
-            }, 100); // Flash every 100ms
-            
-            // Stop flashing after 2 seconds and show test result
-            setTimeout(() => {
-                clearInterval(flashInterval);
-                this.handleSpinComplete(segmentIndex);
-                // Restore original validation
-                this.canSpin = originalCanSpin;
-            }, 2000);
-        }
-        
-        return true;
-    }
 }
 
 // Export for use in main.js
