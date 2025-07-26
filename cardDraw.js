@@ -54,12 +54,24 @@ function handleCardDraw(selectedCardType) {
     
     try {
         // Map wheel segment to deck type
-        const deckKey = selectedCardType.deckKey;
-        
+let deckKey = selectedCardType.deckKey;
+        const currentUser = getCurrentUser();
+
         if (!cardManager) {
             console.error('[CARD_DRAW] Card manager not initialized');
-            window.window.showNotification('Card system not ready. Please try again.', 'Error');
+            window.showNotification('Card system not ready. Please try again.', 'Error');
             return;
+        }
+
+        // Check if the drawn card is a flip card and if the player has rules/modifiers
+        if (deckKey === 'deckType5' && currentUser) { // deckType5 is for flip_action cards
+            const player = window.gameManager.players[currentUser.uid];
+            if (player && !playerHasRulesOrModifiers(player.hand)) {
+                console.log('[CARD_DRAW] Player has no rules or modifiers, re-rolling flip card to rule, prompt, or modifier.');
+                const alternativeDecks = ['deckType1', 'deckType2', 'deckType3']; // Rule, Prompt, Modifier
+                deckKey = alternativeDecks[Math.floor(Math.random() * alternativeDecks.length)];
+                window.showNotification('You have no rules or modifiers to flip! Drawing a different card.', 'Info');
+            }
         }
         
         // Handle swap card type separately
@@ -85,6 +97,15 @@ function handleCardDraw(selectedCardType) {
         console.error('[CARD_DRAW] Error in card draw handling:', error);
         window.showNotification('An error occurred while drawing the card.', 'Error');
     }
+}
+
+/**
+ * Checks if a player's hand contains any 'rule' or 'modifier' cards.
+ * @param {Array<Object>} playerHand - The array of card objects in the player's hand.
+ * @returns {boolean} - True if the player has at least one rule or modifier card, false otherwise.
+ */
+function playerHasRulesOrModifiers(playerHand) {
+    return playerHand.some(card => card.type === 'rule' || card.type === 'modifier');
 }
 
 /**
@@ -176,7 +197,7 @@ function displayDrawnCard(card, cardType) {
                 ` : ''}
             `;
         } else {
-            title.textContent = `${cardType.name} Card}`;
+            title.textContent = `${cardType.name} Card`;
             title.style.color = cardType.color;
             question.textContent = card.getCurrentText();
         }
