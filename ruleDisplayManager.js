@@ -257,7 +257,33 @@ export class RuleDisplayManager {
     createRuleDescription(rule) {
         const description = document.createElement('div');
         description.className = 'rule-description';
-        description.textContent = rule.description || rule.ruleText || 'No description available';
+        
+        // Add debugging logs to diagnose undefined rule card display issue
+        console.log('[RULE_DISPLAY] Creating rule description - Debug info:');
+        console.log('  - Rule object:', rule);
+        console.log('  - rule.description:', rule.description);
+        console.log('  - rule.ruleText:', rule.ruleText);
+        console.log('  - rule.getCurrentText (if available):', rule.getCurrentText ? rule.getCurrentText() : 'N/A');
+        
+        // Enhanced fallback logic to handle undefined values properly
+        let ruleText = rule.description || rule.ruleText;
+        
+        // If rule has getCurrentText method (GameCard instance), use it with fallback
+        if (rule.getCurrentText && typeof rule.getCurrentText === 'function') {
+            const currentText = rule.getCurrentText();
+            if (currentText && currentText !== 'undefined') {
+                ruleText = currentText;
+            }
+        }
+        
+        // Final fallback to prevent undefined display
+        if (!ruleText || ruleText === 'undefined') {
+            ruleText = 'No description available';
+        }
+        
+        console.log('  - Final rule text:', ruleText);
+        
+        description.textContent = ruleText;
 
         return description;
     }

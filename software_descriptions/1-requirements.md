@@ -76,6 +76,7 @@ Roles and responsibilities:
 [x] 3.a.3 UI Representation of Flipped Cards (2 Points)
 [x] 3.a.3.1 Visually represent the flipped state of a card in the player's hand and when active on the board. (1 Point)
 [x] 3.a.3.2 Clearly display the currently active rule/effect of a flipped card. (1 Point)
+[x] 3.a.3.3 Implement a dedicated modal or UI element for players to interact with flip cards. (2 Points)
 [x] 3.a.4 Flip Card Draw Restriction (3 Points)
 [x] 3.a.4.1 Prevent players from drawing a "flip card" if they have no "rule" or "modifier" cards in their hand. (2 Points)
 [x] 3.a.4.2 If a "flip card" is drawn under this condition, re-roll the card to a random "rule", "prompt", or "modifier" card instead. (1 Point)

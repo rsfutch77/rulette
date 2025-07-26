@@ -1283,10 +1283,32 @@ function createRuleCardElement(card) {
       break;
   }
 
+  // FIXME: Get the rule text properly - use getCurrentText() method if available, otherwise fallback to card properties
+  let cardText = 'Unknown Rule';
+  
+  if (card.getCurrentText && typeof card.getCurrentText === 'function') {
+    cardText = card.getCurrentText();
+  } else if (card.title) {
+    cardText = card.title;
+  } else if (card.name) {
+    cardText = card.name;
+  } else if (card.frontRule) {
+    cardText = card.frontRule;
+  } else if (card.sideA) {
+    cardText = card.sideA;
+  } else if (card.description) {
+    cardText = card.description;
+  }
+  
+  // Ensure we never display undefined
+  if (!cardText || cardText === 'undefined') {
+    cardText = 'Rule Card';
+  }
+
   return `
     <div class="player-rule-card-item">
       <span class="card-icon">${icon}</span>
-      <span class="card-name">${card.title || card.name}</span>
+      <span class="card-name">${cardText}</span>
       <span class="card-type">(${card.type.replace('_', ' ')})</span>
     </div>
   `;
