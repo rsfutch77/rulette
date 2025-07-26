@@ -51,7 +51,12 @@ function displayPlayerCards(cards) {
         cardElement.appendChild(cardInner);
 
         cardElement.addEventListener('click', () => {
-            cardElement.classList.toggle('flipped');
+            cardInner.classList.toggle('flipped');
+            // Re-render the cards to reflect the flipped state and ensure consistency
+            if (window.gameManager && window.gameManager.getCurrentPlayer) {
+                const playerCards = window.gameManager.getCurrentPlayer().getRules();
+                displayPlayerCards(playerCards);
+            }
         });
 
         container.appendChild(cardElement);
