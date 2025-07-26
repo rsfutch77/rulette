@@ -1,7 +1,6 @@
 // rulette/gameManager.js
 
 import {
-    createFirestoreGameSession,
     initializeFirestorePlayer,
     updateFirestorePlayerStatus,
     updateFirestorePlayerHand,
@@ -13,12 +12,12 @@ import {
     getFirestoreGameSession,
     getFirestorePlayer,
     getFirestorePlayersInSession,
-    getFirestoreSessionByShareableCode,
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
 } from './firebaseOperations.js';
 import { GameCard } from './cardModels.js';
 import { CalloutManager } from './calloutManager.js';
 import { PlayerManager } from './playerSystem.js';
+import { SessionManager } from './sessionManager.js';
 
 export class GameManager {
     constructor() {
@@ -31,18 +30,7 @@ export class GameManager {
         this.activePrompts = {}; // Track active prompts by session
         this.calloutManager = new CalloutManager(this); // Initialize CalloutManager
         this.playerManager = new PlayerManager(this); // Initialize PlayerManager
-        
-        // Session State Management Constants
-        this.SESSION_STATES = {
-            LOBBY: 'lobby',
-            IN_GAME: 'in-game',
-            PAUSED: 'paused',
-            COMPLETED: 'completed'
-        };
-        
-        // Session state change tracking
-        this.sessionStateHistory = {}; // Track state changes for each session
-        this.sessionStateListeners = {}; // Event listeners for state changes
+        this.sessionManager = new SessionManager(this); // Initialize SessionManager
     }
 
     setCardManager(manager) {
@@ -55,188 +43,19 @@ export class GameManager {
      * @param {string} hostDisplayName - The display name of the host.
      * @returns {Promise<object>} - The new game session object.
      */
+    // Delegate session creation to SessionManager
     async createGameSession(hostId, hostDisplayName) {
-        console.log("DEBUG: GameManager.createGameSession called with:", hostId, hostDisplayName);
-        try {
-            const sessionInfo = this.generateUniqueSessionId();
-            console.log("DEBUG: Generated session info:", sessionInfo);
-            
-            const newSession = {
-                sessionId: sessionInfo.sessionId,
-                shareableCode: sessionInfo.shareableCode,
-                shareableLink: sessionInfo.shareableLink,
-                hostId: hostId,
-                players: [hostId], // Host is automatically added to players list
-                status: this.SESSION_STATES.LOBBY, // Use session state constants
-                referee: null, // Player ID who has the referee card
-                initialRefereeCard: null, // Store the referee card object if applicable
-                currentCallout: null, // Current active callout object
-                calloutHistory: [], // History of all callouts in this session
-                createdAt: new Date().toISOString(),
-                maxPlayers: 6, // Default maximum players
-                lastStateChange: Date.now(),
-                stateChangeReason: 'Session created'
-            };
-            console.log("DEBUG: Created new session object:", newSession);
-            this.gameSessions[sessionInfo.sessionId] = newSession;
-
-            console.log("DEBUG: Synchronizing with Firebase");
-            // Synchronize with Firebase (include shareable code)
-            await createFirestoreGameSession(newSession);
-            await initializeFirestorePlayer(hostId, {
-                sessionId: sessionInfo.sessionId,
-                displayName: hostDisplayName,
-                isHost: true,
-                status: 'active',
-                joinedAt: new Date().toISOString()
-            });
-
-            console.log(`Game session ${sessionInfo.sessionId} created by host ${hostDisplayName}.`);
-            console.log(`Shareable code: ${sessionInfo.shareableCode}`);
-            console.log(`Shareable link: ${sessionInfo.shareableLink}`);
-            
-            // Load any existing players in the session (in case of session restoration)
-            await this.playerManager.loadExistingPlayersInSession(sessionInfo.sessionId);
-            
-            console.log("DEBUG: Returning session:", newSession);
-            return newSession;
-        } catch (error) {
-            console.error("DEBUG: Error in GameManager.createGameSession:", error);
-            throw error;
-        }
+        return await this.sessionManager.createGameSession(hostId, hostDisplayName);
     }
 
-    /**
-     * Generates a unique session ID with enhanced format for sharing.
-     * Creates both a short shareable code and a full session ID.
-     * @returns {object} - Object containing sessionId, shareableCode, and shareableLink.
-     */
-    generateUniqueSessionId() {
-        // Generate a timestamp-based component for uniqueness
-        const timestamp = Date.now().toString(36);
-        
-        // Generate random component
-        const randomPart = Math.random().toString(36).substring(2, 8);
-        
-        // Create full session ID
-        const sessionId = `sess-${timestamp}-${randomPart}`;
-        
-        // Create short shareable code (6 characters, uppercase for readability)
-        const shareableCode = (timestamp.slice(-3) + randomPart.slice(0, 3)).toUpperCase();
-        
-        // Create shareable link (for future web sharing)
-        const baseUrl = window.location.origin + window.location.pathname;
-        const shareableLink = `${baseUrl}?join=${shareableCode}`;
-        
-        return {
-            sessionId,
-            shareableCode,
-            shareableLink
-        };
-    }
-
-    /**
-     * Validates and resolves a session code to a full session ID.
-     * @param {string} code - The shareable code to validate.
-     * @returns {Promise<object>} - Result object with session info or error.
-     */
+    // Delegate session code validation to SessionManager
     async validateSessionCode(code) {
-        try {
-            // Normalize the code (uppercase, trim)
-            const normalizedCode = code.trim().toUpperCase();
-            
-            // Validate code format (6 alphanumeric characters)
-            if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
-                return {
-                    success: false,
-                    error: 'Invalid session code format. Code must be 6 characters.',
-                    errorCode: 'INVALID_FORMAT'
-                };
-            }
-            
-            // Search for session with matching shareable code
-            // First check local sessions
-            for (const [sessionId, session] of Object.entries(this.gameSessions)) {
-                if (session.shareableCode === normalizedCode) {
-                    return {
-                        success: true,
-                        sessionId: sessionId,
-                        session: session
-                    };
-                }
-            }
-            
-            // If not found locally, check Firebase
-            const firebaseSession = await this.findSessionByCode(normalizedCode);
-            if (firebaseSession) {
-                return {
-                    success: true,
-                    sessionId: firebaseSession.sessionId,
-                    session: firebaseSession
-                };
-            }
-            
-            return {
-                success: false,
-                error: 'Session not found. Please check the code and try again.',
-                errorCode: 'SESSION_NOT_FOUND'
-            };
-            
-        } catch (error) {
-            console.error('[SESSION] Error validating session code:', error);
-            return {
-                success: false,
-                error: 'Failed to validate session code. Please try again.',
-                errorCode: 'VALIDATION_ERROR'
-            };
-        }
+        return await this.sessionManager.validateSessionCode(code);
     }
 
-    /**
-     * Finds a session by shareable code in Firebase.
-     * @param {string} code - The shareable code to search for.
-     * @returns {Promise<object|null>} - Session object or null if not found.
-     */
+    // Delegate session search to SessionManager
     async findSessionByCode(code) {
-        try {
-            
-            console.log(`[DEBUG] Searching Firebase for session with code: ${code}`);
-            console.log(`[DEBUG] Local sessions available:`, Object.keys(this.gameSessions));
-            
-            // Query Firebase for sessions with matching shareable code
-            console.log(`[SESSION] Searching Firebase for session with code: ${code}`);
-            const sessionData = await getFirestoreSessionByShareableCode(code);
-            
-            if (sessionData) {
-                console.log(`[DEBUG] Found session in Firebase:`, sessionData);
-                console.log(`[DIAGNOSTIC] Session has players:`, sessionData.players);
-                console.log(`[DIAGNOSTIC] Current gameManager.players before restoration:`, Object.keys(this.players));
-                
-                // Convert Firebase session data to expected format
-                const restoredSession = {
-                    sessionId: sessionData.sessionId || sessionData.id,
-                    shareableCode: sessionData.shareableCode,
-                    hostId: sessionData.hostId,
-                    players: sessionData.players || [],
-                    status: sessionData.status || 'lobby',
-                    maxPlayers: sessionData.maxPlayers || 8,
-                    createdAt: sessionData.createdAt,
-                    referee: sessionData.referee || null,
-                    initialRefereeCard: sessionData.initialRefereeCard || null
-                };
-                
-                console.log(`[DIAGNOSTIC] ISSUE IDENTIFIED: Session restored with ${restoredSession.players.length} players but gameManager.players is empty`);
-                console.log(`[DIAGNOSTIC] This will cause the lobby to show no players after refresh`);
-                
-                return restoredSession;
-            }
-            
-            console.log(`[DEBUG] No session found in Firebase with code: ${code}`);
-            return null;
-        } catch (error) {
-            console.error('[SESSION] Error searching Firebase for session:', error);
-            return null;
-        }
+        return await this.sessionManager.findSessionByCode(code);
     }
 
     /**
@@ -419,142 +238,9 @@ export class GameManager {
      * @param {string} displayName - Display name for the joining player.
      * @returns {Promise<object>} - Result object with success status and session info.
      */
+    // Delegate session joining to SessionManager
     async joinSession(sessionCode, playerId, displayName) {
-        try {
-            console.log(`[DEBUG RECONNECTION] joinSession called with playerId: ${playerId}, displayName: ${displayName}, sessionCode: ${sessionCode}`);
-            
-            // Validate the session code and get session info
-            const validationResult = await this.validateSessionCode(sessionCode);
-            if (!validationResult.success) {
-                return validationResult;
-            }
-
-            const { sessionId, session } = validationResult;
-            console.log(`[DEBUG RECONNECTION] Found session ${sessionId} with existing players:`, session.players);
-
-            // Check if session is in a joinable state (7.2.1 - only allow joining lobby state)
-            if (session.status !== this.SESSION_STATES.LOBBY) {
-                return {
-                    success: false,
-                    error: 'Cannot join session. Game is already in progress or completed.',
-                    errorCode: 'SESSION_NOT_JOINABLE'
-                };
-            }
-
-            // Check if session is full (7.2.1 - handle full lobby scenario)
-            if (session.players && session.players.length >= (session.maxPlayers || 6)) {
-                return {
-                    success: false,
-                    error: 'Session is full. Cannot join.',
-                    errorCode: 'SESSION_FULL'
-                };
-            }
-
-            // Handle player reconnection scenario FIRST (before duplicate name check)
-            const existingPlayer = this.players[playerId];
-            console.log(`[DEBUG RECONNECTION] Checking for existing player with ID ${playerId}:`, existingPlayer);
-            
-            if (existingPlayer) {
-                console.log(`[DEBUG RECONNECTION] Found existing player with status: ${existingPlayer.status}`);
-                
-                // Check if player is reconnecting to the same session
-                if (existingPlayer.sessionId === sessionId) {
-                    if (existingPlayer.status === 'disconnected') {
-                        console.log(`[DEBUG RECONNECTION] Player reconnecting to same session`);
-                        return await this.playerManager.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
-                    } else if (existingPlayer.status === 'left') {
-                        console.log(`[DEBUG RECONNECTION] Player rejoining after leaving`);
-                        return await this.playerManager.handlePlayerRejoinAfterLeaving(sessionId, playerId, displayName);
-                    } else if (existingPlayer.status === 'active') {
-                        console.log(`[DEBUG RECONNECTION] Player already active in session`);
-                        return {
-                            success: true,
-                            sessionId: sessionId,
-                            session: session,
-                            message: `You are already in this session`,
-                            alreadyJoined: true
-                        };
-                    }
-                } else {
-                    // Player exists but in different session - allow joining new session
-                    console.log(`[DEBUG RECONNECTION] Player exists in different session, allowing join to new session`);
-                }
-            } else {
-                console.log(`[DEBUG RECONNECTION] No existing player found with this ID`);
-            }
-
-            // Check if player is already in the session players list (by ID)
-            if (session.players && session.players.includes(playerId)) {
-                console.log(`[DEBUG RECONNECTION] Player ID ${playerId} already in session players list - treating as reconnection`);
-                
-                // Store the session in local gameSessions if it's not there (from Firebase lookup)
-                if (!this.gameSessions[sessionId]) {
-                    console.log(`[DEBUG RECONNECTION] Storing Firebase session in local gameSessions`);
-                    console.log(`[DEBUG RECONNECTION] Firebase session has ${session.players?.length || 0} players:`, session.players);
-                    this.gameSessions[sessionId] = session;
-                    console.log(`[DEBUG RECONNECTION] Local session now has ${this.gameSessions[sessionId].players?.length || 0} players`);
-                }
-                
-                // Player ID is in session but not in local players - this is a reconnection scenario
-                return await this.playerManager.handlePlayerReconnectionToLobby(sessionId, playerId, displayName);
-            }
-
-            // Check for duplicate player names (only for truly new players)
-            const duplicateNameResult = await this.checkForDuplicatePlayerName(sessionId, displayName, playerId);
-            if (!duplicateNameResult.success) {
-                return duplicateNameResult;
-            }
-            
-            console.log(`[DEBUG RECONNECTION] Player ${playerId} not found in session, proceeding to add as new player`);
-
-            // Add player to the session
-            if (!session.players) {
-                session.players = [];
-            }
-            session.players.push(playerId);
-            console.log(`[DEBUG JOIN] Added player ${playerId} to session. Session now has players:`, session.players);
-
-            // Initialize the player
-            await this.playerManager.initializePlayer(sessionId, playerId, displayName);
-            console.log(`[DEBUG JOIN] Player ${playerId} initialized in gameManager.players`);
-            console.log(`[DEBUG JOIN] Current gameManager.players after initializePlayer:`, Object.keys(this.players));
-
-            // Load existing players in the session to local gameManager.players
-            console.log(`[DEBUG JOIN] Loading existing players in session ${sessionId}`);
-            await this.playerManager.loadExistingPlayersInSession(sessionId);
-            console.log(`[DEBUG JOIN] After loadExistingPlayersInSession, gameManager.players:`, Object.keys(this.players));
-
-            // Update session in local storage
-            this.gameSessions[sessionId] = session;
-            console.log(`[DEBUG JOIN] Session updated in local storage`);
-            console.log(`[DEBUG JOIN] Session players list after update:`, this.gameSessions[sessionId].players);
-
-            // Synchronize with Firebase
-            await this.updateSessionPlayerList(sessionId, session.players);
-            console.log(`[DEBUG JOIN] Session player list synchronized with Firebase`);
-            
-            // Trigger player status change event for UI updates
-            this.playerManager.triggerPlayerStatusChangeEvent(sessionId, playerId, 'active', 'Player joined session');
-            
-            console.log(`[SESSION] Player ${displayName} (${playerId}) joined session ${sessionId}`);
-            console.log(`[SESSION] Final gameManager.players:`, Object.keys(this.players));
-            console.log(`[SESSION] Final session players:`, this.gameSessions[sessionId].players);
-            
-            return {
-                success: true,
-                sessionId: sessionId,
-                session: session,
-                message: `Successfully joined session ${sessionCode}`
-            };
-
-        } catch (error) {
-            console.error('[SESSION] Error joining session:', error);
-            return {
-                success: false,
-                error: 'Failed to join session. Please try again.',
-                errorCode: 'JOIN_ERROR'
-            };
-        }
+        return await this.sessionManager.joinSession(sessionCode, playerId, displayName);
     }
 
     /**
@@ -1215,289 +901,37 @@ export class GameManager {
      * @param {object} metadata - Additional metadata for the state change.
      * @returns {Promise<object>} - Result object with success status.
      */
+    // Delegate session state management to SessionManager
     async updateSessionState(sessionId, newState, reason = '', metadata = {}) {
-        try {
-            const session = this.getSession(sessionId);
-            if (!session) {
-                return {
-                    success: false,
-                    error: 'Session not found',
-                    errorCode: 'SESSION_NOT_FOUND'
-                };
-            }
-
-            // Validate state transition
-            const validationResult = this.validateSessionStateTransition(session.status, newState);
-            if (!validationResult.valid) {
-                return {
-                    success: false,
-                    error: validationResult.reason,
-                    errorCode: 'INVALID_STATE_TRANSITION'
-                };
-            }
-
-            const previousState = session.status;
-            const timestamp = Date.now();
-
-            // Update session state
-            session.status = newState;
-            session.lastStateChange = timestamp;
-            session.stateChangeReason = reason;
-
-            // Track state change in history
-            if (!this.sessionStateHistory[sessionId]) {
-                this.sessionStateHistory[sessionId] = [];
-            }
-
-            const stateChangeEvent = {
-                previousState,
-                newState,
-                reason,
-                timestamp,
-                metadata
-            };
-
-            this.sessionStateHistory[sessionId].push(stateChangeEvent);
-
-            // Synchronize with Firebase
-            await this.syncSessionStateWithFirebase(sessionId, session);
-
-            // Broadcast state change to all clients
-            await this.broadcastSessionStateChange(sessionId, stateChangeEvent);
-
-            // Trigger state change events
-            this.triggerSessionStateChangeEvent(sessionId, stateChangeEvent);
-
-            console.log(`[SESSION_STATE] Session ${sessionId} state changed: ${previousState} → ${newState} (${reason})`);
-
-            return {
-                success: true,
-                previousState,
-                newState,
-                timestamp
-            };
-
-        } catch (error) {
-            console.error('[SESSION_STATE] Error updating session state:', error);
-            return {
-                success: false,
-                error: 'Failed to update session state',
-                errorCode: 'STATE_UPDATE_ERROR'
-            };
-        }
+        return await this.sessionManager.updateSessionState(sessionId, newState, reason, metadata);
     }
 
-    /**
-     * Validates if a session state transition is allowed.
-     * @param {string} currentState - Current session state.
-     * @param {string} newState - Proposed new state.
-     * @returns {object} - Validation result with valid flag and reason.
-     */
     validateSessionStateTransition(currentState, newState) {
-        // Define valid state transitions
-        const validTransitions = {
-            [this.SESSION_STATES.LOBBY]: [
-                this.SESSION_STATES.IN_GAME,
-                this.SESSION_STATES.COMPLETED
-            ],
-            [this.SESSION_STATES.IN_GAME]: [
-                this.SESSION_STATES.PAUSED,
-                this.SESSION_STATES.COMPLETED,
-                this.SESSION_STATES.LOBBY // For restart scenarios
-            ],
-            [this.SESSION_STATES.PAUSED]: [
-                this.SESSION_STATES.IN_GAME,
-                this.SESSION_STATES.COMPLETED,
-                this.SESSION_STATES.LOBBY // For restart scenarios
-            ],
-            [this.SESSION_STATES.COMPLETED]: [
-                this.SESSION_STATES.LOBBY // For restart scenarios
-            ]
-        };
-
-        // Allow same state (for metadata updates)
-        if (currentState === newState) {
-            return { valid: true };
-        }
-
-        const allowedStates = validTransitions[currentState] || [];
-        
-        if (allowedStates.includes(newState)) {
-            return { valid: true };
-        }
-
-        return {
-            valid: false,
-            reason: `Invalid state transition from ${currentState} to ${newState}`
-        };
+        return this.sessionManager.validateSessionStateTransition(currentState, newState);
     }
 
-    /**
-     * Synchronizes session state with Firebase Realtime Database.
-     * @param {string} sessionId - The session ID.
-     * @param {object} session - The session object.
-     * @returns {Promise<void>}
-     */
     async syncSessionStateWithFirebase(sessionId, session) {
-        try {
-            // Prepare session state data for Firebase
-            const sessionStateData = {
-                status: session.status,
-                lastStateChange: session.lastStateChange,
-                stateChangeReason: session.stateChangeReason,
-                players: session.players,
-                hostId: session.hostId,
-                referee: session.referee,
-                maxPlayers: session.maxPlayers,
-                createdAt: session.createdAt,
-                shareableCode: session.shareableCode
-            };
-
-            console.log(`[FIREBASE_SYNC] Syncing session state for ${sessionId}:`, sessionStateData);
-
-            // Import Firebase functions dynamically
-            const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js");
-            const { db } = await import('./firebase-init.js');
-
-            // Update session document in Firebase
-            const sessionRef = doc(db, 'gameSessions', sessionId);
-            await updateDoc(sessionRef, sessionStateData);
-
-            console.log(`[FIREBASE_SYNC] Successfully synchronized session state for ${sessionId}`);
-
-        } catch (error) {
-            console.error('[FIREBASE_SYNC] Error syncing session state:', error);
-            // Don't throw error to prevent blocking the game start
-            console.warn('[FIREBASE_SYNC] Continuing without Firebase sync...');
-        }
+        return await this.sessionManager.syncSessionStateWithFirebase(sessionId, session);
     }
 
-    /**
-     * Broadcasts session state changes to all connected clients.
-     * @param {string} sessionId - The session ID.
-     * @param {object} stateChangeEvent - The state change event data.
-     * @returns {Promise<void>}
-     */
     async broadcastSessionStateChange(sessionId, stateChangeEvent) {
-        try {
-            const session = this.getSession(sessionId);
-            if (!session || !session.players) return;
-
-            const notification = {
-                type: 'session_state_change',
-                sessionId,
-                stateChange: stateChangeEvent,
-                timestamp: Date.now()
-            };
-
-            console.log(`[BROADCAST] WARNING: Real-time broadcasting not implemented! Other players won't be notified.`);
-            console.log(`[BROADCAST] Would broadcast to ${session.players.length} players:`, session.players);
-
-            // Broadcast to all active players in the session
-            for (const playerId of session.players) {
-                const player = this.players[playerId];
-                if (player && player.status === 'active') {
-                    // TODO: Implement real-time broadcasting via Firebase or WebSocket
-                    console.log(`[BROADCAST] Would send state change to player ${playerId}:`, notification);
-                }
-            }
-
-        } catch (error) {
-            console.error('[BROADCAST] Error broadcasting session state change:', error);
-        }
+        return await this.sessionManager.broadcastSessionStateChange(sessionId, stateChangeEvent);
     }
 
-    /**
-     * Triggers session state change events for UI updates.
-     * @param {string} sessionId - The session ID.
-     * @param {object} stateChangeEvent - The state change event data.
-     */
     triggerSessionStateChangeEvent(sessionId, stateChangeEvent) {
-        try {
-            // Trigger event listeners
-            if (this.sessionStateListeners[sessionId]) {
-                this.sessionStateListeners[sessionId].forEach(listener => {
-                    try {
-                        listener(stateChangeEvent);
-                    } catch (error) {
-                        console.error('[EVENT] Error in session state listener:', error);
-                    }
-                });
-            }
-
-            // Trigger global session state change event
-            const globalEvent = new CustomEvent('sessionStateChange', {
-                detail: {
-                    sessionId,
-                    stateChange: stateChangeEvent
-                }
-            });
-
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(globalEvent);
-            }
-
-        } catch (error) {
-            console.error('[EVENT] Error triggering session state change event:', error);
-        }
+        return this.sessionManager.triggerSessionStateChangeEvent(sessionId, stateChangeEvent);
     }
 
-    /**
-     * Adds a listener for session state changes.
-     * @param {string} sessionId - The session ID.
-     * @param {function} listener - The listener function.
-     * @returns {function} - Function to remove the listener.
-     */
     addSessionStateListener(sessionId, listener) {
-        if (!this.sessionStateListeners[sessionId]) {
-            this.sessionStateListeners[sessionId] = [];
-        }
-
-        this.sessionStateListeners[sessionId].push(listener);
-
-        // Return function to remove listener
-        return () => {
-            const listeners = this.sessionStateListeners[sessionId];
-            if (listeners) {
-                const index = listeners.indexOf(listener);
-                if (index > -1) {
-                    listeners.splice(index, 1);
-                }
-            }
-        };
+        return this.sessionManager.addSessionStateListener(sessionId, listener);
     }
 
-    /**
-     * Gets the current session state with metadata.
-     * @param {string} sessionId - The session ID.
-     * @returns {object|null} - Session state object or null if not found.
-     */
     getSessionState(sessionId) {
-        const session = this.getSession(sessionId);
-        if (!session) return null;
-
-        return {
-            sessionId,
-            status: session.status,
-            lastStateChange: session.lastStateChange,
-            stateChangeReason: session.stateChangeReason,
-            players: session.players,
-            hostId: session.hostId,
-            referee: session.referee,
-            maxPlayers: session.maxPlayers,
-            createdAt: session.createdAt,
-            shareableCode: session.shareableCode,
-            stateHistory: this.sessionStateHistory[sessionId] || []
-        };
+        return this.sessionManager.getSessionState(sessionId);
     }
 
-    /**
-     * Gets session state history for a session.
-     * @param {string} sessionId - The session ID.
-     * @returns {Array} - Array of state change events.
-     */
     getSessionStateHistory(sessionId) {
-        return this.sessionStateHistory[sessionId] || [];
+        return this.sessionManager.getSessionStateHistory(sessionId);
     }
 
     /**
@@ -1506,167 +940,25 @@ export class GameManager {
      * @param {string} startedBy - Player ID who started the game.
      * @returns {Promise<object>} - Result object with success status.
      */
+    // Delegate session transition handlers to SessionManager
     async startGameSession(sessionId, hostId) {
-        try {
-            const session = this.getSession(sessionId);
-            if (!session) {
-                return {
-                    success: false,
-                    error: 'Session not found',
-                    errorCode: 'SESSION_NOT_FOUND'
-                };
-            }
-
-            // Validate that hostId is indeed the host of sessionId
-            if (session.hostId !== hostId) {
-                return {
-                    success: false,
-                    error: 'Only the host can start the game',
-                    errorCode: 'UNAUTHORIZED_START_ATTEMPT'
-                };
-            }
-
-            // Validate that session can be started
-            if (session.status !== this.SESSION_STATES.LOBBY) {
-                return {
-                    success: false,
-                    error: 'Game can only be started from lobby state',
-                    errorCode: 'INVALID_STATE_FOR_START'
-                };
-            }
-
-            // Check minimum players
-            if (!session.players || session.players.length < 2) {
-                return {
-                    success: false,
-                    error: 'At least 2 players required to start game',
-                    errorCode: 'INSUFFICIENT_PLAYERS'
-                };
-            }
-
-            // Simplified: Host can start game with any number of players in lobby
-
-            // Update session state
-            const result = await this.updateSessionState(
-                sessionId,
-                this.SESSION_STATES.IN_GAME,
-                `Game started by ${this.players[hostId]?.displayName || hostId}`,
-                { startedBy: hostId, startTime: Date.now() }
-            );
-
-            if (result.success) {
-                // Initialize game-specific state
-                session.gameStartTime = Date.now();
-                session.gameStartedBy = hostId;
-
-                // Initialize game-specific state
-                console.log(`[GAME_START] Initializing turn management for session ${sessionId}`);
-                
-                // Initialize turn management with current players
-                const playerIds = session.players || [];
-                if (playerIds.length > 0) {
-                    this.initializeTurnOrder(sessionId, playerIds);
-                    console.log(`[GAME_START] Turn management initialized with players:`, playerIds);
-                } else {
-                    console.warn(`[GAME_START] No players found for session ${sessionId}`);
-                }
-
-                // TODO: Additional game initialization
-                // - Shuffle decks
-                // - Deal initial cards
-                // - Initialize referee card assignment
-
-                console.log(`[HOST_CONTROLS] Session ${sessionId} game started by host ${hostId}`);
-            }
-
-            return result;
-
-        } catch (error) {
-            console.error('[GAME_START] Error starting game session:', error);
-            return {
-                success: false,
-                error: 'Failed to start game session',
-                errorCode: 'START_ERROR'
-            };
-        }
+        return await this.sessionManager.startGameSession(sessionId, hostId);
     }
 
-    /**
-     * Pauses a game session.
-     * @param {string} sessionId - The session ID.
-     * @param {string} reason - Reason for pausing.
-     * @param {object} metadata - Additional metadata.
-     * @returns {Promise<object>} - Result object with success status.
-     */
     async pauseGameSession(sessionId, reason = 'Game paused', metadata = {}) {
-        return await this.updateSessionState(
-            sessionId,
-            this.SESSION_STATES.PAUSED,
-            reason,
-            { pausedAt: Date.now(), ...metadata }
-        );
+        return await this.sessionManager.pauseGameSession(sessionId, reason, metadata);
     }
 
-    /**
-     * Resumes a paused game session.
-     * @param {string} sessionId - The session ID.
-     * @param {string} resumedBy - Player ID who resumed the game.
-     * @returns {Promise<object>} - Result object with success status.
-     */
     async resumeGameSession(sessionId, resumedBy) {
-        const session = this.getSession(sessionId);
-        const playerName = this.players[resumedBy]?.displayName || resumedBy;
-        
-        return await this.updateSessionState(
-            sessionId,
-            this.SESSION_STATES.IN_GAME,
-            `Game resumed by ${playerName}`,
-            { resumedBy, resumedAt: Date.now() }
-        );
+        return await this.sessionManager.resumeGameSession(sessionId, resumedBy);
     }
 
-    /**
-     * Completes a game session.
-     * @param {string} sessionId - The session ID.
-     * @param {string} reason - Reason for completion.
-     * @param {object} metadata - Additional metadata (winner, final scores, etc.).
-     * @returns {Promise<object>} - Result object with success status.
-     */
     async completeGameSession(sessionId, reason = 'Game completed', metadata = {}) {
-        return await this.updateSessionState(
-            sessionId,
-            this.SESSION_STATES.COMPLETED,
-            reason,
-            { completedAt: Date.now(), ...metadata }
-        );
+        return await this.sessionManager.completeGameSession(sessionId, reason, metadata);
     }
 
-    /**
-     * Resets a session back to lobby state.
-     * @param {string} sessionId - The session ID.
-     * @param {string} resetBy - Player ID who reset the session.
-     * @returns {Promise<object>} - Result object with success status.
-     */
     async resetSessionToLobby(sessionId, resetBy) {
-        const session = this.getSession(sessionId);
-        const playerName = this.players[resetBy]?.displayName || resetBy;
-        
-        const result = await this.updateSessionState(
-            sessionId,
-            this.SESSION_STATES.LOBBY,
-            `Session reset to lobby by ${playerName}`,
-            { resetBy, resetAt: Date.now() }
-        );
-
-        if (result.success) {
-            // Clear game-specific state
-            delete session.gameStartTime;
-            delete session.gameStartedBy;
-            delete session.endReason;
-            delete session.endTime;
-        }
-
-        return result;
+        return await this.sessionManager.resetSessionToLobby(sessionId, resetBy);
     }
 
     /**
@@ -1675,61 +967,13 @@ export class GameManager {
      * @param {string} hostId - The disconnected host ID.
      * @returns {Promise<void>}
      */
+    // Delegate session persistence to SessionManager
     async handleSessionStatePersistenceOnHostDisconnect(sessionId, hostId) {
-        try {
-            const session = this.getSession(sessionId);
-            if (!session) return;
-
-            // Save current session state to Firebase for persistence
-            await this.syncSessionStateWithFirebase(sessionId, session);
-
-            // If game is in progress, pause it temporarily
-            if (session.status === this.SESSION_STATES.IN_GAME) {
-                await this.pauseGameSession(
-                    sessionId,
-                    'Game paused due to host disconnect',
-                    {
-                        disconnectedHost: hostId,
-                        autoResumeWhenHostReturns: true
-                    }
-                );
-            }
-
-            console.log(`[PERSISTENCE] Session state preserved for ${sessionId} after host disconnect`);
-
-        } catch (error) {
-            console.error('[PERSISTENCE] Error handling session state persistence:', error);
-        }
+        return await this.sessionManager.handleSessionStatePersistenceOnHostDisconnect(sessionId, hostId);
     }
 
-    /**
-     * Restores session state when a new client joins or reconnects.
-     * @param {string} sessionId - The session ID.
-     * @param {string} playerId - The player ID joining/reconnecting.
-     * @returns {Promise<object>} - Current session state.
-     */
     async restoreSessionStateForClient(sessionId, playerId) {
-        try {
-            // Get current session state
-            const sessionState = this.getSessionState(sessionId);
-            if (!sessionState) {
-                throw new Error('Session not found');
-            }
-
-            // TODO: Fetch latest state from Firebase if needed
-            // const latestState = await getFirestoreSessionState(sessionId);
-            // if (latestState) {
-            //     // Merge with local state
-            //     Object.assign(sessionState, latestState);
-            // }
-
-            console.log(`[RESTORE] Session state restored for player ${playerId} in session ${sessionId}`);
-            return sessionState;
-
-        } catch (error) {
-            console.error('[RESTORE] Error restoring session state:', error);
-            throw error;
-        }
+        return await this.sessionManager.restoreSessionStateForClient(sessionId, playerId);
     }
 
     // ===== PLAYER MANAGEMENT SYSTEM =====
