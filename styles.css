@@ -1,0 +1,494 @@
+body { font-family: Arial, sans-serif; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+.container { background: #fff; padding: 2rem 3rem; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; }
+h1 { margin-bottom: 1.5rem; }
+#login-btn, #logout-btn { padding: 0.7rem 1.5rem; font-size: 1rem; border: none; border-radius: 5px; background: #4285F4; color: #fff; cursor: pointer; margin-top: 1rem; }
+#logout-btn { background: #d9534f; }
+#user-info { margin-top: 1.5rem; }
+.turn-indicator {
+  font-size: 1.5rem;
+  color: #222;
+  margin-bottom: 0.2em;
+  text-align: center;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px #fff8);
+}
+.player-token {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  position: absolute;
+  top: 8px;
+  /* left is set dynamically for each token */
+  transition: box-shadow 0.2s;
+}
+.progress-dots {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+}
+.progress-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #ccc; /* Default color for uncompleted progress */
+  border: 1px solid #999;
+}
+.progress-dot.completed {
+  background-color: #4CAF50; /* Color for completed progress */
+}
+
+/* Wheel Component Styles */
+#wheel-container {
+  user-select: none;
+}
+
+#wheel {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.15s ease-in-out;
+}
+
+#wheel.spinning {
+  animation: flashColors 0.1s infinite;
+}
+
+@keyframes flashColors {
+  0% { background-color: #FF6B6B; } /* Rule - Red */
+  16.66% { background-color: #4ECDC4; } /* Prompt - Teal */
+  33.33% { background-color: #45B7D1; } /* Modifier - Blue */
+  50% { background-color: #96CEB4; } /* Clone - Green */
+  66.66% { background-color: #FFEAA7; color: #333; } /* Flip - Yellow */
+  83.33% { background-color: #DDA0DD; } /* Swap - Purple */
+  100% { background-color: #FF6B6B; } /* Back to Rule - Red */
+}
+
+#wheel-text {
+  transition: all 0.15s ease-in-out;
+}
+
+#wheel.spinning #wheel-text {
+  animation: flashText 0.1s infinite;
+}
+
+@keyframes flashText {
+  0% { content: "Rule"; }
+  16.66% { content: "Prompt"; }
+  33.33% { content: "Modifier"; }
+  50% { content: "Clone"; }
+  66.66% { content: "Flip"; }
+  83.33% { content: "Swap"; }
+  100% { content: "Rule"; }
+}
+
+#spin-wheel-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+#wheel-result {
+  min-height: 1.5rem;
+  transition: opacity 0.3s ease;
+}
+
+.wheel-result-highlight {
+  background: linear-gradient(45deg, #FFD700, #FFA500);
+  color: #333;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  display: inline-block;
+  animation: resultPulse 0.6s ease-out;
+}
+
+@keyframes resultPulse {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Prompt Card Visual Distinctions */
+.prompt-card-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #4ECDC4;
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  margin-right: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.prompt-card-highlight {
+  background: linear-gradient(135deg, #4ECDC4, #44A08D) !important;
+  border: 2px solid #4ECDC4 !important;
+  box-shadow: 0 0 10px rgba(78, 205, 196, 0.3) !important;
+}
+
+.prompt-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 0.9em;
+  font-weight: bold;
+  margin: 5px 0;
+}
+
+.prompt-status-progress {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+.prompt-status-judging {
+  background: #fff3e0;
+  color: #f57c00;
+  border: 1px solid #ffcc02;
+}
+
+.prompt-status-completed {
+  background: #e8f5e8;
+  color: #2e7d32;
+  border: 1px solid #4caf50;
+}
+
+.prompt-status-failed {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #f44336;
+}
+
+/* Enhanced wheel segment styling for Prompt cards */
+#wheel .wheel-segment:nth-child(2) {
+  position: relative;
+}
+
+#wheel .wheel-segment:nth-child(2)::before {
+  content: "P";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: rgba(255,255,255,0.9);
+  color: #4ECDC4;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  margin-top: -20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+
+/* Active Rules Display Styles */
+.rule-item {
+  background: #fff;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+}
+
+.rule-item:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+.rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.rule-title {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #495057;
+  margin: 0;
+}
+
+.rule-owner {
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.rule-description {
+  color: #495057;
+  margin: 0.5rem 0;
+  line-height: 1.4;
+}
+
+.rule-metadata {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.rule-type-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Rule Type Colors */
+.rule-type-persistent {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.rule-type-temporary {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.rule-type-transferable {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.rule-duration-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  background: #f8f9fa;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.rule-priority-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.rule-priority-low {
+  background: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+}
+
+.rule-priority-normal {
+  background: #e2e3e5;
+  color: #495057;
+  border: 1px solid #ced4da;
+}
+
+.rule-priority-high {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.rule-priority-critical {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.rule-state-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.rule-state-active {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.rule-state-suspended {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.rule-state-pending {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+/* Clone rule indicators */
+.rule-clone-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  background: #e7f3ff;
+  color: #0066cc;
+  border: 1px solid #b3d9ff;
+}
+
+.rule-clone-indicator::before {
+  content: "🔗";
+  margin-right: 4px;
+}
+
+/* Flip rule indicators */
+.rule-flip-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  background: #fff0e6;
+  color: #cc6600;
+  border: 1px solid #ffcc99;
+}
+
+.rule-flip-indicator::before {
+  content: "🔄";
+  margin-right: 4px;
+}
+
+/* Callout System Styles */
+#callout-panel {
+  transition: all 0.3s ease;
+}
+
+#callout-player-select:disabled,
+#initiate-callout-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+#initiate-callout-btn:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#callout-valid-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#callout-invalid-btn:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.callout-history-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+.callout-history-item:last-child {
+  border-bottom: none;
+}
+
+.callout-history-item.valid {
+  background: #d4edda;
+  border-left: 4px solid #28a745;
+}
+
+.callout-history-item.invalid {
+  background: #f8d7da;
+  border-left: 4px solid #dc3545;
+}
+
+.callout-history-item.pending {
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+}
+
+#callout-cooldown-message {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+#active-callout {
+  animation: pulseCallout 2s infinite;
+}
+
+@keyframes pulseCallout {
+  0%, 100% { border-color: #ffd700; }
+  50% { border-color: #ffed4e; }
+}
+
+/* Player Scores Display Styles */
+#player-scores-container {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.player-score-item {
+  background: #fff;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  min-width: 120px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.player-score-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.player-score-item.current-player {
+  border-color: #28a745;
+  background: linear-gradient(135deg, #f8fff9, #e8f5e8);
+}
+
+.player-score-item.referee {
+  border-color: #ffc107;
+  background: linear-gradient(135deg, #fffdf0, #fff3cd);
+}
+
+.player-score-item.current-player.referee {
+  border-color: #fd7e14;
+  background: linear-gradient(135deg, #fff8f0, #ffeaa7);
+}
+
+.player-score-name {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #495057;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-score-points {
+  font-size: 1.2rem;
+}

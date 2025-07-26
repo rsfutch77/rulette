@@ -428,13 +428,8 @@ function tryReconnectToSession() {
     return false;
   }
   
-  // Set current player from localStorage
-  currentPlayer = {
-    uid: playerId,
-    displayName: playerName,
-    email: null,
-    isDev: false
-  };
+  // Set current player from localStorage using the proper function
+  setCurrentPlayer(playerName);
   
   window.currentSessionId = sessionId;
   console.log('[SESSION] Reconnecting to session:', sessionId);

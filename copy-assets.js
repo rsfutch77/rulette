@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const filesToCopy = ['main.js', 'firebase-init.js', 'index.html', 'cardManager.js', 'cards.csv', 'cardModels.js', 'cards-therapy - Sheet1.csv'];
+const filesToCopy = ['main.js', 'firebase-init.js', 'index.html', 'cardManager.js', 'cards.csv', 'cardModels.js'];
 const destDir = path.join(__dirname, 'public');
 
 // Ensure public directory exists
