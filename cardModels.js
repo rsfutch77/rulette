@@ -56,7 +56,14 @@ class GameCard {
      * Get the current active rule/effect text based on which side is showing
      */
     getCurrentText() {
-        return this.currentSide === 'front' ? this.frontRule : this.backRule;
+        
+        const result = this.currentSide === 'front' ? this.frontRule : this.backRule;
+        console.log('[CARD_MODEL] getCurrentText() debug:');
+        console.log('  - currentSide:', this.currentSide);
+        console.log('  - frontRule:', this.frontRule);
+        console.log('  - backRule:', this.backRule);
+        console.log('  - result:', result);
+        return result;
     }
     
     /**

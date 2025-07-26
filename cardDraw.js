@@ -150,7 +150,14 @@ function drawCardFromDeck(deckKey) {
  * @param {Object} cardType - The card type from the wheel
  */
 function displayDrawnCard(card, cardType) {
-    console.log('[CARD_DRAW] Displaying drawn card:', card.getCurrentText());
+    
+    console.log('[CARD_DRAW] Displaying drawn card - Debug info:');
+    console.log('  - Card type:', card.type);
+    console.log('  - Current side:', card.currentSide);
+    console.log('  - Front rule (sideA):', card.frontRule);
+    console.log('  - Back rule (sideB):', card.backRule);
+    console.log('  - getCurrentText() result:', card.getCurrentText());
+    console.log('  - Is flipped:', card.isFlipped);
     
     try {
         // Get modal elements
@@ -269,14 +276,21 @@ function displayDrawnCard(card, cardType) {
                 transition: all 0.2s;
             `;
             
-            acceptButton.addEventListener('click', () => {
+            acceptButton.addEventListener('click', async () => {
                 console.log('[CARD_DRAW] Card accepted:', card.getCurrentText());
                 const currentUser = getCurrentUser();
-                if (currentUser && gameManager) {
-                    const player = gameManager.players[currentUser.uid];
-                    if (player) {
-                        player.hand.push(card);
+                if (currentUser && gameManager && window.currentSessionId) {
+                    try {
+                        // Apply the card effect through gameManager to properly handle ruleCards
+                        if (card.type === 'rule') {
+                            await gameManager.applyRuleCardEffect(window.currentSessionId, currentUser.uid, card);
+                        } else if (card.type === 'modifier') {
+                            await gameManager.applyModifierCardEffect(window.currentSessionId, currentUser.uid, card);
+                        }
                         window.refreshRuleDisplay();
+                    } catch (error) {
+                        console.error('[CARD_DRAW] Error applying card effect:', error);
+                        window.showNotification('Error applying card effect', 'Error');
                     }
                 }
                 closeCardModal();

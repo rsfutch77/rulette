@@ -2498,7 +2498,12 @@ async function createFirestoreGameSession(sessionData) {
 async function initializeFirestorePlayer(playerId, playerData) {
   try {
     const playerRef = doc(db, 'players', playerId);
-    await setDoc(playerRef, playerData);
+    // Ensure ruleCards field is initialized
+    const playerDataWithRuleCards = {
+      ...playerData,
+      ruleCards: playerData.ruleCards || []
+    };
+    await setDoc(playerRef, playerDataWithRuleCards);
     console.log("[FIRESTORE] Player initialized:", playerId);
     return playerRef;
   } catch (error) {
@@ -2521,10 +2526,41 @@ async function updateFirestorePlayerStatus(playerId, status) {
 async function updateFirestorePlayerHand(playerId, hand) {
   try {
     const playerRef = doc(db, 'players', playerId);
-    await updateDoc(playerRef, { hand });
+    await setDoc(playerRef, { hand }, { merge: true });
     console.log("[FIRESTORE] Player hand updated:", playerId);
   } catch (error) {
     console.error("[FIRESTORE] Error updating player hand:", error);
+    throw error;
+  }
+}
+
+async function updateFirestorePlayerRuleCards(playerId, ruleCards) {
+  try {
+    const playerRef = doc(db, 'players', playerId);
+    // Serialize card objects to plain objects for Firebase, filtering out undefined values
+    const serializedRuleCards = ruleCards.map(card => {
+      const serialized = {
+        id: card.id,
+        type: card.type,
+        isFlipped: card.isFlipped || false,
+      };
+      
+      // Only add properties that are not undefined
+      if (card.name !== undefined) serialized.name = card.name;
+      if (card.frontRule !== undefined) serialized.frontRule = card.frontRule;
+      if (card.backRule !== undefined) serialized.backRule = card.backRule;
+      if (card.sideA !== undefined) serialized.sideA = card.sideA;
+      if (card.sideB !== undefined) serialized.sideB = card.sideB;
+      if (card.question !== undefined) serialized.question = card.question;
+      if (card.currentSide !== undefined) serialized.currentSide = card.currentSide;
+      
+      return serialized;
+    });
+    
+    await setDoc(playerRef, { ruleCards: serializedRuleCards }, { merge: true });
+    console.log("[FIRESTORE] Player rule cards updated:", playerId, serializedRuleCards);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating player rule cards:", error);
     throw error;
   }
 }
@@ -2673,6 +2709,7 @@ export {
   initializeFirestorePlayer,
   updateFirestorePlayerStatus,
   updateFirestorePlayerHand,
+  updateFirestorePlayerRuleCards,
   updateFirestoreRefereeCard,
   updateFirestoreSessionPlayerList,
   updateFirestoreTurnInfo,
