@@ -235,12 +235,7 @@ const gamePage = document.getElementById("game-page");
 const gameJoinCodeDiv = document.getElementById("game-join-code");
 const startGameBtn = document.getElementById("start-game-btn");
 const turnOrderDiv = document.getElementById("turn-order");
-// Inspiration Card Modal elements
-const inspirationModal = document.getElementById("inspiration-card-modal");
-const inspirationTitle = document.getElementById("inspiration-card-title");
-const inspirationQuestion = document.getElementById("inspiration-card-question");
-const inspirationChoices = document.getElementById("inspiration-card-choices");
-const inspirationResult = document.getElementById("inspiration-card-result");
+
 // Prescription Sheet Modal elements
 // Notification Modal elements
 let notificationModal, notificationTitle, notificationMessage, notificationCloseBtn;
@@ -1715,16 +1710,6 @@ async function spinWheelForPlayer(sessionId, playerId) {
   
   // Attempt to spin
   const spinResult = window.wheelComponent.spinWheel(actualPlayerId);
-  if (spinResult) {
-    // Record the spin in game manager (now async)
-    await gameManager.recordPlayerSpin(sessionId, actualPlayerId);
-    console.log("[GAME] Spin initiated for player", actualPlayerId);
-    
-    // Update UI to show that player has acted
-    updateTurnUI(sessionId);
-  } else {
-    console.error("[GAME] Wheel spin failed for player:", actualPlayerId);
-  }
   
   return spinResult;
 }
