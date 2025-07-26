@@ -1242,11 +1242,33 @@ function updatePlayerRuleCards(sessionId) {
       return;
     }
 
-    const playerRuleCards = player.ruleCards || [];
-    console.log(`DEBUG: Player ${player.displayName} has ${playerRuleCards.length} rule cards.`);
+    // Collect all rule/modifier cards from both hand and ruleCards arrays (same logic as updateActiveRulesDisplay)
+    const allRuleCards = [];
+    
+    // Add cards from hand that are rules or modifiers
+    if (player.hand && Array.isArray(player.hand)) {
+      player.hand.forEach(card => {
+        if (card.type === 'Rule' || card.type === 'Modifier' || card.type === 'rule' || card.type === 'modifier') {
+          allRuleCards.push(card);
+        }
+      });
+    }
+    
+    // Add cards from ruleCards array
+    if (player.ruleCards && Array.isArray(player.ruleCards)) {
+      player.ruleCards.forEach(card => {
+        // Check if this card is already in allRuleCards to avoid duplicates
+        const isDuplicate = allRuleCards.some(existing => existing.id === card.id);
+        if (!isDuplicate) {
+          allRuleCards.push(card);
+        }
+      });
+    }
+    
+    console.log(`DEBUG: Player ${player.displayName} has ${allRuleCards.length} total rule cards (from hand: ${player.hand ? player.hand.filter(c => c.type === 'Rule' || c.type === 'Modifier' || c.type === 'rule' || c.type === 'modifier').length : 0}, from ruleCards: ${player.ruleCards ? player.ruleCards.length : 0}).`);
 
-    if (playerRuleCards.length > 0) {
-      ruleCardsList.innerHTML = playerRuleCards.map(card => createRuleCardElement(card)).join('');
+    if (allRuleCards.length > 0) {
+      ruleCardsList.innerHTML = allRuleCards.map(card => createRuleCardElement(card)).join('');
       ruleCardsContainer.style.display = 'block'; // Show container if cards exist
     } else {
       ruleCardsList.innerHTML = '<div style="text-align: center; color: #999; font-style: italic; font-size: 0.8rem;">No rule cards</div>';

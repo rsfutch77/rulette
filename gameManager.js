@@ -4811,6 +4811,21 @@ class GameManager {
                     player.hand.push(ruleCard);
                     await this.assignPlayerHand(sessionId, playerId, player.hand);
                 }
+
+                // Update rule displays automatically after adding rule card
+                try {
+                    // Update current player's active rules display
+                    if (window.updateActiveRulesDisplay) {
+                        window.updateActiveRulesDisplay();
+                    }
+                    // Update all players' rule cards display
+                    if (window.updatePlayerRuleCards) {
+                        window.updatePlayerRuleCards(sessionId);
+                    }
+                    console.log(`[GAME_MANAGER] Updated rule displays after adding rule card for player ${playerId}`);
+                } catch (displayError) {
+                    console.warn(`[GAME_MANAGER] Error updating rule displays:`, displayError);
+                }
             }
 
             // For now, return success without rule engine activation
@@ -4878,6 +4893,21 @@ class GameManager {
                 if (!player.hand.find(c => c.id === modifierCard.id)) {
                     player.hand.push(modifierCard);
                     await this.assignPlayerHand(sessionId, playerId, player.hand);
+                }
+
+                // Update rule displays automatically after adding modifier card
+                try {
+                    // Update current player's active rules display
+                    if (window.updateActiveRulesDisplay) {
+                        window.updateActiveRulesDisplay();
+                    }
+                    // Update all players' rule cards display
+                    if (window.updatePlayerRuleCards) {
+                        window.updatePlayerRuleCards(sessionId);
+                    }
+                    console.log(`[GAME_MANAGER] Updated rule displays after adding modifier card for player ${playerId}`);
+                } catch (displayError) {
+                    console.warn(`[GAME_MANAGER] Error updating rule displays:`, displayError);
                 }
             }
 

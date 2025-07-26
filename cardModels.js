@@ -63,6 +63,13 @@ class GameCard {
         console.log('  - frontRule:', this.frontRule);
         console.log('  - backRule:', this.backRule);
         console.log('  - result:', result);
+        
+        // Ensure we never return undefined - fallback to frontRule if backRule is undefined/null
+        if (result === undefined || result === null) {
+            console.log('[CARD_MODEL] getCurrentText() returning undefined/null, falling back to frontRule:', this.frontRule);
+            return this.frontRule;
+        }
+        
         return result;
     }
     

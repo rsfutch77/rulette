@@ -501,16 +501,56 @@ function updateActiveRulesDisplay() {
     const player = gameManager.players[currentUser.uid];
     if (!player) return;
 
+    // Add diagnostic logging to understand the data structure
+    console.log('[RULE_DISPLAY_DEBUG] Player data structure:');
+    console.log('  - player.hand:', player.hand);
+    console.log('  - player.ruleCards:', player.ruleCards);
+    console.log('  - player.hand.length:', player.hand ? player.hand.length : 'undefined');
+    console.log('  - player.ruleCards.length:', player.ruleCards ? player.ruleCards.length : 'undefined');
+
     container.innerHTML = '';
-    player.hand.forEach(card => {
+    
+    // Collect all rule/modifier cards from both hand and ruleCards arrays
+    const allRuleCards = [];
+    
+    // Add cards from hand that are rules or modifiers
+    if (player.hand && Array.isArray(player.hand)) {
+        player.hand.forEach(card => {
+            if (card.type === 'Rule' || card.type === 'Modifier' || card.type === 'rule' || card.type === 'modifier') {
+                allRuleCards.push({ card, source: 'hand' });
+            }
+        });
+    }
+    
+    // Add cards from ruleCards array
+    if (player.ruleCards && Array.isArray(player.ruleCards)) {
+        player.ruleCards.forEach(card => {
+            // Check if this card is already in allRuleCards to avoid duplicates
+            const isDuplicate = allRuleCards.some(existing => existing.card.id === card.id);
+            if (!isDuplicate) {
+                allRuleCards.push({ card, source: 'ruleCards' });
+            }
+        });
+    }
+    
+    console.log('[RULE_DISPLAY_DEBUG] Found rule cards:', allRuleCards.length);
+    allRuleCards.forEach((item, index) => {
+        console.log(`  ${index + 1}. ${item.card.name || item.card.id} (from ${item.source})`);
+    });
+
+    // Display all rule cards
+    allRuleCards.forEach(item => {
+        const { card } = item;
         const div = document.createElement('div');
-        let text = card.getCurrentRule ? card.getCurrentRule() : card.sideA;
+        let text = card.getCurrentRule ? card.getCurrentRule() : (card.sideA || card.description || card.name || 'Unknown Rule');
+        
         if (card.isClone && card.cloneSource) {
             const sourcePlayer = gameManager.players[card.cloneSource.ownerId];
             const sourceName = sourcePlayer ? sourcePlayer.displayName || window.getPlayerDisplayName(card.cloneSource.ownerId) : 'Unknown';
             div.style.opacity = sourcePlayer ? '1' : '0.5';
             text += ` (Cloned from ${sourceName})`;
         }
+        
         div.textContent = text;
         container.appendChild(div);
     });
