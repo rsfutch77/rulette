@@ -1196,13 +1196,104 @@ function updatePlayerScores(sessionId) {
       <div class="player-score-name" style="font-weight: bold; font-size: 0.9rem; color: #495057; margin-bottom: 0.25rem;" title="${player.name}">${player.name}</div>
       <div class="player-score-points" style="font-size: 1.2rem; font-weight: bold; color: #007bff; margin-bottom: 0.25rem;">${player.points}</div>
       ${badges.length > 0 ? `<div class="player-score-badges" style="display: flex; gap: 0.25rem; justify-content: center; flex-wrap: wrap; margin-top: 0.25rem;">${badges.join('')}</div>` : ''}
+      <div id="player-${player.id}-rule-cards" class="player-rule-cards-container">
+        <h5>Rule Cards</h5>
+        <div class="rule-cards-list">
+          <!-- Rule cards will be dynamically inserted here -->
+        </div>
+      </div>
     `;
     
     scoresList.appendChild(scoreItem);
   });
 
   console.log("DEBUG: Player scores updated successfully");
+  updatePlayerRuleCards(sessionId); // Call new function to update rule cards
 }
+
+// New function to update player rule cards display
+function updatePlayerRuleCards(sessionId) {
+  console.log("DEBUG: Updating player rule cards for session:", sessionId);
+
+  if (!sessionId || !gameManager) {
+    console.log("DEBUG: No session ID or game manager available for rule card update");
+    return;
+  }
+
+  const session = gameManager.gameSessions[sessionId];
+  if (!session) {
+    console.log("DEBUG: Session not found for rule card update:", sessionId);
+    return;
+  }
+
+  session.players.forEach(playerId => {
+    const player = gameManager.players[playerId];
+    if (!player || player.status !== 'active') return;
+
+    const ruleCardsContainer = document.getElementById(`player-${playerId}-rule-cards`);
+    if (!ruleCardsContainer) {
+      console.warn(`DEBUG: Rule cards container not found for player ${player.displayName}`);
+      return;
+    }
+
+    const ruleCardsList = ruleCardsContainer.querySelector('.rule-cards-list');
+    if (!ruleCardsList) {
+      console.warn(`DEBUG: Rule cards list not found for player ${player.displayName}`);
+      return;
+    }
+
+    const playerRuleCards = player.ruleCards || [];
+    console.log(`DEBUG: Player ${player.displayName} has ${playerRuleCards.length} rule cards.`);
+
+    if (playerRuleCards.length > 0) {
+      ruleCardsList.innerHTML = playerRuleCards.map(card => createRuleCardElement(card)).join('');
+      ruleCardsContainer.style.display = 'block'; // Show container if cards exist
+    } else {
+      ruleCardsList.innerHTML = '<div style="text-align: center; color: #999; font-style: italic; font-size: 0.8rem;">No rule cards</div>';
+      ruleCardsContainer.style.display = 'block'; // Still show container, but with "No rule cards" message
+    }
+  });
+}
+
+// Helper function to create a single rule card HTML element
+function createRuleCardElement(card) {
+  // Determine icon based on card type
+  let icon = '📜'; // Default icon for generic rule
+  switch (card.type) {
+    case 'new_rule':
+      icon = '✨';
+      break;
+    case 'rule_modifier':
+      icon = '🛠️';
+      break;
+    case 'flip_action':
+      icon = '🔄';
+      break;
+    case 'swap_action':
+      icon = '🔀';
+      break;
+    case 'clone_action':
+      icon = '🔗';
+      break;
+    case 'prompt_action':
+      icon = '❓';
+      break;
+    case 'referee_card':
+      icon = '👨‍⚖️';
+      break;
+  }
+
+  return `
+    <div class="player-rule-card-item">
+      <span class="card-icon">${icon}</span>
+      <span class="card-name">${card.title || card.name}</span>
+      <span class="card-type">(${card.type.replace('_', ' ')})</span>
+    </div>
+  `;
+}
+
+// Expose updatePlayerRuleCards globally for other modules if needed
+window.updatePlayerRuleCards = updatePlayerRuleCards;
 
 // Helper function to animate score changes
 function animateScoreChange(playerId, oldPoints, newPoints) {
