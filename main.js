@@ -12,6 +12,8 @@ import {
     showGameBoard,
     hideGameBoard,
     updateLobbyDisplay,
+    updateLobbySessionInfo,
+    updateLobbyPlayerList,
     setupFirebaseSessionListener,
     cleanupFirebaseListeners
 } from './lobbyUI.js';
