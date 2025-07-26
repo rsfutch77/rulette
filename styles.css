@@ -188,6 +188,8 @@ h1 { margin-bottom: 1.5rem; }
   font-weight: bold;
   margin-top: -20px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
 
 /* Active Rules Display Styles */
 .rule-item {
@@ -498,11 +500,53 @@ h1 { margin-bottom: 1.5rem; }
 }
 
 .player-score-badges {
+}
+
+/* Player Rule Cards Display Styles */
+.player-rule-cards-container {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #eee;
+  text-align: left;
+}
+
+.player-rule-cards-container h5 {
+  font-size: 0.85rem;
+  color: #6c757d;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.player-rule-card-item {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: #333;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   display: flex;
-  gap: 0.25rem;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 0.25rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.player-rule-card-item:last-child {
+  margin-bottom: 0;
+}
+
+.player-rule-card-item .card-icon {
+  font-size: 1rem;
+}
+
+.player-rule-card-item .card-name {
+  font-weight: bold;
+}
+
+.player-rule-card-item .card-type {
+  font-style: italic;
+  color: #666;
 }
 
 .player-badge {
