@@ -89,6 +89,9 @@ Roles and responsibilities:
 [x] 3.b.3.1 Visually represent cloned cards in the cloning player's hand/active rules display, clearly indicating that they are duplicated effects. (1 Point)
 [x] 3.b.3.2 Display the source of the cloned effect (i.g., "Cloned from Player X's [Card Name]"). (1 Point)
 [x] 3.b.3.3 Ensure the UI dynamically updates if the original card's status changes (e.g., if the original is removed, the cloned card fades or is removed). (1 Point)
+[ ] 3.b.4 Clone Card Selection UI (3 Points)
+[ ] 3.b.4.1 Implement a dedicated modal or UI element for players to select a target player and a specific card to clone from their hand/active rules. (2 Points)
+[ ] 3.b.4.2 The UI should clearly display available players and their active cards, allowing for easy selection. (1 Point)
 
 [ ] 3.c. Prompt Card Mechanic (16 Points)
 [x] 3.c.1 Prompt Card Data Structure (2 Points)

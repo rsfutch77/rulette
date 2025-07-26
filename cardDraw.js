@@ -272,19 +272,9 @@ function displayDrawnCard(card, cardType) {
                 transition: all 0.2s;
             `;
             useButton.addEventListener('click', () => {
-                const targetPlayerId = prompt('Enter target player ID to clone from:');
-                const targetCardId = prompt('Enter card ID to clone:');
-                const currentUser = getCurrentUser();
-                if (currentUser && targetPlayerId && targetCardId) {
-                    const result = gameManager.cloneCard(window.currentSessionId, currentUser.uid, targetPlayerId, targetCardId);
-                    if (result.success) {
-                        window.showNotification('Cloned card successfully', 'Clone Card');
-                        updateActiveRulesDisplay();
-                    } else {
-                        window.showNotification(result.error, 'Clone Failed');
-                    }
-                }
-                closeCardModal();
+                // Instead of prompts, open a dedicated modal for clone card selection
+                window.showCloneCardModal(card);
+                closeCardModal(); // Close the drawn card modal
             });
             choices.appendChild(useButton);
         }
@@ -490,6 +480,19 @@ window.handleCardDraw = handleCardDraw;
 window.drawCardFromDeck = drawCardFromDeck;
 window.displayDrawnCard = displayDrawnCard;
 window.closeCardModal = closeCardModal;
+
+/**
+ * Placeholder function to show the clone card selection modal.
+ * This will be implemented in a future task.
+ * @param {Object} cloneCard - The clone card object that was drawn.
+ */
+function showCloneCardModal(cloneCard) {
+    console.log('[CLONE_CARD] Showing clone card modal for:', cloneCard);
+    window.showNotification('Clone card modal functionality is not yet implemented.', 'Under Construction');
+    // TODO: Implement the actual modal for selecting player and card to clone
+}
+
+window.showCloneCardModal = showCloneCardModal;
 
 // Expose card flipping functions for game integration
 window.flipCardInUI = flipCardInUI;
