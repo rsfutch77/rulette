@@ -499,138 +499,106 @@ h1 { margin-bottom: 1.5rem; }
   transition: all 0.3s ease;
 }
 
-.player-score-badges {
+/* Flip Card Modal Styles */
+#flipCardModal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
 }
 
-/* Player Rule Cards Display Styles */
-.player-rule-cards-container {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #eee;
-  text-align: left;
+.modal-content {
+  background-color: #fefefe;
+  margin: 15% auto; /* 15% from the top and centered */
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%; /* Could be more or less, depending on screen size */
+  border-radius: 10px;
+  box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+  animation-name: animatetop;
+  animation-duration: 0.4s
 }
 
-.player-rule-cards-container h5 {
-  font-size: 0.85rem;
-  color: #6c757d;
-  margin-top: 0;
-  margin-bottom: 0.5rem;
+/* Add Animation */
+@keyframes animatetop {
+  from {top:-300px; opacity:0}
+  to {top:0; opacity:1}
+}
+
+.close-button {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#playerRuleCardsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  justify-content: center;
+  align-items: start;
+}
+
+.card {
+  width: 150px;
+  height: 200px;
+  perspective: 1000px; /* For 3D effect */
+  cursor: pointer;
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
   text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-.player-rule-card-item {
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.8rem;
-  color: #333;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+.card.flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-front, .card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  -webkit-backface-visibility: hidden; /* Safari */
+  backface-visibility: hidden;
+  border-radius: 10px;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.player-rule-card-item:last-child {
-  margin-bottom: 0;
-}
-
-.player-rule-card-item .card-icon {
-  font-size: 1rem;
-}
-
-.player-rule-card-item .card-name {
+  justify-content: center;
+  font-size: 1.2em;
   font-weight: bold;
-}
-
-.player-rule-card-item .card-type {
-  font-style: italic;
-  color: #666;
-}
-
-.player-badge {
-  font-size: 0.7rem;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 10px;
   color: white;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
-.player-badge.current {
-  background: #28a745;
-  box-shadow: 0 0 8px rgba(40, 167, 69, 0.4);
+.card-front {
+  background-color: #3498db; /* Blue */
+  color: white;
 }
 
-.player-badge.referee {
-  background: #ffc107;
-  color: #212529;
-  box-shadow: 0 0 8px rgba(255, 193, 7, 0.4);
-}
-
-.player-badge.disconnected {
-  background: #6c757d;
-  box-shadow: 0 0 8px rgba(108, 117, 125, 0.4);
-}
-
-/* Score change animation */
-.score-change-animation {
-  animation: scoreChangeGlow 1s ease-in-out;
-}
-
-@keyframes scoreChangeGlow {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-}
-
-/* Responsive design for player scores */
-@media (max-width: 768px) {
-  #player-scores-list {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .player-score-item {
-    min-width: 200px;
-    margin-bottom: 0.5rem;
-  }
-}
-
-/* Enhanced styling for different player states */
-.player-score-item.current-player .player-score-points {
-  color: #28a745;
-}
-
-.player-score-item.referee .player-score-points {
-  color: #ffc107;
-}
-
-.player-score-item.current-player.referee .player-score-points {
-  color: #fd7e14;
-}
-
-/* Disconnected player styling */
-.player-score-item.disconnected {
-  opacity: 0.7;
-  border-style: dashed;
-}
-
-.player-score-item.disconnected .player-score-name {
-  color: #6c757d;
-}
-
-.player-score-item.disconnected .player-score-points {
-  color: #6c757d;
+.card-back {
+  background-color: #2ecc71; /* Green */
+  color: white;
+  transform: rotateY(180deg);
 }
