@@ -2,8 +2,22 @@
 // LOBBY UI AND PLAYER LIST FUNCTIONALITY
 // ============================================================================
 
+import { db } from "./firebase-init.js";
+import {
+    collection,
+    doc,
+    setDoc,
+    updateDoc,
+    getDoc,
+    query,
+    where,
+    getDocs,
+    deleteDoc,
+    arrayUnion,
+    onSnapshot
+} from "https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js";
 import { gameManager } from './gameManager.js';
-import { getCurrentUser, getCurrentUserId } from './playerSystem.js';
+import { getCurrentUser, getCurrentUserId, setCurrentPlayer, clearCurrentPlayer, clearPersistentPlayerID } from './playerSystem.js';
 import {
     getFirestoreGameSession,
     updateFirestoreTurnInfo,
@@ -1212,3 +1226,831 @@ if (typeof document !== 'undefined') {
 }
 
 console.log('[LOBBY_UI] Lobby UI module loaded and ready');
+
+// Player setup elements
+const playerNameInput = document.getElementById("player-name-input");
+const createGameBtn = document.getElementById("create-game-btn");
+const joinGameBtn = document.getElementById("join-game-btn");
+const joinGameForm = document.getElementById("join-game-form");
+const joinGameCodeInput = document.getElementById("join-game-code");
+const submitJoinGameBtn = document.getElementById("submit-join-game-btn");
+const joinGameError = document.getElementById("join-game-error");
+
+// Game page elements (relevant for lobby transitions)
+const gameJoinCodeDiv = document.getElementById("game-join-code");
+const startGameBtn = document.getElementById("start-game-btn");
+
+// Notification Modal elements
+let notificationModal, notificationTitle, notificationMessage, notificationCloseBtn;
+
+/**
+ * Show a notification modal.
+ * @param {string} message - The message to display.
+ * @param {string} title - The title of the notification.
+ * @param {function} [callback=null] - Optional callback function to execute when the modal is closed.
+ */
+export function showNotification(message, title = "Notification", callback = null) {
+    console.log(`[NOTIFICATION] Showing: ${title} - ${message}`);
+    if (!notificationModal) {
+        console.error("Notification modal elements not initialized.");
+        return;
+    }
+    notificationTitle.textContent = title;
+    notificationMessage.textContent = message;
+    notificationModal.style.display = "flex"; // Use flex to center content
+
+    // Clear previous event listener to prevent multiple calls
+    if (notificationCloseBtn) {
+        notificationCloseBtn.onclick = null;
+        notificationCloseBtn.onclick = () => {
+            notificationModal.style.display = "none";
+            if (callback) {
+                callback();
+            }
+        };
+    }
+}
+
+/**
+ * Function to initialize notification elements.
+ */
+export function initNotificationElements() {
+    console.log("DEBUG: Initializing notification elements");
+    notificationModal = document.getElementById("notification-modal");
+    notificationTitle = document.getElementById("notification-title");
+    notificationMessage = document.getElementById("notification-message");
+    notificationCloseBtn = document.getElementById("notification-close-btn");
+    
+    console.log("DEBUG: Notification elements:", {
+        modal: notificationModal,
+        title: notificationTitle,
+        message: notificationMessage,
+        closeBtn: notificationCloseBtn
+    });
+    
+    // Set up close button if it exists
+    if (notificationCloseBtn) {
+        notificationCloseBtn.onclick = () => {
+            console.log("DEBUG: Close button clicked");
+            if (notificationModal) notificationModal.style.display = "none";
+        };
+    }
+}
+
+/**
+ * Initialize the new player setup system (main menu buttons).
+ */
+export function initializePlayerSetup() {
+    // Show join form when join button is clicked
+    if (joinGameBtn) {
+        joinGameBtn.addEventListener('click', () => {
+            const playerName = playerNameInput.value.trim();
+            if (!playerName) {
+                showNotification('Please enter your display name first', 'Name Required');
+                playerNameInput.focus();
+                return;
+            }
+            
+            joinGameForm.style.display = 'block';
+            joinGameCodeInput.focus();
+        });
+    }
+    
+    // Handle create game button
+    if (createGameBtn) {
+        console.log("DEBUG: create-game-btn found, attaching event listener");
+        createGameBtn.addEventListener('click', () => {
+            console.log("DEBUG: create-game-btn clicked!");
+            const playerName = playerNameInput.value.trim();
+            console.log("DEBUG: Player name:", playerName);
+            if (!playerName) {
+                console.log("DEBUG: No player name provided, showing notification");
+                showNotification('Please enter your display name first', 'Name Required');
+                playerNameInput.focus();
+                return;
+            }
+            
+            console.log("DEBUG: Setting current player and calling handleCreateGame");
+            // Set current player and create game
+            setCurrentPlayer(playerName);
+            handleCreateGame();
+        });
+    } else {
+        console.error("DEBUG: create-game-btn element not found!"); 
+    }
+    
+    // Handle join game submission
+    if (submitJoinGameBtn) {
+        submitJoinGameBtn.addEventListener('click', () => {
+            const playerName = playerNameInput.value.trim();
+            const gameCode = joinGameCodeInput.value.trim().toUpperCase();
+            
+            if (!playerName) {
+                showNotification('Please enter your display name first', 'Name Required');
+                playerNameInput.focus();
+                return;
+            }
+            
+            if (!gameCode || gameCode.length !== 6) {
+                showNotification('Please enter a valid 6-character game code', 'Invalid Code');
+                joinGameCodeInput.focus();
+                return;
+            }
+            
+            // Set current player and join game
+            setCurrentPlayer(playerName);
+            handleJoinGame(gameCode);
+        });
+    }
+    
+    // Auto-format game code input
+    if (joinGameCodeInput) {
+        joinGameCodeInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+        
+        // Allow Enter key to submit
+        joinGameCodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitJoinGameBtn.click();
+            }
+        });
+    }
+    
+    // Allow Enter key on player name to focus on create game
+    if (playerNameInput) {
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                createGameBtn.click();
+            }
+        });
+    }
+}
+
+/**
+ * Simplified game creation for new UI.
+ */
+async function handleCreateGame() {
+    console.log("DEBUG: handleCreateGame() called");
+    try {
+        const currentUser = getCurrentUser();
+        console.log("DEBUG: Current user:", currentUser);
+        if (!currentUser) {
+            console.log("DEBUG: No current user, showing notification");
+            showNotification('Please enter your display name first', 'Name Required');
+            return;
+        }
+
+        console.log("DEBUG: Showing creating game notification");
+        showNotification('Creating game session...', 'Creating Game');
+        
+        console.log("DEBUG: Calling gameManager.createGameSession with:", currentUser.uid, currentUser.displayName);
+        console.log("DEBUG: gameManager available:", !!gameManager);
+        
+        // Create session using GameManager
+        const session = await gameManager.createGameSession(currentUser.uid, currentUser.displayName);
+        console.log("DEBUG: Session created:", session);
+        
+        if (session && session.shareableCode) {
+            console.log("DEBUG: Session created successfully with code:", session.shareableCode);
+            showNotification(`Game created! Share code: ${session.shareableCode}`, 'Game Created');
+            
+            window.currentSessionId = session.sessionId;
+            console.log('[SESSION] Set currentSessionId to:', session.sessionId);
+            // Save session ID to localStorage for persistence
+            localStorage.setItem('rulette_session_id', session.sessionId);
+            
+            // Hide main menu and show lobby
+            console.log("DEBUG: Hiding main menu and showing lobby");
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('lobby-container').style.display = 'block';
+            
+            // Update lobby with session info - this will call updateLobbySessionInfo, updateLobbyPlayerList, and updateHostControls
+            console.log('[DEBUG] Updating full lobby display after create');
+            
+            // Note: window.currentSessionId already set above at line 439, no need to duplicate
+            
+            // Use setTimeout to ensure the function is available after the file loads
+            setTimeout(() => {
+                if (typeof setupFirebaseSessionListener === 'function') {
+                    setupFirebaseSessionListener();
+                } else {
+                    console.log('[DEBUG] setupFirebaseSessionListener not yet available');
+                }
+            }, 100);
+            
+            updateLobbyDisplay();
+        } else {
+            console.error("DEBUG: Session creation failed - no session or shareableCode");
+            showNotification('Failed to create game session', 'Creation Error');
+        }
+    } catch (error) {
+        console.error('[CREATE_GAME] Error:', error); 
+        showNotification('Failed to create game: ' + error.message, 'Creation Error');
+    }
+}
+
+/**
+ * Attempts to reconnect to a previously saved session.
+ * @returns {boolean} True if reconnection was attempted, false otherwise.
+ */
+export function tryReconnectToSession() {
+    const sessionId = localStorage.getItem('rulette_session_id');
+    
+    // Handle undefined or invalid session IDs
+    if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
+        console.log('[SESSION] No valid saved session ID found, redirecting to home page');
+        // Clear any invalid session data
+        localStorage.removeItem('rulette_session_id');
+        return false;
+    }
+
+    console.log('[SESSION] Found saved session ID:', sessionId);
+    
+    const playerName = localStorage.getItem('rulette_player_name');
+    const playerId = localStorage.getItem('rulette_player_id');
+    
+    if (!playerName || !playerId) {
+        console.log('[SESSION] No player info found for reconnect');
+        return false;
+    }
+    
+    // Set current player from localStorage using the proper function
+    setCurrentPlayer(playerName);
+    
+    window.currentSessionId = sessionId;
+    console.log('[SESSION] Reconnecting to session:', sessionId);
+    
+    // Hide main menu and show game page
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('game-page').style.display = 'block';
+    
+    // Set up Firebase listener for session updates
+    if (typeof setupFirebaseSessionListener === 'function') {
+        setupFirebaseSessionListener();
+    }
+    
+    return true;
+}
+
+/**
+ * Clears the current session from local storage.
+ */
+export function clearSession() {
+    localStorage.removeItem('rulette_session_id');
+    window.currentSessionId = null;
+    clearPersistentPlayerID(); // Clear player ID as well
+}
+
+/**
+ * Simplified game joining for new UI.
+ * @param {string} gameCode - The 6-character game code.
+ */
+async function handleJoinGame(gameCode) {
+    try {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showNotification('Please enter your display name first', 'Name Required');
+            return;
+        }
+
+        showNotification('Joining game...', 'Joining Game');
+        joinGameError.textContent = '';
+        
+        // Join session using GameManager
+        const result = await gameManager.joinSession(gameCode, currentUser.uid, currentUser.displayName);
+        
+        if (result.success) {
+            showNotification('Successfully joined game!', 'Joined Game');
+            
+            window.currentSessionId = result.sessionId;
+            localStorage.setItem('rulette_session_id', result.sessionId);
+            
+            // Hide main menu and show lobby
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('lobby-container').style.display = 'block';
+            
+            // Update lobby with session info
+            updateLobbyDisplay();
+            
+            // Set up Firebase listener for session updates
+            setTimeout(() => {
+                if (typeof setupFirebaseSessionListener === 'function') {
+                    setupFirebaseSessionListener();
+                } else {
+                    console.log('[DEBUG] setupFirebaseSessionListener not yet available');
+                }
+            }, 100);
+            
+        } else {
+            console.error("DEBUG: Join game failed:", result.error);
+            joinGameError.textContent = result.error;
+            showNotification(`Failed to join game: ${result.error}`, 'Join Error');
+        }
+    } catch (error) {
+        console.error('[JOIN_GAME] Error:', error);
+        joinGameError.textContent = 'An unexpected error occurred.';
+        showNotification('Failed to join game: ' + error.message, 'Join Error');
+    }
+}
+
+// Session Management Modal elements
+let sessionModal, sessionModalClose, createSessionPanel, joinSessionPanel, showCreatePanelBtn, showJoinPanelBtn;
+let hostDisplayNameInput, maxPlayersSelect, createSessionBtn, sessionCreatedInfo, sessionCodeText, copyCodeBtn, sessionLinkText, copyLinkBtn, startLobbyBtn, createAnotherBtn;
+let playerDisplayNameInput, sessionCodeInput, joinSessionBtn, joinStatusDiv, joinLoading, joinSuccess, joinError, joinErrorMessage, retryJoinBtn;
+
+/**
+ * Initializes the session management modal and its event listeners.
+ */
+export function initializeSessionManagement() {
+    console.log("DEBUG: Initializing session management UI");
+    // Get elements
+    sessionModal = document.getElementById('session-modal');
+    sessionModalClose = document.getElementById('session-modal-close');
+    createSessionPanel = document.getElementById('create-session-panel');
+    joinSessionPanel = document.getElementById('join-session-panel');
+    showCreatePanelBtn = document.getElementById('show-create-panel');
+    showJoinPanelBtn = document.getElementById('show-join-panel');
+
+    // Create Session elements
+    hostDisplayNameInput = document.getElementById('host-display-name');
+    maxPlayersSelect = document.getElementById('max-players');
+    createSessionBtn = document.getElementById('create-session-btn');
+    sessionCreatedInfo = document.getElementById('session-created-info');
+    sessionCodeText = document.getElementById('session-code-text');
+    copyCodeBtn = document.getElementById('copy-code-btn');
+    sessionLinkText = document.getElementById('session-link-text');
+    copyLinkBtn = document.getElementById('copy-link-btn');
+    startLobbyBtn = document.getElementById('start-lobby-btn');
+    createAnotherBtn = document.getElementById('create-another-btn');
+
+    // Join Session elements
+    playerDisplayNameInput = document.getElementById('player-display-name');
+    sessionCodeInput = document.getElementById('session-code-input');
+    joinSessionBtn = document.getElementById('join-session-btn');
+    joinStatusDiv = document.getElementById('join-status');
+    joinLoading = document.getElementById('join-loading');
+    joinSuccess = document.getElementById('join-success');
+    joinError = document.getElementById('join-error');
+    joinErrorMessage = document.getElementById('join-error-message');
+    retryJoinBtn = document.getElementById('retry-join-btn');
+
+    // Set up event listeners
+    if (sessionModalClose) sessionModalClose.addEventListener('click', hideSessionModal);
+    if (showCreatePanelBtn) showCreatePanelBtn.addEventListener('click', showCreatePanel);
+    if (showJoinPanelBtn) showJoinPanelBtn.addEventListener('click', showJoinPanel);
+
+    setupSessionCreation();
+    setupSessionJoining();
+    
+    // Initial state
+    showCreatePanel();
+    resetSessionForms();
+    
+    // Check for join code in URL on load
+    checkForJoinCodeInURL();
+}
+
+/**
+ * Shows the session management modal.
+ */
+export function showSessionModal() {
+    if (sessionModal) {
+        sessionModal.style.display = 'flex';
+        // Pre-fill display name if available from playerSystem
+        const currentUser = getCurrentUser();
+        if (currentUser && currentUser.displayName) {
+            if (hostDisplayNameInput) hostDisplayNameInput.value = currentUser.displayName;
+            if (playerDisplayNameInput) playerDisplayNameInput.value = currentUser.displayName;
+        }
+    }
+}
+
+/**
+ * Hides the session management modal.
+ */
+export function hideSessionModal() {
+    if (sessionModal) {
+        sessionModal.style.display = 'none';
+        resetSessionForms();
+    }
+}
+
+/**
+ * Shows the create session panel and hides others.
+ */
+export function showCreatePanel() {
+    if (createSessionPanel) createSessionPanel.style.display = 'block';
+    if (joinSessionPanel) joinSessionPanel.style.display = 'none';
+    if (showCreatePanelBtn) showCreatePanelBtn.classList.add('active');
+    if (showJoinPanelBtn) showJoinPanelBtn.classList.remove('active');
+    resetSessionForms();
+}
+
+/**
+ * Shows the join session panel and hides others.
+ */
+export function showJoinPanel() {
+    if (createSessionPanel) createSessionPanel.style.display = 'none';
+    if (joinSessionPanel) joinSessionPanel.style.display = 'block';
+    if (showCreatePanelBtn) showCreatePanelBtn.classList.remove('active');
+    if (showJoinPanelBtn) showJoinPanelBtn.classList.add('active');
+    resetSessionForms();
+}
+
+/**
+ * Sets up event listeners for session creation elements.
+ */
+function setupSessionCreation() {
+    if (createSessionBtn) createSessionBtn.addEventListener('click', handleCreateSession);
+    if (startLobbyBtn) startLobbyBtn.addEventListener('click', handleStartLobby);
+    if (createAnotherBtn) createAnotherBtn.addEventListener('click', handleCreateAnother);
+}
+
+/**
+ * Sets up event listeners for session joining elements.
+ */
+function setupSessionJoining() {
+    if (joinSessionBtn) joinSessionBtn.addEventListener('click', handleJoinSession);
+    if (retryJoinBtn) retryJoinBtn.addEventListener('click', handleRetryJoin);
+    if (sessionCodeInput) {
+        sessionCodeInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+        sessionCodeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleJoinSession();
+            }
+        });
+    }
+}
+
+/**
+ * Handles the creation of a new session.
+ */
+async function handleCreateSession() {
+    const hostDisplayName = hostDisplayNameInput.value.trim();
+    const maxPlayers = parseInt(maxPlayersSelect.value);
+
+    if (!hostDisplayName) {
+        showNotification('Please enter your display name.', 'Name Required');
+        return;
+    }
+
+    showJoinStatus('loading', 'Creating session...');
+    setCurrentPlayer(hostDisplayName); // Set current player before creating session
+
+    try {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showNotification('Error: User not authenticated.', 'Authentication Error');
+            showJoinStatus('error', 'Authentication failed.');
+            return;
+        }
+
+        const newSession = await gameManager.createGameSession(currentUser.uid, hostDisplayName, maxPlayers);
+        displaySessionCreated(newSession);
+        
+        window.currentSessionId = newSession.sessionId;
+        localStorage.setItem('rulette_session_id', newSession.sessionId);
+        
+        // Set up Firebase listener for session updates
+        setupFirebaseSessionListener();
+
+    } catch (error) {
+        console.error('Error creating session:', error);
+        showJoinStatus('error', `Failed to create session: ${error.message}`);
+        showNotification(`Failed to create session: ${error.message}`, 'Creation Error');
+    }
+}
+
+/**
+ * Handles joining an existing session.
+ */
+async function handleJoinSession() {
+    const playerDisplayName = playerDisplayNameInput.value.trim();
+    const sessionCode = sessionCodeInput.value.trim().toUpperCase();
+
+    if (!playerDisplayName) {
+        showNotification('Please enter your display name.', 'Name Required');
+        return;
+    }
+    if (!sessionCode || sessionCode.length !== 6) {
+        showNotification('Please enter a valid 6-character session code.', 'Invalid Code');
+        return;
+    }
+
+    showJoinStatus('loading', 'Joining session...');
+    setCurrentPlayer(playerDisplayName); // Set current player before joining
+
+    try {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showNotification('Error: User not authenticated.', 'Authentication Error');
+            showJoinStatus('error', 'Authentication failed.');
+            return;
+        }
+
+        const result = await gameManager.joinSession(sessionCode, currentUser.uid, playerDisplayName);
+
+        if (result.success) {
+            showJoinStatus('success', 'Successfully joined!');
+            window.currentSessionId = result.sessionId;
+            localStorage.setItem('rulette_session_id', result.sessionId);
+            
+            // Set up Firebase listener for session updates
+            setupFirebaseSessionListener();
+
+            // Automatically transition to lobby after a short delay
+            setTimeout(() => {
+                hideSessionModal();
+                document.getElementById('main-menu').style.display = 'none';
+                document.getElementById('lobby-container').style.display = 'block';
+                updateLobbyDisplay();
+            }, 1000);
+
+        } else {
+            showJoinStatus('error', result.error || 'Failed to join session.');
+            showNotification(result.error || 'Failed to join session.', 'Join Error');
+        }
+    } catch (error) {
+        console.error('Error joining session:', error);
+        showJoinStatus('error', `Failed to join session: ${error.message}`);
+        showNotification(`Failed to join session: ${error.message}`, 'Join Error');
+    }
+}
+
+/**
+ * Displays the session created information.
+ * @param {object} session - The created session object.
+ */
+function displaySessionCreated(session) {
+    if (sessionCodeText) sessionCodeText.textContent = session.shareableCode;
+    if (sessionLinkText) sessionLinkText.value = session.shareableLink;
+    if (sessionCreatedInfo) sessionCreatedInfo.style.display = 'block';
+    showJoinStatus('success', 'Session created!');
+}
+
+/**
+ * Shows the status of a join attempt (loading, success, error).
+ * @param {string} status - 'loading', 'success', or 'error'.
+ * @param {string} message - The message to display.
+ */
+function showJoinStatus(status, message = '') {
+    if (joinStatusDiv) joinStatusDiv.style.display = 'block';
+    if (joinLoading) joinLoading.style.display = 'none';
+    if (joinSuccess) joinSuccess.style.display = 'none';
+    if (joinError) joinError.style.display = 'none';
+
+    if (status === 'loading') {
+        if (joinLoading) {
+            joinLoading.style.display = 'flex';
+            joinLoading.querySelector('span').textContent = message;
+        }
+    } else if (status === 'success') {
+        if (joinSuccess) {
+            joinSuccess.style.display = 'block';
+            joinSuccess.querySelector('p').textContent = message;
+        }
+    } else if (status === 'error') {
+        if (joinError) {
+            joinError.style.display = 'block';
+            if (joinErrorMessage) joinErrorMessage.textContent = message;
+        }
+    }
+}
+
+/**
+ * Resets all session creation/joining forms.
+ */
+function resetSessionForms() {
+    if (hostDisplayNameInput) hostDisplayNameInput.value = getCurrentUser()?.displayName || '';
+    if (maxPlayersSelect) maxPlayersSelect.value = '6';
+    if (sessionCreatedInfo) sessionCreatedInfo.style.display = 'none';
+    if (playerDisplayNameInput) playerDisplayNameInput.value = getCurrentUser()?.displayName || '';
+    if (sessionCodeInput) sessionCodeInput.value = '';
+    if (joinStatusDiv) joinStatusDiv.style.display = 'none';
+    if (joinLoading) joinLoading.style.display = 'none';
+    if (joinSuccess) joinSuccess.style.display = 'none';
+    if (joinError) joinError.style.display = 'none';
+}
+
+/**
+ * Checks if a session code is present in the URL and attempts to join.
+ */
+function checkForJoinCodeInURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get('join');
+    if (joinCode) {
+        console.log(`[URL] Found join code in URL: ${joinCode}`);
+        // Pre-fill the join code input and show the join panel
+        if (sessionCodeInput) sessionCodeInput.value = joinCode.toUpperCase();
+        showSessionModal();
+        showJoinPanel();
+        // Optionally, auto-attempt join if player name is already set
+        const playerName = localStorage.getItem('rulette_player_name');
+        if (playerName) {
+            playerDisplayNameInput.value = playerName;
+            handleJoinSession();
+        } else {
+            showNotification('Please enter your display name to join the game.', 'Name Required');
+        }
+    }
+}
+
+// Session Termination Modal elements
+let sessionTerminationModal, terminateSessionBtn, confirmTerminateBtn, cancelTerminateBtn, terminationReasonInput;
+
+/**
+ * Initializes the session termination UI and event listeners.
+ */
+export function initializeSessionTerminationUI() {
+    sessionTerminationModal = document.getElementById('session-termination-modal');
+    terminateSessionBtn = document.getElementById('terminate-session-btn');
+    confirmTerminateBtn = document.getElementById('confirm-terminate-btn');
+    cancelTerminateBtn = document.getElementById('cancel-terminate-btn');
+    terminationReasonInput = document.getElementById('termination-reason');
+
+    setupSessionTerminationEventListeners();
+}
+
+/**
+ * Updates the visibility of the "Terminate Session" button based on host status.
+ */
+export function updateSessionTerminationButtonVisibility() {
+    const currentUserId = getCurrentUserId();
+    const currentSession = gameManager.gameSessions[window.currentSessionId];
+    
+    if (terminateSessionBtn) {
+        if (currentSession && currentSession.hostId === currentUserId) {
+            terminateSessionBtn.style.display = 'block';
+        } else {
+            terminateSessionBtn.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Shows the session termination confirmation modal.
+ */
+export function showSessionTerminationModal() {
+    if (sessionTerminationModal) {
+        sessionTerminationModal.style.display = 'flex';
+        if (terminationReasonInput) terminationReasonInput.value = ''; // Clear previous reason
+    }
+}
+
+/**
+ * Hides the session termination confirmation modal.
+ */
+export function hideSessionTerminationModal() {
+    if (sessionTerminationModal) {
+        sessionTerminationModal.style.display = 'none';
+    }
+}
+
+/**
+ * Handles the confirmation of session termination by the host.
+ */
+async function handleConfirmSessionTermination() {
+    const sessionId = window.currentSessionId;
+    const hostId = getCurrentUserId();
+    const reason = terminationReasonInput.value.trim();
+
+    if (!sessionId || !hostId) {
+        showNotification('Error: Session or host ID not found.', 'Termination Error');
+        return;
+    }
+
+    showNotification('Terminating session...', 'Terminating');
+    hideSessionTerminationModal();
+
+    try {
+        const result = await gameManager.terminateSessionByHost(sessionId, hostId, reason);
+        if (result.success) {
+            showNotification('Session terminated successfully.', 'Session Ended');
+            clearSession(); // Clear local session data
+            // Redirect to main menu or home page
+            document.getElementById('game-page').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'block';
+        } else {
+            showNotification(`Failed to terminate session: ${result.error}`, 'Termination Error');
+        }
+    } catch (error) {
+        console.error('Error terminating session:', error);
+        showNotification('An unexpected error occurred during session termination.', 'Termination Error');
+    }
+}
+
+/**
+ * Handles session termination events broadcasted by the GameManager.
+ * @param {CustomEvent} event - The custom event containing termination data.
+ */
+function handleSessionTerminationEvent(event) {
+    const { sessionId, reason, type } = event.detail;
+    console.log(`[SESSION_TERMINATION_EVENT] Session ${sessionId} terminated. Reason: ${reason}, Type: ${type}`);
+    
+    // Only show notification if it's not the current user who initiated it (to avoid double notifications)
+    // Or if it's an automatic termination
+    const currentUserId = getCurrentUserId();
+    const currentSession = gameManager.gameSessions[sessionId];
+    
+    if (type === 'automatic' || (currentSession && currentSession.hostId !== currentUserId)) {
+        showNotification(`Session ended: ${reason}`, 'Game Over');
+        clearSession();
+        document.getElementById('game-page').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'block';
+    }
+}
+
+/**
+ * Sets up event listeners for session termination UI.
+ */
+function setupSessionTerminationEventListeners() {
+    if (terminateSessionBtn) terminateSessionBtn.addEventListener('click', showSessionTerminationModal);
+    if (confirmTerminateBtn) confirmTerminateBtn.addEventListener('click', handleConfirmSessionTermination);
+    if (cancelTerminateBtn) cancelTerminateBtn.addEventListener('click', hideSessionTerminationModal);
+    document.addEventListener('sessionTerminated', handleSessionTerminationEvent);
+}
+
+// Quit Game Modal elements
+let quitGameModal, quitGameBtn, confirmQuitBtn, cancelQuitBtn;
+
+/**
+ * Initializes the quit game UI and event listeners.
+ */
+export function initializeQuitGameUI() {
+    quitGameModal = document.getElementById('quit-game-modal');
+    quitGameBtn = document.getElementById('quit-game-btn');
+    confirmQuitBtn = document.getElementById('confirm-quit-btn');
+    cancelQuitBtn = document.getElementById('cancel-quit-btn');
+
+    // Set up event listeners
+    if (quitGameBtn) quitGameBtn.addEventListener('click', showQuitGameModal);
+    if (confirmQuitBtn) confirmQuitBtn.addEventListener('click', handleConfirmQuit);
+    if (cancelQuitBtn) cancelQuitBtn.addEventListener('click', hideQuitGameModal);
+}
+
+/**
+ * Shows the quit game confirmation modal.
+ */
+export function showQuitGameModal() {
+    if (quitGameModal) {
+        quitGameModal.style.display = 'flex';
+    }
+}
+
+/**
+ * Hides the quit game confirmation modal.
+ */
+export function hideQuitGameModal() {
+    if (quitGameModal) {
+        quitGameModal.style.display = 'none';
+    }
+}
+
+/**
+ * Handles the confirmation of quitting the game.
+ */
+async function handleConfirmQuit() {
+    const sessionId = window.currentSessionId;
+    const playerId = getCurrentUserId();
+
+    if (!sessionId || !playerId) {
+        showNotification('Error: Session or player ID not found.', 'Quit Error');
+        return;
+    }
+
+    showNotification('Leaving game...', 'Quitting');
+    hideQuitGameModal();
+
+    try {
+        const result = await gameManager.leaveSession(sessionId, playerId);
+        if (result.success) {
+            showNotification('You have left the game.', 'Game Left');
+            clearSession(); // Clear local session data
+            // Redirect to main menu or home page
+            document.getElementById('game-page').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'block';
+        } else {
+            showNotification(`Failed to leave game: ${result.error}`, 'Quit Error');
+        }
+    } catch (error) {
+        console.error('Error leaving game:', error);
+        showNotification('An unexpected error occurred while leaving the game.', 'Quit Error');
+    }
+}
+
+/**
+ * Updates the visibility of the "Quit Game" button.
+ */
+export function updateQuitButtonVisibility() {
+    const currentSession = gameManager.gameSessions[window.currentSessionId];
+    if (quitGameBtn) {
+        if (currentSession && currentSession.status === gameManager.SESSION_STATES.IN_GAME) {
+            quitGameBtn.style.display = 'block';
+        } else {
+            quitGameBtn.style.display = 'none';
+        }
+    }
+}
