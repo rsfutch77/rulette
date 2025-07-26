@@ -491,4 +491,102 @@ h1 { margin-bottom: 1.5rem; }
 
 .player-score-points {
   font-size: 1.2rem;
-}}
+  font-weight: bold;
+  color: #007bff;
+  margin-bottom: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.player-score-badges {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.player-badge {
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.player-badge.current {
+  background: #28a745;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.4);
+}
+
+.player-badge.referee {
+  background: #ffc107;
+  color: #212529;
+  box-shadow: 0 0 8px rgba(255, 193, 7, 0.4);
+}
+
+.player-badge.disconnected {
+  background: #6c757d;
+  box-shadow: 0 0 8px rgba(108, 117, 125, 0.4);
+}
+
+/* Score change animation */
+.score-change-animation {
+  animation: scoreChangeGlow 1s ease-in-out;
+}
+
+@keyframes scoreChangeGlow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+}
+
+/* Responsive design for player scores */
+@media (max-width: 768px) {
+  #player-scores-list {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .player-score-item {
+    min-width: 200px;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Enhanced styling for different player states */
+.player-score-item.current-player .player-score-points {
+  color: #28a745;
+}
+
+.player-score-item.referee .player-score-points {
+  color: #ffc107;
+}
+
+.player-score-item.current-player.referee .player-score-points {
+  color: #fd7e14;
+}
+
+/* Disconnected player styling */
+.player-score-item.disconnected {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.player-score-item.disconnected .player-score-name {
+  color: #6c757d;
+}
+
+.player-score-item.disconnected .player-score-points {
+  color: #6c757d;
+}
