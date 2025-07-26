@@ -212,7 +212,7 @@ function parseCardsCSV(csv) {
         const sideB = row[2]?.trim() || null; // Side B is optional (null for prompt cards)
 
         // Validate card type
-        if (!['rule', 'prompt', 'modifier', 'clone'].includes(cardType)) {
+        if (!['rule', 'prompt', 'modifier', 'clone', 'flip_action'].includes(cardType)) {
             console.warn(`Unknown card type: ${cardType}, skipping card`);
             continue;
         }
@@ -261,7 +261,7 @@ async function loadCardData() {
 
     // Clone cards replicate other cards' effects
     const cloneCards = filterCards('clone');
-    const flipCards = []; // TODO: Implement flip cards
+    const flipCards = filterCards('flip_action'); // Now filters for 'flip_action' cards
     const swapCards = []; // TODO: Implement swap cards
     
     // Distribute cards across the 6 deck types to match wheel segments
