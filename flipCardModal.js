@@ -4,16 +4,23 @@
  * Displays the flip card modal.
  */
 function showFlipCardModal() {
-    // TODO: Implement logic to display the modal
-    console.log("Showing flip card modal.");
+    const flipCardModal = document.getElementById('flipCardModal');
+    flipCardModal.style.display = 'block';
+    // Assume window.gameManager.getCurrentPlayer().getRules() provides the cards
+    if (window.gameManager && window.gameManager.getCurrentPlayer) {
+        const playerCards = window.gameManager.getCurrentPlayer().getRules();
+        displayPlayerCards(playerCards);
+    } else {
+        console.warn("gameManager or getCurrentPlayer not available. Cannot display player cards.");
+    }
 }
 
 /**
  * Hides the flip card modal.
  */
 function hideFlipCardModal() {
-    // TODO: Implement logic to hide the modal
-    console.log("Hiding flip card modal.");
+    const flipCardModal = document.getElementById('flipCardModal');
+    flipCardModal.style.display = 'none';
 }
 
 /**
@@ -21,8 +28,34 @@ function hideFlipCardModal() {
  * @param {Array} cards - An array of card objects to display.
  */
 function displayPlayerCards(cards) {
-    // TODO: Implement logic to render cards in the modal
-    console.log("Displaying player cards:", cards);
+    const container = document.getElementById('playerRuleCardsContainer');
+    container.innerHTML = ''; // Clear existing cards
+
+    cards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.classList.add('card');
+
+        const cardInner = document.createElement('div');
+        cardInner.classList.add('card-inner');
+
+        const cardFront = document.createElement('div');
+        cardFront.classList.add('card-front');
+        cardFront.innerHTML = `<h3>${card.name}</h3>`;
+
+        const cardBack = document.createElement('div');
+        cardBack.classList.add('card-back');
+        cardBack.innerHTML = `<p>${card.description}</p>`;
+
+        cardInner.appendChild(cardFront);
+        cardInner.appendChild(cardBack);
+        cardElement.appendChild(cardInner);
+
+        cardElement.addEventListener('click', () => {
+            cardElement.classList.toggle('flipped');
+        });
+
+        container.appendChild(cardElement);
+    });
 }
 
 // Make functions accessible globally
