@@ -40,6 +40,10 @@ import {
 // Global rule display manager instance
 let ruleDisplayManager = null;
 
+// Global card manager instance and initialization flag
+let cardManager = null;
+let cardManagerInitialized = false;
+
 // DEV ONLY - Helper for managing a local dev UID for localhost testing
 function getDevUID() {
   if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
@@ -148,12 +152,20 @@ function getTurnOrderDiceRoll() {
     deckType6
   });
 
-  if (gameManager && gameManager.setCardManager) {
-    gameManager.setCardManager(cardManager);
-  }
+  // Use setTimeout to ensure gameManager is fully initialized before setting cardManager
+  setTimeout(() => {
+    if (gameManager && gameManager.setCardManager) {
+      gameManager.setCardManager(cardManager);
+    }
+  }, 0);
   
   // Set the initialization flag to true
   cardManagerInitialized = true;
+  
+  // Expose to window for other modules
+  window.cardManager = cardManager;
+  window.cardManagerInitialized = cardManagerInitialized;
+  
   console.log("[CARD MANAGER] Successfully initialized with all card decks");
 
   // Initialize Wheel Component
@@ -1481,102 +1493,6 @@ function getPlayerDisplayName(playerId) {
 // Expose getPlayerDisplayName globally immediately after definition
 window.getPlayerDisplayName = getPlayerDisplayName;
 
-// Function to manually trigger UI updates (for testing)
-function refreshPlayerUI(sessionId) {
-  console.log("DEBUG: Manually refreshing player UI for session:", sessionId);
-  
-  if (!sessionId) {
-    // Try to get current session
-    const currentUser = getCurrentUser();
-    if (currentUser && gameManager.gameSessions) {
-      for (const [id, session] of Object.entries(gameManager.gameSessions)) {
-// Test function for the complete points and cards UI system
-function testPointsAndCardsUI() {
-  console.log("DEBUG: Testing Points and Cards UI System");
-  
-  const currentUser = getCurrentUser();
-  if (!currentUser) {
-    console.log("No current user found for testing");
-    return;
-  }
-  
-  // Find current session
-  let sessionId = null;
-  if (gameManager.gameSessions) {
-    for (const [id, session] of Object.entries(gameManager.gameSessions)) {
-      if (session.players.includes(currentUser.uid)) {
-        sessionId = id;
-        break;
-      }
-    }
-  }
-  
-  if (!sessionId) {
-    console.log("No active session found for testing");
-    return;
-  }
-  
-  console.log("Testing with session:", sessionId);
-  
-  // Test 1: Update player scores and cards
-  console.log("Test 1: Updating player scores and cards");
-  updatePlayerScores(sessionId);
-  updatePlayerCards(sessionId);
-  
-  // Test 2: Test point change animation
-  console.log("Test 2: Testing point change animation");
-  const session = gameManager.gameSessions[sessionId];
-  if (session && session.players.length > 0) {
-    const testPlayerId = session.players[0];
-    animatePointChange(testPlayerId, 5);
-    
-    setTimeout(() => {
-      animatePointChange(testPlayerId, -2);
-    }, 1500);
-  }
-  
-  // Test 3: Test card transfer animation
-  console.log("Test 3: Testing card transfer animation");
-  if (session && session.players.length > 1) {
-    const fromPlayer = session.players[0];
-    const toPlayer = session.players[1];
-    animateCardTransfer('test-card-id', fromPlayer, toPlayer);
-  }
-  
-  // Test 4: Test manual UI refresh
-  console.log("Test 4: Testing manual UI refresh");
-  setTimeout(() => {
-    refreshPlayerUI(sessionId);
-  }, 3000);
-  
-  console.log("Points and Cards UI test completed");
-  showNotification("Points and Cards UI test completed successfully!", "🧪 Test Results");
-}
-
-// Expose test function
-window.testPointsAndCardsUI = testPointsAndCardsUI;
-        if (session.players.includes(currentUser.uid)) {
-          sessionId = id;
-          break;
-        }
-      }
-    }
-  }
-  
-  if (sessionId) {
-    updatePlayerScores(sessionId);
-    updatePlayerCards(sessionId);
-  }
-}
-
-// Expose functions for testing
-window.refreshPlayerUI = refreshPlayerUI;
-window.testPointChange = function(playerId, amount) {
-  animatePointChange(playerId, amount);
-};
-window.testCardTransfer = function(cardId, fromPlayerId, toPlayerId) {
-  animateCardTransfer(cardId, fromPlayerId, toPlayerId);
-};
         ${cardsHtml}
       </div>
     </div>
@@ -2683,7 +2599,7 @@ window.advanceTurn = advanceTurn;
 window.updateTurnUI = updateTurnUI;
 window.drawCardWithErrorHandling = drawCardWithErrorHandling;
 window.handlePlayerDisconnection = handlePlayerDisconnection;
-window.simulatePlayerDisconnect = simulatePlayerDisconnect;
+window.updatePlayerScores = updatePlayerScores;
 
 // Expose prompt functions
 window.activatePromptChallenge = activatePromptChallenge;
@@ -2802,135 +2718,6 @@ refereeAnimationStyle.textContent = `
     }
 `;
 document.head.appendChild(refereeAnimationStyle);
-
-// ===== REFEREE SWAP TESTING FUNCTIONS =====
-
-/**
- * Test function for referee card swapping
- */
-window.testRefereeSwap = function() {
-    console.log('[TEST] Testing referee card swapping...');
-    
-    if (!gameManager) {
-        console.error('[TEST] Game manager not available');
-        showNotification('Game manager not available. Please refresh the page.', 'Test Error');
-        return;
-    }
-    
-    // Check if we have a current session
-    if (!window.currentSessionId) {
-        console.error('[TEST] No current session available');
-        showNotification('No active game session. Please start a game first.', 'Test Error');
-        return;
-    }
-    
-    const sessionId = window.currentSessionId;
-    const session = gameManager.gameSessions[sessionId];
-    
-    if (!session) {
-        console.error('[TEST] Session not found');
-        showNotification('Game session not found.', 'Test Error');
-        return;
-    }
-    
-    if (!session.referee) {
-        console.error('[TEST] No referee assigned');
-        showNotification('No referee assigned to this session.', 'Test Error');
-        return;
-    }
-    
-    console.log(`[TEST] Current referee: ${session.referee}`);
-    
-    // Test the swap functionality
-    gameManager.swapRefereeRole(sessionId, session.referee)
-        .then(result => {
-            if (result.success) {
-                console.log('[TEST] Referee swap successful:', result);
-                showNotification(
-                    `Referee swap test successful! New referee: ${result.refereeSwap.newRefereeName}`,
-                    'Test Successful'
-                );
-            } else {
-                console.error('[TEST] Referee swap failed:', result);
-                showNotification(
-                    `Referee swap test failed: ${result.error}`,
-                    'Test Failed'
-                );
-            }
-        })
-        .catch(error => {
-            console.error('[TEST] Error during referee swap test:', error);
-            showNotification(
-                'Error during referee swap test. Check console for details.',
-                'Test Error'
-            );
-        });
-};
-
-/**
- * Test function for swap card effect
- */
-window.testSwapCardEffect = function() {
-    console.log('[TEST] Testing swap card effect...');
-    
-    if (!gameManager || !cardManager) {
-        console.error('[TEST] Game or card manager not available');
-        showNotification('Game system not available. Please refresh the page.', 'Test Error');
-        return;
-    }
-    
-    if (!window.currentSessionId) {
-        console.error('[TEST] No current session available');
-        showNotification('No active game session. Please start a game first.', 'Test Error');
-        return;
-    }
-    
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-        console.error('[TEST] No current user');
-        showNotification('No user logged in.', 'Test Error');
-        return;
-    }
-    
-    // Create a mock swap card
-    const mockSwapCard = {
-        id: 'test-swap-card',
-        name: 'Test Swap Card',
-        type: 'swap',
-        description: 'Test card for referee swapping'
-    };
-    
-    // Test applying swap card effect with referee swap
-    const effectContext = {
-        swapType: 'referee'
-        // No targetPlayerId specified - should trigger random selection
-    };
-    
-    gameManager.applyCardEffect(window.currentSessionId, currentUser.uid, mockSwapCard, effectContext)
-        .then(result => {
-            if (result.success) {
-                console.log('[TEST] Swap card effect successful:', result);
-                showNotification(
-                    'Swap card effect test successful! Check the referee status.',
-                    'Test Successful'
-                );
-            } else {
-                console.error('[TEST] Swap card effect failed:', result);
-                showNotification(
-                    `Swap card effect test failed: ${result.error}`,
-                    'Test Failed'
-                );
-            }
-        })
-        .catch(error => {
-            console.error('[TEST] Error during swap card effect test:', error);
-            showNotification(
-                'Error during swap card effect test. Check console for details.',
-                'Test Error'
-            );
-        });
-};
-
 
 // ===== END GAME UI SYSTEM =====
 
@@ -4087,7 +3874,6 @@ window.updateSessionTerminationButtonVisibility = updateSessionTerminationButton
 window.showSessionTerminationModal = showSessionTerminationModal;
 window.hideSessionTerminationModal = hideSessionTerminationModal;
 window.handleConfirmSessionTermination = handleConfirmSessionTermination;
-window.testSessionTermination = testSessionTermination;
 
 // Initialize session termination UI when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -4236,10 +4022,22 @@ window.updateQuitButtonVisibility = updateQuitButtonVisibility;
 
 // This is the root cause of "No session or game manager available" errors
 console.log('[CRITICAL_FIX] Assigning gameManager to window.gameManager');
-console.log('[DEBUG] gameManager imported:', gameManager);
-console.log('[DEBUG] gameManager type:', typeof gameManager);
-window.gameManager = gameManager;
-console.log('[DEBUG] window.gameManager assigned:', window.gameManager);
+// Use setTimeout to avoid circular dependency issues
+setTimeout(() => {
+    try {
+        console.log('[DEBUG] gameManager imported:', gameManager);
+        console.log('[DEBUG] gameManager type:', typeof gameManager);
+        window.gameManager = gameManager;
+        console.log('[DEBUG] window.gameManager assigned:', window.gameManager);
+    } catch (error) {
+        console.log('[DEBUG] Error accessing gameManager:', error.message);
+        // Retry after a delay
+        setTimeout(() => {
+            window.gameManager = gameManager;
+            console.log('[DEBUG] window.gameManager assigned on retry:', window.gameManager);
+        }, 100);
+    }
+}, 0);
 
 // Add event listener to persist session ID when it changes
 let lastSessionId = window.currentSessionId;

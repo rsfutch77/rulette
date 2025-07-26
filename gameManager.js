@@ -2204,17 +2204,8 @@ class GameManager {
                 };
                 console.log('[DEBUG] Added player to statuses:', playerId, playerStatuses[playerId]);
             } else {
-                console.error('[CRITICAL] Player missing from gameManager.players:', playerId);
-                console.error('[CRITICAL] Session players:', session.players);
-                console.error('[CRITICAL] Available players in gameManager:', Object.keys(this.players));
-                console.error('[CRITICAL] This causes UI to show fewer players than actually in session');
-                console.error('[DIAGNOSTIC] Session object:', session);
-                console.error('[DIAGNOSTIC] Session source (local vs Firebase):', this.gameSessions[session.sessionId] ? 'local' : 'Firebase');
-                console.error('[DIAGNOSTIC] Player should be recreated during session restoration');
-                
-                // Instead of creating a placeholder, try to recreate the player properly
-                console.warn('[RECOVERY] Attempting to recreate missing player from Firebase:', playerId);
-                
+                console.warn('[DEBUG] Player not found in gameManager:', playerId);
+                // Attempt to recover player data from Firebase if available
                 try {
                     // Try to get player data from Firebase
                     const playerData = await getFirestorePlayer(playerId);

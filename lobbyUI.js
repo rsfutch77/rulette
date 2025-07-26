@@ -39,25 +39,38 @@ function setupLobbyEventListeners() {
     }
     
     // Listen for player status change events from gameManager
-    if (gameManager) {
-        // Set up listener for player status changes
-        document.addEventListener('playerStatusChanged', handlePlayerStatusChange);
-        console.log('[EVENT_SETUP] Adding sessionStateChange event listener');
-        document.addEventListener('sessionStateChange', handleSessionStateChange);
-        console.log('[EVENT_SETUP] sessionStateChange event listener added successfully');
-        
-        // Set up Firebase real-time listener for session state changes
-        // Use setTimeout to ensure the function is available after the file loads
-        setTimeout(() => {
-            if (typeof setupFirebaseSessionListener === 'function') {
-                if (typeof window.setupFirebaseSessionListener === 'function') {
-            window.setupFirebaseSessionListener();
-        } else {
-            console.log('[DEBUG] setupFirebaseSessionListener not yet available');
-        }
+    // Use setTimeout to ensure gameManager is fully initialized
+    setTimeout(() => {
+        try {
+            if (typeof gameManager !== 'undefined' && gameManager) {
+                // Set up listener for player status changes
+                document.addEventListener('playerStatusChanged', handlePlayerStatusChange);
+                console.log('[EVENT_SETUP] Adding sessionStateChange event listener');
+                document.addEventListener('sessionStateChange', handleSessionStateChange);
+                console.log('[EVENT_SETUP] sessionStateChange event listener added successfully');
+                
+                // Set up Firebase real-time listener for session state changes
+                // Use setTimeout to ensure the function is available after the file loads
+                setTimeout(() => {
+                    if (typeof setupFirebaseSessionListener === 'function') {
+                        setupFirebaseSessionListener();
+                    } else if (typeof window.setupFirebaseSessionListener === 'function') {
+                        window.setupFirebaseSessionListener();
+                    } else {
+                        console.log('[DEBUG] setupFirebaseSessionListener not yet available');
+                    }
+                }, 100);
+            } else {
+                console.log('[DEBUG] gameManager not yet available, retrying...');
+                // Retry after a longer delay
+                setTimeout(() => setupLobbyEventListeners(), 200);
             }
-        }, 100);
-    }
+        } catch (error) {
+            console.log('[DEBUG] Error accessing gameManager:', error.message);
+            // Retry after a longer delay
+            setTimeout(() => setupLobbyEventListeners(), 200);
+        }
+    }, 100);
 }
 
 /**
@@ -1134,74 +1147,6 @@ function cleanupFirebaseListeners() {
         console.log('[FIREBASE_LISTENER] Cleaning up session state listener');
         window.sessionStateUnsubscribe();
         window.sessionStateUnsubscribe = null;
-    }
-}
-
-/**
- * Test function for lobby UI
- */
-function testLobbyUI() {
-    console.log('[TEST] Testing lobby UI functionality...');
-    
-    if (!gameManager) {
-        console.error('[TEST] Game manager not available');
-        if (typeof window.showNotification === 'function') {
-            window.showNotification('Game manager not available. Please refresh the page.', 'Test Error');
-        }
-        return;
-    }
-    
-    // Show the lobby
-    showLobby();
-    
-    // Create a test session if none exists
-    if (!window.currentSessionId) {
-        console.log('[TEST] Creating test session for lobby...');
-        
-        const currentUser = getCurrentUser();
-        if (!currentUser) {
-            console.error('[TEST] No current user');
-            if (typeof window.showNotification === 'function') {
-                window.showNotification('No user logged in.', 'Test Error');
-            }
-            return;
-        }
-        
-        // Create a test session
-        gameManager.createGameSession(currentUser.uid, currentUser.displayName || 'Test Host', 6)
-            .then(result => {
-                if (result.success) {
-                    window.currentSessionId = result.sessionId;
-                    console.log('[TEST] Test session created:', result.sessionId);
-                    
-                    // Add some test players
-                    addTestPlayers(result.sessionId);
-                    
-                    // Update lobby display
-                    updateLobbyDisplay();
-                    
-                    if (typeof window.showNotification === 'function') {
-                        window.showNotification('Lobby UI test successful! Check the lobby display.', 'Test Successful');
-                    }
-                } else {
-                    console.error('[TEST] Failed to create test session:', result.error);
-                    if (typeof window.showNotification === 'function') {
-                        window.showNotification(`Failed to create test session: ${result.error}`, 'Test Failed');
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('[TEST] Error creating test session:', error);
-                if (typeof window.showNotification === 'function') {
-                    window.showNotification('Error creating test session. Check console for details.', 'Test Error');
-                }
-            });
-    } else {
-        // Update existing lobby
-        updateLobbyDisplay();
-        if (typeof window.showNotification === 'function') {
-            window.showNotification('Lobby UI refreshed successfully!', 'Test Successful');
-        }
     }
 }
 

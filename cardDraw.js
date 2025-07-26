@@ -8,8 +8,8 @@ import { getCurrentUser } from './playerSystem.js';
 // Functions from main.js will be available as window globals when main.js loads
 
 // Global variables that need to be accessible
-let cardManager; // Make cardManager accessible globally
-let cardManagerInitialized = false; // Flag to track initialization status
+// These will be set from main.js via window globals
+// Note: cardManager will be accessed via window.cardManager to avoid initialization issues
 
 // Card Draw Mechanism Implementation
 // This connects the wheel result to the card drawing logic
@@ -21,12 +21,15 @@ async function initializeCardDrawMechanism() {
     try {
         console.log('[CARD_DRAW] Initializing card draw mechanism...');
         
-        // Load card data if not already loaded
-        if (!cardManagerInitialized) {
+        // Check if card manager is already initialized from main.js
+        if (window.cardManager && window.cardManagerInitialized) {
+            console.log('[CARD_DRAW] Using existing card manager from main.js');
+        } else if (!window.cardManagerInitialized) {
+            // Fallback: Load card data if not already loaded
             const cardData = await loadCardData();
-            cardManager = new CardManager(cardData);
-            cardManagerInitialized = true;
-            console.log('[CARD_DRAW] Card manager initialized with decks:', cardManager.getDeckTypes());
+            window.cardManager = new CardManager(cardData);
+            window.cardManagerInitialized = true;
+            console.log('[CARD_DRAW] Card manager initialized with decks:', window.cardManager.getDeckTypes());
         }
         
         // Set up wheel callback for card drawing

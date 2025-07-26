@@ -332,9 +332,3 @@ function checkForJoinCodeInURL() {
         window.history.replaceState({}, document.title, newUrl);
     }
 }
-
-// Test function for session management
-export function testSessionManagement() {
-    console.log('[TEST] Testing session management UI...');
-    showSessionModal();
-}
