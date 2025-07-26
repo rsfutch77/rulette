@@ -224,32 +224,7 @@ function displayDrawnCard(card, cardType) {
             choices.appendChild(startPromptButton);
             
         } else if (card.type === 'rule' || card.type === 'modifier') {
-            // Rule and modifier cards can be flipped if they have a side B
-            if (card.backRule || card.sideB) {
-                const flipButton = document.createElement('button');
-                flipButton.textContent = `Flip to ${card.currentSide === 'front' ? 'Back' : 'Front'}`;
-                flipButton.style.cssText = `
-                    display: block;
-                    width: 100%;
-                    margin: 0.5rem 0;
-                    padding: 0.7rem;
-                    background: #007bff;
-                    color: white;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 1rem;
-                    transition: all 0.2s;
-                `;
-                
-                flipButton.addEventListener('click', () => {
-                    flipCardInUI(card, question, flipButton);
-                });
-                
-                choices.appendChild(flipButton);
-            }
-            
-            // Accept button
+            // Accept button - removed flip button functionality
             const acceptButton = document.createElement('button');
             acceptButton.textContent = 'Accept Card';
             acceptButton.style.cssText = `
@@ -478,13 +453,6 @@ function updateCardDisplaysAfterFlip(card) {
         if (question.textContent === card.getFrontRule() || question.textContent === card.getBackRule()) {
             question.textContent = card.getCurrentRule();
             
-            // Update flip button if present
-            const flipButtons = modal.querySelectorAll('button');
-            flipButtons.forEach(button => {
-                if (button.textContent.includes('Flip to')) {
-                    button.textContent = `Flip to ${card.currentSide === 'front' ? 'Back' : 'Front'}`;
-                }
-            });
         }
     }
     
