@@ -1460,57 +1460,6 @@ export class GameManager {
         return playerStatuses;
     }
 
-    /**
-     * Trigger player status change event
-     * @param {string} sessionId - The session ID
-     * @param {string} playerId - The player ID
-     * @param {string} oldStatus - Previous status
-     * @param {string} newStatus - New status
-     * @param {string} reason - Reason for change
-     */
-    triggerPlayerStatusChangeEvent(sessionId, playerId, oldStatus, newStatus, reason) {
-        try {
-            if (!this.playerStatusEvents) {
-                this.playerStatusEvents = {};
-            }
-            
-            if (!this.playerStatusEvents[sessionId]) {
-                this.playerStatusEvents[sessionId] = [];
-            }
-            
-            const statusEvent = {
-                playerId,
-                oldStatus,
-                newStatus,
-                reason,
-                timestamp: Date.now()
-            };
-            
-            this.playerStatusEvents[sessionId].push(statusEvent);
-            
-            // Keep only the last 50 events per session
-            if (this.playerStatusEvents[sessionId].length > 50) {
-                this.playerStatusEvents[sessionId] = this.playerStatusEvents[sessionId].slice(-50);
-            }
-            
-            console.log(`[STATUS_EVENT] Session ${sessionId}: Player ${playerId} status changed from ${oldStatus} to ${newStatus}`);
-            
-            // Dispatch DOM event for UI components
-            if (typeof document !== 'undefined') {
-                const customEvent = new CustomEvent('playerStatusChanged', {
-                    detail: {
-                        sessionId,
-                        statusEvent,
-                        playerData: this.getSessionPlayerStatuses(sessionId)[playerId]
-                    }
-                });
-                document.dispatchEvent(customEvent);
-            }
-            
-        } catch (error) {
-            console.error(`[STATUS_EVENT] Error triggering status change event:`, error);
-        }
-    }
 
     /**
      * Notify players of disconnect
