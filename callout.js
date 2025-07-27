@@ -424,7 +424,7 @@ function initCardTransferEventHandlers() {
   }
   
   if (confirmTransferBtn) {
-    confirmTransferBtn.addEventListener('click', handleCardTransfer);
+    // TODO card transfer logic
   }
   
   if (skipTransferBtn) {
@@ -444,3 +444,9 @@ function hideCardTransferUI() {
     delete cardTransferPanel.dataset.sessionId;
   }
 }
+
+// Export functions for use in main.js
+export {
+  initCalloutEventHandlers,
+  initCardTransferEventHandlers
+};
