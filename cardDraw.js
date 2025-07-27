@@ -557,14 +557,23 @@ window.displayDrawnCard = displayDrawnCard;
 window.closeCardModal = closeCardModal;
 
 /**
- * Placeholder function to show the clone card selection modal.
- * This will be implemented in a future task.
+ * Show the clone card selection modal.
+ * This function is now implemented in cloneCardModal.js
  * @param {Object} cloneCard - The clone card object that was drawn.
  */
 function showCloneCardModal(cloneCard) {
     console.log('[CLONE_CARD] Showing clone card modal for:', cloneCard);
-    window.showNotification('Clone card modal functionality is not yet implemented.', 'Under Construction');
-    // TODO: Implement the actual modal for selecting player and card to clone
+    // The actual implementation is in cloneCardModal.js
+    // This function will be overridden by the global function from that file
+    if (window.showCloneCardModal && window.showCloneCardModal !== showCloneCardModal) {
+        window.showCloneCardModal(cloneCard);
+    } else {
+        console.error('[CLONE_CARD] Clone card modal not loaded yet');
+        window.showNotification({
+            message: 'Clone card modal not ready. Please try again.',
+            title: 'Loading...'
+        });
+    }
 }
 
 window.showCloneCardModal = showCloneCardModal;
