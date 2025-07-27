@@ -153,63 +153,6 @@ class WheelComponent {
     }
     
     /**
-     * Enhanced validation with detailed error reporting
-     * @param {string} playerId - The player attempting to spin
-     * @returns {object} - {valid: boolean, reason?: string, errorCode?: string}
-     */
-    validateSpin(playerId) {
-        const now = Date.now();
-        
-        // Check if player ID is provided
-        if (!playerId) {
-            return {
-                valid: false,
-                reason: 'Player ID is required for spinning',
-                errorCode: 'MISSING_PLAYER_ID'
-            };
-        }
-        
-        // Check if wheel is already spinning
-        if (this.isSpinning) {
-            return {
-                valid: false,
-                reason: 'Wheel is already spinning',
-                errorCode: 'WHEEL_SPINNING'
-            };
-        }
-        
-        // Check cooldown period
-        if (now - this.lastSpinTime < this.spinCooldown) {
-            const remainingCooldown = this.spinCooldown - (now - this.lastSpinTime);
-            return {
-                valid: false,
-                reason: `Spin cooldown active. Please wait ${Math.ceil(remainingCooldown / 1000)} more seconds`,
-                errorCode: 'COOLDOWN_ACTIVE'
-            };
-        }
-        
-        // Check if player has already spun this turn
-        if (this.hasSpunThisTurn && this.currentPlayerId === playerId) {
-            return {
-                valid: false,
-                reason: 'You have already spun this turn',
-                errorCode: 'ALREADY_SPUN'
-            };
-        }
-        
-        // Check if it's the correct player's turn (if turn management is active)
-        if (this.currentPlayerId && this.currentPlayerId !== playerId) {
-            return {
-                valid: false,
-                reason: 'It is not your turn to spin',
-                errorCode: 'NOT_YOUR_TURN'
-            };
-        }
-        
-        return { valid: true };
-    }
-    
-    /**
      * Set the current player and turn for spin validation
      */
     setCurrentTurn(playerId, turnNumber) {
@@ -272,14 +215,7 @@ class WheelComponent {
     }
     
     spinWheel(playerId = null) {
-        // Enhanced validation with detailed error reporting
-        const spinValidation = this.validateSpin(playerId);
-        if (!spinValidation.valid) {
-            console.warn('[WHEEL] Spin validation failed:', spinValidation.reason);
-            // Don't show notification here - let the calling function handle it
-            return false;
-        }
-        
+  
         console.log('[WHEEL] Starting wheel spin for player:', playerId);
         this.isSpinning = true;
         this.hasSpunThisTurn = true;
@@ -332,18 +268,7 @@ class WheelComponent {
         console.log('[WHEEL] Spin complete, selected index:', selectedIndex);
         
         try {
-            // Validate selected index
-            if (selectedIndex < 0 || selectedIndex >= this.cardTypes.length) {
-                throw new Error(`Invalid selected index: ${selectedIndex}. Expected 0-${this.cardTypes.length - 1}`);
-            }
-            
-            const selectedCardType = this.cardTypes[selectedIndex];
-            
-            // Validate selected card type
-            if (!selectedCardType) {
-                throw new Error(`No card type found for index ${selectedIndex}`);
-            }
-            
+           
             console.log('[WHEEL] Selected card type:', selectedCardType.name);
             
             // Set final appearance

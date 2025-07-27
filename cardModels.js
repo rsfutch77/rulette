@@ -225,12 +225,6 @@ function parseCardsCSV(csv) {
         const sideA = row[1]?.trim() || '';
         const sideB = row[2]?.trim() || null; // Side B is optional (null for prompt cards)
 
-        // Validate card type
-        if (!['rule', 'prompt', 'modifier', 'clone', 'flip_action'].includes(cardType)) {
-            console.warn(`Unknown card type: ${cardType}, skipping card`);
-            continue;
-        }
-
         // Create base card data
         const cardData = {
             type: cardType,

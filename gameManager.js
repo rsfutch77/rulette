@@ -49,11 +49,6 @@ export class GameManager {
         return await this.sessionManager.createGameSession(hostId, hostDisplayName);
     }
 
-    // Delegate session code validation to SessionManager
-    async validateSessionCode(code) {
-        return await this.sessionManager.validateSessionCode(code);
-    }
-
     // Delegate session search to SessionManager
     async findSessionByCode(code) {
         return await this.sessionManager.findSessionByCode(code);
@@ -561,30 +556,12 @@ export class GameManager {
                 };
             }
 
-            // Validate that hostId is indeed the host of sessionId
-            if (session.hostId !== hostId) {
-                return {
-                    success: false,
-                    error: 'Only the host can kick players',
-                    errorCode: 'UNAUTHORIZED_KICK_ATTEMPT'
-                };
-            }
-
             // Ensure the host cannot kick themselves
             if (hostId === targetPlayerId) {
                 return {
                     success: false,
                     error: 'Host cannot kick themselves',
                     errorCode: 'CANNOT_KICK_SELF'
-                };
-            }
-
-            // Validate that targetPlayerId is a valid player in the session
-            if (!session.players || !session.players.includes(targetPlayerId)) {
-                return {
-                    success: false,
-                    error: 'Target player not found in session',
-                    errorCode: 'PLAYER_NOT_IN_SESSION'
                 };
             }
 
@@ -784,10 +761,6 @@ export class GameManager {
     // Delegate session state management to SessionManager
     async updateSessionState(sessionId, newState, reason = '', metadata = {}) {
         return await this.sessionManager.updateSessionState(sessionId, newState, reason, metadata);
-    }
-
-    validateSessionStateTransition(currentState, newState) {
-        return this.sessionManager.validateSessionStateTransition(currentState, newState);
     }
 
     async syncSessionStateWithFirebase(sessionId, session) {
@@ -1642,15 +1615,6 @@ export class GameManager {
                 success: false,
                 error: 'Player not found',
                 errorCode: 'PLAYER_NOT_FOUND'
-            };
-        }
-
-        // Validate points value
-        if (typeof newPoints !== 'number' || newPoints < 0) {
-            return {
-                success: false,
-                error: 'Invalid points value',
-                errorCode: 'INVALID_POINTS'
             };
         }
 

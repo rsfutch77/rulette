@@ -127,63 +127,6 @@ export class SessionManager {
     }
 
     /**
-     * Validates and resolves a session code to a full session ID.
-     * @param {string} code - The shareable code to validate.
-     * @returns {Promise<object>} - Result object with session info or error.
-     */
-    async validateSessionCode(code) {
-        try {
-            // Normalize the code (uppercase, trim)
-            const normalizedCode = code.trim().toUpperCase();
-            
-            // Validate code format (6 alphanumeric characters)
-            if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
-                return {
-                    success: false,
-                    error: 'Invalid session code format. Code must be 6 characters.',
-                    errorCode: 'INVALID_FORMAT'
-                };
-            }
-            
-            // Search for session with matching shareable code
-            // First check local sessions
-            for (const [sessionId, session] of Object.entries(this.gameManager.gameSessions)) {
-                if (session.shareableCode === normalizedCode) {
-                    return {
-                        success: true,
-                        sessionId: sessionId,
-                        session: session
-                    };
-                }
-            }
-            
-            // If not found locally, check Firebase
-            const firebaseSession = await this.findSessionByCode(normalizedCode);
-            if (firebaseSession) {
-                return {
-                    success: true,
-                    sessionId: firebaseSession.sessionId,
-                    session: firebaseSession
-                };
-            }
-            
-            return {
-                success: false,
-                error: 'Session not found. Please check the code and try again.',
-                errorCode: 'SESSION_NOT_FOUND'
-            };
-            
-        } catch (error) {
-            console.error('[SESSION] Error validating session code:', error);
-            return {
-                success: false,
-                error: 'Failed to validate session code. Please try again.',
-                errorCode: 'VALIDATION_ERROR'
-            };
-        }
-    }
-
-    /**
      * Finds a session by shareable code in Firebase.
      * @param {string} code - The shareable code to search for.
      * @returns {Promise<object|null>} - Session object or null if not found.
@@ -240,12 +183,6 @@ export class SessionManager {
         try {
             console.log(`[DEBUG RECONNECTION] joinSession called with playerId: ${playerId}, displayName: ${displayName}, sessionCode: ${sessionCode}`);
             
-            // Validate the session code and get session info
-            const validationResult = await this.validateSessionCode(sessionCode);
-            if (!validationResult.success) {
-                return validationResult;
-            }
-
             const { sessionId, session } = validationResult;
             console.log(`[DEBUG RECONNECTION] Found session ${sessionId} with existing players:`, session.players);
 
@@ -383,16 +320,6 @@ export class SessionManager {
                 };
             }
 
-            // Validate state transition
-            const validationResult = this.validateSessionStateTransition(session.status, newState);
-            if (!validationResult.valid) {
-                return {
-                    success: false,
-                    error: validationResult.reason,
-                    errorCode: 'INVALID_TRANSITION'
-                };
-            }
-
             // Update session state
             session.status = newState;
             session.lastStateChange = Date.now();
@@ -442,28 +369,6 @@ export class SessionManager {
                 errorCode: 'UPDATE_ERROR'
             };
         }
-    }
-
-    /**
-     * Validates if a session state transition is allowed.
-     * @param {string} currentState - Current session state.
-     * @param {string} newState - Proposed new state.
-     * @returns {object} - Validation result with valid flag and reason.
-     */
-    validateSessionStateTransition(currentState, newState) {
-        // Simplified state transition map
-        const transitions = {
-            lobby: ['in-game', 'completed'],
-            'in-game': ['paused', 'completed', 'lobby'],
-            paused: ['in-game', 'completed', 'lobby'],
-            completed: ['lobby']
-        };
-
-        const allowed = transitions[currentState]?.includes(newState);
-        return {
-            valid: !!allowed,
-            reason: allowed ? 'Valid transition' : `Cannot transition from ${currentState} to ${newState}`
-        };
     }
 
     /**
@@ -637,15 +542,6 @@ export class SessionManager {
                     success: false,
                     error: 'Only the host can start the game',
                     errorCode: 'NOT_HOST'
-                };
-            }
-
-            // Validate that session can be started
-            if (session.status !== this.SESSION_STATES.LOBBY) {
-                return {
-                    success: false,
-                    error: 'Game can only be started from lobby state',
-                    errorCode: 'INVALID_STATE'
                 };
             }
 
@@ -849,15 +745,6 @@ export class SessionManager {
                 };
             }
 
-            // Validate session state - can only terminate active sessions
-            if (session.status === this.SESSION_STATES.COMPLETED) {
-                return {
-                    success: false,
-                    error: 'Session is already completed',
-                    errorCode: 'ALREADY_COMPLETED'
-                };
-            }
-
             // Notify all players before termination
             await this.notifyPlayersOfSessionTermination(sessionId, reason, 'host_initiated');
 
@@ -915,15 +802,6 @@ export class SessionManager {
                     success: false,
                     error: 'Session not found',
                     errorCode: 'SESSION_NOT_FOUND'
-                };
-            }
-
-            // Validate session state - don't auto-terminate already completed sessions
-            if (session.status === this.SESSION_STATES.COMPLETED) {
-                return {
-                    success: false,
-                    error: 'Session is already completed',
-                    errorCode: 'ALREADY_COMPLETED'
                 };
             }
 

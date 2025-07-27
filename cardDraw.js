@@ -117,13 +117,6 @@ function drawCardFromDeck(deckKey) {
     try {
         console.log('[CARD_DRAW] Drawing card from deck:', deckKey);
         
-        // Validate deck exists
-        const availableDecks = cardManager.getDeckTypes();
-        if (!availableDecks.includes(deckKey)) {
-            console.error('[CARD_DRAW] Invalid deck key:', deckKey, 'Available:', availableDecks);
-            return null;
-        }
-        
         // Draw the card
         const card = cardManager.draw(deckKey);
         console.log('[CARD_DRAW] Successfully drew card from', deckKey);

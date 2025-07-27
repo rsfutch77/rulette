@@ -80,59 +80,6 @@ function isDevEnvironment() {
   );
 }
 
-// Helper to get dice roll values (either from dev input or random)
-function getDiceRoll() {
-  if (isDevEnvironment()) {
-    const devRoll1Input = document.getElementById("dev-roll1");
-    const devRoll2Input = document.getElementById("dev-roll2");
-    
-    if (devRoll1Input && devRoll2Input && devRoll1Input.value && devRoll2Input.value) {
-      const roll1 = parseInt(devRoll1Input.value);
-      const roll2 = parseInt(devRoll2Input.value);
-      
-      // Validate dice values (1-6)
-      if (roll1 >= 1 && roll1 <= 6 && roll2 >= 1 && roll2 <= 6) {
-        // Clear the inputs after use
-        devRoll1Input.value = "";
-        devRoll2Input.value = "";
-        return { roll1, roll2, total: roll1 + roll2, isDev: true };
-      }
-    }
-  }
-  
-  // Default random roll
-  const roll1 = Math.floor(Math.random() * 6) + 1;
-  const roll2 = Math.floor(Math.random() * 6) + 1;
-  return { roll1, roll2, total: roll1 + roll2, isDev: false };
-}
-
-// Helper to get turn order dice roll values (either from dev input or random)
-function getTurnOrderDiceRoll() {
-  if (isDevEnvironment()) {
-    const devTurnRoll1Input = document.getElementById("dev-turn-roll1");
-    const devTurnRoll2Input = document.getElementById("dev-turn-roll2");
-    
-    if (devTurnRoll1Input && devTurnRoll2Input && devTurnRoll1Input.value && devTurnRoll2Input.value) {
-      const roll1 = parseInt(devTurnRoll1Input.value);
-      const roll2 = parseInt(devTurnRoll2Input.value);
-      
-      // Validate dice values (1-6)
-      if (roll1 >= 1 && roll1 <= 6 && roll2 >= 1 && roll2 <= 6) {
-        // Clear the inputs after use
-        devTurnRoll1Input.value = "";
-        devTurnRoll2Input.value = "";
-        return { total: roll1 + roll2, isDev: true };
-      }
-    }
-  }
-  
-  // Default random roll
-  const roll1 = Math.floor(Math.random() * 6) + 1;
-  const roll2 = Math.floor(Math.random() * 6) + 1;
-  return { total: roll1 + roll2, isDev: false };
-}
-
-
 // Refactored to load card data before initializing CardManager.
 (async () => {
   const {
@@ -1076,23 +1023,6 @@ async function spinWheelForPlayer(sessionId, playerId) {
     return false;
   }
   
-  // Validate player action with comprehensive error checking
-  const validation = gameManager.validatePlayerAction(sessionId, actualPlayerId, 'spin');
-  if (!validation.valid) {
-    const errorMessage = gameManager.getActionErrorMessage(sessionId, actualPlayerId, 'spin', validation.errorCode);
-    console.log("[GAME] Player action validation failed:", validation.error, "Error code:", validation.errorCode);
-    
-    // Special handling: if it's not the player's turn, show who's turn it is
-    if (validation.errorCode === 'NOT_PLAYER_TURN') {
-      const currentPlayer = gameManager.getCurrentPlayer(sessionId);
-      const playerName = gameManager.players[currentPlayer]?.displayName || currentPlayer;
-      showNotification(`It's ${playerName}'s turn to spin`, "Not Your Turn");
-    } else {
-      showNotification(errorMessage, "Invalid Action");
-    }
-    return false;
-  }
-  
   // Get turn info and set it on the wheel
   if (turnInfo) {
     window.wheelComponent.setCurrentTurn(actualPlayerId, turnInfo.turnNumber);
@@ -1365,15 +1295,6 @@ function drawCardWithErrorHandling(deckType, playerId, sessionId) {
     console.error("[GAME] Game manager not available");
     showNotification("Game system not ready. Please refresh the page.", "System Error");
     return { success: false, error: "Game manager not available" };
-  }
-
-  // Validate player action
-  const validation = gameManager.validatePlayerAction(sessionId, playerId, 'draw');
-  if (!validation.valid) {
-    const errorMessage = gameManager.getActionErrorMessage(sessionId, playerId, 'draw', validation.errorCode);
-    console.log("[GAME] Card draw validation failed:", validation.error);
-    showNotification(errorMessage, "Invalid Action");
-    return { success: false, error: validation.error };
   }
 
   // Get current game state for rule validation

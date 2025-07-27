@@ -437,25 +437,7 @@ export class CardManager {
         }
 
         try {
-            // Validate session and player
-            const validation = gameManager.validatePlayerAction(sessionId, playerId, 'apply_effect');
-            if (!validation.valid) {
-                return {
-                    success: false,
-                    error: validation.error,
-                    errorCode: validation.errorCode
-                };
-            }
-
-            // Validate card
-            if (!card || !card.type) {
-                return {
-                    success: false,
-                    error: 'Invalid card provided',
-                    errorCode: 'INVALID_CARD'
-                };
-            }
-
+            
             let result = { success: true, effects: [] };
 
             // Apply effects based on card type
@@ -710,25 +692,6 @@ export class CardManager {
     activatePromptCard(sessionId, playerId, promptCard, gameManager) {
         console.log(`[CARD_MANAGER] Activating prompt card for player ${playerId} in session ${sessionId}`);
         
-        // Validate session and player
-        const validation = gameManager.validatePlayerAction(sessionId, playerId, 'prompt');
-        if (!validation.valid) {
-            return {
-                success: false,
-                error: validation.error,
-                errorCode: validation.errorCode
-            };
-        }
-
-        // Validate prompt card structure
-        if (!promptCard || promptCard.type !== 'prompt') {
-            return {
-                success: false,
-                error: 'Invalid prompt card provided',
-                errorCode: 'INVALID_PROMPT_CARD'
-            };
-        }
-
         // Create prompt state
         const promptState = {
             sessionId: sessionId,
@@ -755,18 +718,6 @@ export class CardManager {
         };
     }
 
-    validateSpecialActionConflicts(sessionId, actionType, actionContext, gameManager) {
-        // TODO: Implement special action conflict validation
-        console.log(`[CARD_MANAGER] validateSpecialActionConflicts placeholder called`);
-        return { canProceed: true, conflicts: [] };
-    }
-
-    handleSpecialActionInteractions(sessionId, actionType, actionContext, gameManager) {
-        // TODO: Implement special action interactions
-        console.log(`[CARD_MANAGER] handleSpecialActionInteractions placeholder called`);
-        return { success: true, interactions: [] };
-    }
-
     /**
      * Clone another player's card for the requesting player
      * @param {string} sessionId
@@ -776,11 +727,7 @@ export class CardManager {
      * @param {Object} gameManager - Reference to game manager
      */
     cloneCard(sessionId, playerId, targetPlayerId, targetCardId, gameManager) {
-        const validation = gameManager.validatePlayerAction(sessionId, playerId, 'clone');
-        if (!validation.valid) {
-            return { success: false, error: validation.error, errorCode: validation.errorCode };
-        }
-
+        
         const targetPlayer = gameManager.players[targetPlayerId];
         if (!targetPlayer) {
             return { success: false, error: 'Target player not found', errorCode: 'TARGET_NOT_FOUND' };
@@ -817,16 +764,6 @@ export class CardManager {
     flipCard(sessionId, playerId, cardIdentifier, gameManager) {
         console.log(`[CARD_MANAGER] Attempting to flip card for player ${playerId} in session ${sessionId}`);
         
-        // Validate session and player
-        const validation = gameManager.validatePlayerAction(sessionId, playerId, 'flip');
-        if (!validation.valid) {
-            return {
-                success: false,
-                error: validation.error,
-                errorCode: validation.errorCode
-            };
-        }
-
         try {
             let card = null;
             let cardLocation = null;
@@ -855,15 +792,6 @@ export class CardManager {
                     success: false,
                     error: 'Invalid card identifier provided',
                     errorCode: 'INVALID_CARD_IDENTIFIER'
-                };
-            }
-
-            // Validate card can be flipped
-            if (!card) {
-                return {
-                    success: false,
-                    error: 'Card not found',
-                    errorCode: 'CARD_NOT_FOUND'
                 };
             }
 
@@ -939,20 +867,7 @@ export class CardManager {
         console.log(`[CARD_MANAGER] Initiating transfer: ${cardIdentifier} from ${fromPlayerId} to ${toPlayerId} (${reason})`);
         
         try {
-            // Validate session
-            const session = gameManager.gameSessions[sessionId];
-            if (!session) {
-                return {
-                    success: false,
-                    error: 'Game session not found',
-                    errorCode: 'SESSION_NOT_FOUND'
-                };
-            }
-
-            // Validate players
-            const fromPlayer = gameManager.players[fromPlayerId];
-            const toPlayer = gameManager.players[toPlayerId];
-            
+        
             if (!fromPlayer) {
                 return {
                     success: false,

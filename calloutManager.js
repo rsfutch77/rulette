@@ -24,12 +24,7 @@ class CalloutManager {
      */
     async initiateCallout(sessionId, callerId, accusedPlayerId, ruleViolated = null) {
         try {
-            // Basic validation
-            const validationResult = this.validateCallout(sessionId, callerId, accusedPlayerId);
-            if (!validationResult.valid) {
-                return { success: false, message: validationResult.message };
-            }
-
+           
             // Check cooldown and rate limiting
             const cooldownResult = this.checkCalloutCooldown(callerId);
             if (!cooldownResult.allowed) {
@@ -66,52 +61,6 @@ class CalloutManager {
             console.error("Error initiating callout:", error);
             return { success: false, message: "Failed to initiate callout. Please try again." };
         }
-    }
-
-    /**
-     * Validates basic callout conditions
-     * @param {string} sessionId - The game session ID
-     * @param {string} callerId - ID of the player making the callout
-     * @param {string} accusedPlayerId - ID of the player being called out
-     * @returns {object} - Validation result with valid flag and message
-     */
-    validateCallout(sessionId, callerId, accusedPlayerId) {
-        // Check if session exists
-        const session = this.gameManager.gameSessions[sessionId];
-        if (!session) {
-            return { valid: false, message: "Game session not found." };
-        }
-
-        // Check if both players are in the session
-        if (!session.players.includes(callerId)) {
-            return { valid: false, message: "Caller is not in this game session." };
-        }
-
-        if (!session.players.includes(accusedPlayerId)) {
-            return { valid: false, message: "Accused player is not in this game session." };
-        }
-
-        // Prevent self-callouts
-        if (callerId === accusedPlayerId) {
-            return { valid: false, message: "You cannot call out yourself." };
-        }
-
-        // Prevent calling out the referee (as per architectural plan)
-        if (session.referee === accusedPlayerId) {
-            return { valid: false, message: "You cannot call out the current referee." };
-        }
-
-        // Prevent referee from making callouts (as per edge case requirements)
-        if (session.referee === callerId) {
-            return { valid: false, message: "The referee cannot initiate callouts." };
-        }
-
-        // Check if there's already an active callout
-        if (session.currentCallout && session.currentCallout.status === "pending_referee_decision") {
-            return { valid: false, message: "There is already an active callout pending referee decision." };
-        }
-
-        return { valid: true };
     }
 
     /**
@@ -212,27 +161,6 @@ class CalloutManager {
      */
     recordRefereeDecision(refereeId) {
         this.lastRefereeDecisionTime[refereeId] = Date.now();
-    }
-
-    /**
-     * Validates that a callout decision hasn't already been made
-     * @param {object} callout - The callout object
-     * @returns {object} - Validation result with valid flag and message
-     */
-    validateCalloutNotAlreadyDecided(callout) {
-        if (!callout) {
-            return { valid: false, message: "No active callout to adjudicate." };
-        }
-
-        if (callout.status !== "pending_referee_decision") {
-            return { valid: false, message: "This callout has already been decided." };
-        }
-
-        if (callout.refereeDecision) {
-            return { valid: false, message: "This callout has already been adjudicated." };
-        }
-
-        return { valid: true };
     }
 
     /**
