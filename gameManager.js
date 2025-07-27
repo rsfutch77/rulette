@@ -3040,6 +3040,38 @@ export class GameManager {
     getCurrentSessionId() {
         return window.currentSessionId || null;
     }
+
+    /**
+     * Delegation method for applying rule card effects
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {object} card - The rule card to apply
+     * @param {object} effectContext - Optional context for the effect
+     * @returns {Promise<object>} - Result of applying the card effect
+     */
+    async applyRuleCardEffect(sessionId, playerId, card, effectContext = {}) {
+        if (!this.cardManager) {
+            console.error('[GAME_MANAGER] CardManager not initialized');
+            throw new Error('CardManager not initialized');
+        }
+        return await this.cardManager.applyRuleCardEffect(sessionId, playerId, card, effectContext, this);
+    }
+
+    /**
+     * Delegation method for applying modifier card effects
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {object} card - The modifier card to apply
+     * @param {object} effectContext - Optional context for the effect
+     * @returns {Promise<object>} - Result of applying the card effect
+     */
+    async applyModifierCardEffect(sessionId, playerId, card, effectContext = {}) {
+        if (!this.cardManager) {
+            console.error('[GAME_MANAGER] CardManager not initialized');
+            throw new Error('CardManager not initialized');
+        }
+        return await this.cardManager.applyModifierCardEffect(sessionId, playerId, card, effectContext, this);
+    }
 }
 
 // Export an instance of GameManager for use in main.js
