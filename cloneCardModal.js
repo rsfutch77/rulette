@@ -283,11 +283,16 @@ function executeCloneAction() {
     const cloneCard = window.currentCloneCard;
     
     // Get current player and session
-    const currentPlayer = window.gameManager.getCurrentPlayer();
     const sessionId = window.gameManager.currentSessionId;
+    console.log(`[CLONE_DEBUG] Session ID: ${sessionId}`);
+    console.log(`[CLONE_DEBUG] Current turn data:`, window.gameManager.currentTurn[sessionId]);
+    
+    const currentPlayer = window.gameManager.getCurrentPlayer(sessionId);
+    console.log(`[CLONE_DEBUG] Current player: ${currentPlayer}`);
     
     if (!currentPlayer || !sessionId) {
         console.error("Current player or session not available");
+        console.error(`[CLONE_DEBUG] currentPlayer: ${currentPlayer}, sessionId: ${sessionId}`);
         return;
     }
     

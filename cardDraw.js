@@ -886,8 +886,14 @@ function executeCloneAction() {
     const sessionId = window.currentSessionId;
     const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
     
+    console.log(`[CLONE_DEBUG] cardDraw.js - Session ID: ${sessionId}`);
+    console.log(`[CLONE_DEBUG] cardDraw.js - Current user:`, currentUser);
+    console.log(`[CLONE_DEBUG] cardDraw.js - Target player:`, targetPlayer);
+    console.log(`[CLONE_DEBUG] cardDraw.js - Target card:`, targetCard);
+    
     if (!sessionId || !currentUser) {
         console.error("Current user or session not available");
+        console.error(`[CLONE_DEBUG] cardDraw.js - sessionId: ${sessionId}, currentUser:`, currentUser);
         return;
     }
     

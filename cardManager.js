@@ -727,14 +727,21 @@ export class CardManager {
      * @param {Object} gameManager - Reference to game manager
      */
     cloneCard(sessionId, playerId, targetPlayerId, targetCardId, gameManager) {
+        console.log(`[CLONE_DEBUG] cloneCard called with:`, {
+            sessionId, playerId, targetPlayerId, targetCardId
+        });
         
+        console.log(`[CLONE_DEBUG] Available players:`, Object.keys(gameManager.players));
         const targetPlayer = gameManager.players[targetPlayerId];
         if (!targetPlayer) {
+            console.error(`[CLONE_DEBUG] Target player ${targetPlayerId} not found in players:`, Object.keys(gameManager.players));
             return { success: false, error: 'Target player not found', errorCode: 'TARGET_NOT_FOUND' };
         }
 
+        console.log(`[CLONE_DEBUG] Target player ${targetPlayerId} hand:`, targetPlayer.hand?.map(c => ({ id: c.id, type: c.type })));
         const originalCard = targetPlayer.hand.find(c => c.id === targetCardId);
         if (!originalCard) {
+            console.error(`[CLONE_DEBUG] Card ${targetCardId} not found in target player ${targetPlayerId} hand. Available cards:`, targetPlayer.hand?.map(c => c.id));
             return { success: false, error: 'Card not found for target player', errorCode: 'CARD_NOT_FOUND' };
         }
 

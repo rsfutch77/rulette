@@ -447,6 +447,17 @@ class WheelComponent {
                 } else {
                     console.log('[WHEEL] Swap card conditions met, swap cards available');
                 }
+                
+                // Check if clone cards should be available
+                const canUseCloneCard = this.canPlayerUseCloneCard(playerId);
+                
+                if (!canUseCloneCard) {
+                    // Filter out clone cards (deckType4)
+                    availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType4');
+                    console.log('[WHEEL] Clone card conditions not met, excluding clone cards. Available types:', availableTypes.map(t => t.name));
+                } else {
+                    console.log('[WHEEL] Clone card conditions met, clone cards available');
+                }
             } else {
                 console.log('[WHEEL] No game manager or player data available, using all card types');
             }
@@ -503,6 +514,79 @@ class WheelComponent {
             console.error('[WHEEL] Error checking swap card availability:', error);
             return false;
         }
+    }
+
+    /**
+     * Check if a player can use clone cards - requires at least one other player to have cards in their hand
+     * @param {string} playerId - The player ID to check
+     * @returns {boolean} - True if clone card can be used, false otherwise
+     */
+    canPlayerUseCloneCard(playerId) {
+        try {
+            if (!window.gameManager || !playerId) {
+                return false;
+            }
+
+            // Get current session ID
+            const sessionId = window.currentSessionId;
+            if (!sessionId || !window.gameManager.gameSessions[sessionId]) {
+                return false;
+            }
+
+            const session = window.gameManager.gameSessions[sessionId];
+
+            // Check if at least one other player has cloneable cards (rule or modifier cards)
+            let otherPlayersWithCloneableCards = 0;
+            for (const otherPlayerId of session.players) {
+                if (otherPlayerId !== playerId) {
+                    const otherPlayer = window.gameManager.players[otherPlayerId];
+                    if (otherPlayer && this.playerHasCloneableCards(otherPlayer)) {
+                        otherPlayersWithCloneableCards++;
+                    }
+                }
+            }
+
+            const canUseClone = otherPlayersWithCloneableCards > 0;
+            console.log(`[WHEEL] Clone card availability check: ${otherPlayersWithCloneableCards} other players have cloneable cards, can use clone: ${canUseClone}`);
+            
+            return canUseClone;
+        } catch (error) {
+            console.error('[WHEEL] Error checking clone card availability:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Check if a player has cloneable cards (rule or modifier cards in hand or active rules)
+     * @param {Object} player - The player object to check
+     * @returns {boolean} - True if the player has cloneable cards, false otherwise
+     */
+    playerHasCloneableCards(player) {
+        if (!player) {
+            return false;
+        }
+
+        // Check rule cards (active rules)
+        if (player.ruleCards && Array.isArray(player.ruleCards)) {
+            const hasCloneableRuleCards = player.ruleCards.some(card =>
+                card && (card.type === 'rule' || card.type === 'modifier')
+            );
+            if (hasCloneableRuleCards) {
+                return true;
+            }
+        }
+
+        // Check hand for rule or modifier cards
+        if (player.hand && Array.isArray(player.hand)) {
+            const hasCloneableHandCards = player.hand.some(card =>
+                card && (card.type === 'rule' || card.type === 'modifier')
+            );
+            if (hasCloneableHandCards) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
