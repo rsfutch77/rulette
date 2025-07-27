@@ -183,7 +183,22 @@ export class SessionManager {
         try {
             console.log(`[DEBUG RECONNECTION] joinSession called with playerId: ${playerId}, displayName: ${displayName}, sessionCode: ${sessionCode}`);
             
-            const { sessionId, session } = validationResult;
+            // DIAGNOSTIC: Add logging to validate the missing session lookup
+            console.log(`[DIAGNOSTIC] About to search for session with code: ${sessionCode}`);
+            
+            // Find the session using the provided session code
+            const session = await this.findSessionByCode(sessionCode);
+            
+            if (!session) {
+                console.log(`[DEBUG RECONNECTION] No session found with code: ${sessionCode}`);
+                return {
+                    success: false,
+                    error: 'Session not found. Please check the session code.',
+                    errorCode: 'SESSION_NOT_FOUND'
+                };
+            }
+            
+            const sessionId = session.sessionId;
             console.log(`[DEBUG RECONNECTION] Found session ${sessionId} with existing players:`, session.players);
 
             // Check if session is in a joinable state (7.2.1 - only allow joining lobby state)

@@ -3050,9 +3050,24 @@ export class GameManager {
      * @returns {Promise<object>} - Result of applying the card effect
      */
     async applyRuleCardEffect(sessionId, playerId, card, effectContext = {}) {
+        console.log('[GAME_MANAGER] applyRuleCardEffect called - cardManager status:', {
+            cardManagerExists: !!this.cardManager,
+            cardManagerType: typeof this.cardManager,
+            windowCardManager: !!window.cardManager,
+            windowCardManagerInitialized: window.cardManagerInitialized
+        });
+        
         if (!this.cardManager) {
-            console.error('[GAME_MANAGER] CardManager not initialized');
-            throw new Error('CardManager not initialized');
+            console.error('[GAME_MANAGER] CardManager not initialized - this indicates a timing issue');
+            console.error('[GAME_MANAGER] Attempting to use window.cardManager as fallback');
+            
+            // Fallback: try to use window.cardManager and set it on gameManager
+            if (window.cardManager) {
+                console.log('[GAME_MANAGER] Using window.cardManager as fallback and setting it on gameManager');
+                this.cardManager = window.cardManager;
+            } else {
+                throw new Error('CardManager not initialized and no fallback available');
+            }
         }
         return await this.cardManager.applyRuleCardEffect(sessionId, playerId, card, effectContext, this);
     }
@@ -3066,9 +3081,24 @@ export class GameManager {
      * @returns {Promise<object>} - Result of applying the card effect
      */
     async applyModifierCardEffect(sessionId, playerId, card, effectContext = {}) {
+        console.log('[GAME_MANAGER] applyModifierCardEffect called - cardManager status:', {
+            cardManagerExists: !!this.cardManager,
+            cardManagerType: typeof this.cardManager,
+            windowCardManager: !!window.cardManager,
+            windowCardManagerInitialized: window.cardManagerInitialized
+        });
+        
         if (!this.cardManager) {
-            console.error('[GAME_MANAGER] CardManager not initialized');
-            throw new Error('CardManager not initialized');
+            console.error('[GAME_MANAGER] CardManager not initialized - this indicates a timing issue');
+            console.error('[GAME_MANAGER] Attempting to use window.cardManager as fallback');
+            
+            // Fallback: try to use window.cardManager and set it on gameManager
+            if (window.cardManager) {
+                console.log('[GAME_MANAGER] Using window.cardManager as fallback and setting it on gameManager');
+                this.cardManager = window.cardManager;
+            } else {
+                throw new Error('CardManager not initialized and no fallback available');
+            }
         }
         return await this.cardManager.applyModifierCardEffect(sessionId, playerId, card, effectContext, this);
     }

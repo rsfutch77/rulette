@@ -35,6 +35,9 @@ import {
 // Import RuleDisplayManager
 import { RuleDisplayManager } from './ruleDisplayManager.js';
 
+// Import prompt functionality
+import './prompt.js';
+
 // Import and use the shared GameManager instance
 window.gameManager = gameManager;
 
@@ -109,12 +112,13 @@ function isDevEnvironment() {
     deckType6
   });
 
-  // Use setTimeout to ensure gameManager is fully initialized before setting cardManager
-  setTimeout(() => {
-    if (gameManager && gameManager.setCardManager) {
-      gameManager.setCardManager(cardManager);
-    }
-  }, 0);
+  // Set cardManager immediately - gameManager should be initialized by this point
+  if (gameManager && gameManager.setCardManager) {
+    gameManager.setCardManager(cardManager);
+    console.log('[MAIN] CardManager set on gameManager successfully');
+  } else {
+    console.error('[MAIN] Failed to set CardManager on gameManager - gameManager not available');
+  }
   
   // Set the initialization flag to true
   cardManagerInitialized = true;

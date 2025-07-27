@@ -228,8 +228,11 @@ class WheelComponent {
             resultDiv.innerHTML = '';
         }
         
-        // Generate cryptographically secure random selection
-        const selectedIndex = Math.floor(this.getSecureRandom() * this.cardTypes.length);
+        // Get available card types for this player (filter out flip cards if no rules/modifiers)
+        const availableCardTypes = this.getAvailableCardTypesForPlayer(playerId);
+        
+        // Generate cryptographically secure random selection from available types
+        const selectedIndex = Math.floor(this.getSecureRandom() * availableCardTypes.length);
         
         // Start flashing animation
         const wheel = document.getElementById('wheel');

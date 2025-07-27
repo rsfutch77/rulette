@@ -239,9 +239,17 @@ function displayDrawnCard(card, cardType) {
             
             startPromptButton.addEventListener('click', () => {
                 console.log('[CARD_DRAW] Starting prompt challenge');
+                console.log('[DEBUG] Checking if window.activatePromptChallenge exists:', typeof window.activatePromptChallenge);
+                console.log('[DEBUG] Available window functions:', Object.keys(window).filter(key => key.includes('activate')));
+                
                 const currentUser = getCurrentUser();
                 if (currentUser && window.currentSessionId) {
-                    window.activatePromptChallenge(window.currentSessionId, currentUser.uid, card);
+                    if (typeof window.activatePromptChallenge === 'function') {
+                        window.activatePromptChallenge(window.currentSessionId, currentUser.uid, card);
+                    } else {
+                        console.error('[DEBUG] window.activatePromptChallenge is not a function, type:', typeof window.activatePromptChallenge);
+                        window.showNotification('Prompt function not available - please check console', 'Error');
+                    }
                 } else {
                     console.error('[PROMPT] No current user or session for prompt activation');
                     window.showNotification('Unable to start prompt challenge', 'Error');

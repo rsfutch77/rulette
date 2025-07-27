@@ -325,3 +325,12 @@ function hidePromptUI() {
         window.currentPromptTimer = null;
     }
 }
+
+// Expose functions globally for use by other modules
+window.activatePromptChallenge = activatePromptChallenge;
+window.showPromptUI = showPromptUI;
+window.startPromptTimer = startPromptTimer;
+window.completePromptChallenge = completePromptChallenge;
+window.handlePromptTimeout = handlePromptTimeout;
+window.judgePrompt = judgePrompt;
+window.hidePromptUI = hidePromptUI;
