@@ -54,7 +54,7 @@ function handleCardDraw(selectedCardType) {
     
     try {
         // Map wheel segment to deck type
-let deckKey = selectedCardType.deckKey;
+        let deckKey = selectedCardType.deckKey;
         const currentUser = getCurrentUser();
 
         if (!cardManager) {
@@ -63,16 +63,8 @@ let deckKey = selectedCardType.deckKey;
             return;
         }
 
-        // Check if the drawn card is a flip card and if the player has rules/modifiers
-        if (deckKey === 'deckType5' && currentUser) { // deckType5 is for flip_action cards
-            const player = window.gameManager.players[currentUser.uid];
-            if (player && !playerHasRulesOrModifiers(player.hand)) {
-                console.log('[CARD_DRAW] Player has no rules or modifiers, re-rolling flip card to rule, prompt, or modifier.');
-                const alternativeDecks = ['deckType1', 'deckType2', 'deckType3']; // Rule, Prompt, Modifier
-                deckKey = alternativeDecks[Math.floor(Math.random() * alternativeDecks.length)];
-                window.showNotification('You have no rules or modifiers to flip! Drawing a different card.', 'Info');
-            }
-        }
+        // Note: Flip card filtering is now handled in wheelComponent.js to prevent selection
+        // rather than re-rolling after selection
         
         // Handle swap card type separately
         if (deckKey === 'deckType6') { // Assuming deckType6 is the swap deck based on error

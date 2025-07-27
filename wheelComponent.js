@@ -240,12 +240,12 @@ class WheelComponent {
         if (wheel && wheelText) {
             wheel.classList.add('spinning');
             
-            console.log('[WHEEL] Flashing through card types, will select:', this.cardTypes[selectedIndex].name);
+            console.log('[WHEEL] Flashing through available card types, will select:', availableCardTypes[selectedIndex].name);
             
-            // Flash through different card types during spin
+            // Flash through different card types during spin (use available types)
             let currentFlashIndex = 0;
             const flashInterval = setInterval(() => {
-                const cardType = this.cardTypes[currentFlashIndex % this.cardTypes.length];
+                const cardType = availableCardTypes[currentFlashIndex % availableCardTypes.length];
                 wheel.style.backgroundColor = cardType.color;
                 wheelText.textContent = cardType.name;
                 
@@ -262,25 +262,28 @@ class WheelComponent {
             // Stop flashing after 3 seconds and show result
             setTimeout(() => {
                 clearInterval(flashInterval);
-                this.handleSpinComplete(selectedIndex);
+                this.handleSpinComplete(selectedIndex, availableCardTypes);
             }, 3000);
         }
     }
     
-    handleSpinComplete(selectedIndex) {
+    handleSpinComplete(selectedIndex, availableCardTypes = null) {
         console.log('[WHEEL] Spin complete, selected index:', selectedIndex);
         
         try {
+            // Use provided availableCardTypes or fall back to all card types
+            const cardTypesToUse = availableCardTypes || this.cardTypes;
+            
             // Convert selectedIndex to selectedCardType
-            const selectedCardType = this.cardTypes[selectedIndex];
+            const selectedCardType = cardTypesToUse[selectedIndex];
             
             // Add validation logging
-            console.log('[WHEEL] Available card types:', this.cardTypes.length);
-            console.log('[WHEEL] Selected index bounds check:', selectedIndex >= 0 && selectedIndex < this.cardTypes.length);
+            console.log('[WHEEL] Available card types:', cardTypesToUse.length);
+            console.log('[WHEEL] Selected index bounds check:', selectedIndex >= 0 && selectedIndex < cardTypesToUse.length);
             console.log('[WHEEL] Selected card type:', selectedCardType ? selectedCardType.name : 'UNDEFINED');
             
             if (!selectedCardType) {
-                throw new Error(`Invalid selectedIndex ${selectedIndex}. Available indices: 0-${this.cardTypes.length - 1}`);
+                throw new Error(`Invalid selectedIndex ${selectedIndex}. Available indices: 0-${cardTypesToUse.length - 1}`);
             }
             
             // Set final appearance
@@ -406,6 +409,54 @@ class WheelComponent {
     // Method to get all card types
     getCardTypes() {
         return [...this.cardTypes];
+    }
+
+    /**
+     * Get available card types for a specific player, filtering out flip cards if they have no rule/modifier cards
+     * @param {string} playerId - The player ID to check
+     * @returns {Array} - Array of available card types for this player
+     */
+    getAvailableCardTypesForPlayer(playerId) {
+        // Default to all card types
+        let availableTypes = [...this.cardTypes];
+        
+        try {
+            // Check if we have access to game manager and player data
+            if (window.gameManager && playerId && window.gameManager.players[playerId]) {
+                const player = window.gameManager.players[playerId];
+                
+                // Check if player has rule or modifier cards using the same logic as cardDraw.js
+                const hasRulesOrModifiers = this.playerHasRulesOrModifiers(player.hand);
+                
+                if (!hasRulesOrModifiers) {
+                    // Filter out flip cards (deckType5)
+                    availableTypes = this.cardTypes.filter(cardType => cardType.deckKey !== 'deckType5');
+                    console.log('[WHEEL] Player has no rules/modifiers, excluding flip cards. Available types:', availableTypes.map(t => t.name));
+                } else {
+                    console.log('[WHEEL] Player has rules/modifiers, all card types available');
+                }
+            } else {
+                console.log('[WHEEL] No game manager or player data available, using all card types');
+            }
+        } catch (error) {
+            console.error('[WHEEL] Error checking player card types:', error);
+            // Fall back to all types on error
+        }
+        
+        return availableTypes;
+    }
+
+    /**
+     * Check if a player's hand contains any 'rule' or 'modifier' cards
+     * Same logic as in cardDraw.js
+     * @param {Array<Object>} playerHand - The array of card objects in the player's hand
+     * @returns {boolean} - True if the player has at least one rule or modifier card, false otherwise
+     */
+    playerHasRulesOrModifiers(playerHand) {
+        if (!playerHand || !Array.isArray(playerHand)) {
+            return false;
+        }
+        return playerHand.some(card => card.type === 'rule' || card.type === 'modifier');
     }
 
 }
