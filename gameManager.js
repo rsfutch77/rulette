@@ -374,7 +374,7 @@ export class GameManager {
             }
 
             // Only allow leaving if session is in lobby state
-            if (session.status !== this.SESSION_STATES.LOBBY) {
+            if (session.status !== this.sessionManager.SESSION_STATES.LOBBY) {
                 return {
                     success: false,
                     error: 'Cannot leave lobby. Game is already in progress or completed.',
@@ -463,7 +463,7 @@ export class GameManager {
             };
         }
 
-        if (session.status !== this.SESSION_STATES.LOBBY) {
+        if (session.status !== this.sessionManager.SESSION_STATES.LOBBY) {
             return {
                 joinable: false,
                 reason: 'Game is already in progress or completed'
@@ -2171,7 +2171,7 @@ export class GameManager {
         // Update session status using the new state management system
         await this.updateSessionState(
             sessionId,
-            this.SESSION_STATES.COMPLETED,
+            this.sessionManager.SESSION_STATES.COMPLETED,
             reason,
             { endTime: Date.now(), endType: 'triggered_end' }
         );

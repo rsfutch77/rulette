@@ -452,40 +452,18 @@ export class SessionManager {
      * @returns {object} - Validation result with valid flag and reason.
      */
     validateSessionStateTransition(currentState, newState) {
-        // Define valid state transitions
-        const validTransitions = {
-            [this.SESSION_STATES.LOBBY]: [
-                this.SESSION_STATES.IN_GAME,
-                this.SESSION_STATES.COMPLETED
-            ],
-            [this.SESSION_STATES.IN_GAME]: [
-                this.SESSION_STATES.PAUSED,
-                this.SESSION_STATES.COMPLETED,
-                this.SESSION_STATES.LOBBY // For restart scenarios
-            ],
-            [this.SESSION_STATES.PAUSED]: [
-                this.SESSION_STATES.IN_GAME,
-                this.SESSION_STATES.COMPLETED,
-                this.SESSION_STATES.LOBBY // For restart scenarios
-            ],
-            [this.SESSION_STATES.COMPLETED]: [
-                this.SESSION_STATES.LOBBY // For restart scenarios
-            ]
+        // Simplified state transition map
+        const transitions = {
+            lobby: ['in-game', 'completed'],
+            'in-game': ['paused', 'completed', 'lobby'],
+            paused: ['in-game', 'completed', 'lobby'],
+            completed: ['lobby']
         };
 
-        const allowedTransitions = validTransitions[currentState] || [];
-        const isValid = allowedTransitions.includes(newState);
-
-        if (!isValid) {
-            return {
-                valid: false,
-                reason: `Invalid state transition from ${currentState} to ${newState}. Allowed transitions: ${allowedTransitions.join(', ')}`
-            };
-        }
-
+        const allowed = transitions[currentState]?.includes(newState);
         return {
-            valid: true,
-            reason: 'Valid state transition'
+            valid: !!allowed,
+            reason: allowed ? 'Valid transition' : `Cannot transition from ${currentState} to ${newState}`
         };
     }
 

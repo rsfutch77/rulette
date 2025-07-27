@@ -2049,7 +2049,7 @@ async function handleConfirmQuit() {
 export function updateQuitButtonVisibility() {
     const currentSession = gameManager.gameSessions[window.currentSessionId];
     if (quitGameBtn) {
-        if (currentSession && currentSession.status === gameManager.SESSION_STATES.IN_GAME) {
+        if (currentSession && currentSession.status === gameManager.sessionManager.SESSION_STATES.IN_GAME) {
             quitGameBtn.style.display = 'block';
         } else {
             quitGameBtn.style.display = 'none';
