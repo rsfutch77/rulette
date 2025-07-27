@@ -826,3 +826,214 @@ h1 { margin-bottom: 1.5rem; }
     max-width: 300px;
   }
 }
+
+/* Swap Card Modal Styles */
+#swap-card-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.swap-modal-content {
+  background: #3a3a3a;
+  color: #e0e0e0;
+  padding: 2rem;
+  border-radius: 1rem;
+  max-width: 600px;
+  width: 90%;
+  margin: auto;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+  position: relative;
+  max-height: 80vh;
+  overflow-y: auto;
+  border: 1px solid #4a4a4a;
+}
+
+.swap-player-section {
+  background: #2d2d2d;
+  border: 2px solid #4a4a4a;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  transition: all 0.3s ease;
+}
+
+.swap-player-section:hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0,123,255,0.2);
+}
+
+.swap-player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #4a4a4a;
+}
+
+.swap-player-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.swap-player-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.swap-player-badge.referee {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.swap-player-badge.host {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.swap-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.swap-card-item {
+  background: #3a3a3a;
+  border: 2px solid #4a4a4a;
+  border-radius: 8px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.swap-card-item:hover {
+  border-color: #007bff;
+  background: #404040;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,123,255,0.2);
+}
+
+.swap-card-item.selected {
+  border-color: #28a745;
+  background: #2d4a2d;
+  box-shadow: 0 0 10px rgba(40,167,69,0.3);
+}
+
+.swap-card-name {
+  font-weight: bold;
+  color: #e0e0e0;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.swap-card-description {
+  color: #b0b0b0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  margin-bottom: 0.5rem;
+}
+
+.swap-card-type {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  background: #007bff;
+  color: white;
+}
+
+.swap-card-type.rule {
+  background: #FF6B6B;
+}
+
+.swap-card-type.modifier {
+  background: #45B7D1;
+}
+
+.swap-card-type.prompt {
+  background: #4ECDC4;
+}
+
+.swap-card-type.clone {
+  background: #96CEB4;
+}
+
+.swap-card-type.flip {
+  background: #FFEAA7;
+  color: #333;
+}
+
+.swap-card-type.swap {
+  background: #DDA0DD;
+}
+
+.swap-no-cards {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 1rem;
+  background: #2d2d2d;
+  border-radius: 8px;
+  border: 2px dashed #4a4a4a;
+}
+
+.swap-selection-indicator {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #28a745;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.swap-card-item.selected .swap-selection-indicator {
+  opacity: 1;
+}
+
+/* Responsive design for swap modal */
+@media (max-width: 768px) {
+  .swap-modal-content {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+  
+  .swap-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .swap-player-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+}

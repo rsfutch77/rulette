@@ -569,6 +569,7 @@ function showCloneCardModal(cloneCard) {
 
 window.showCloneCardModal = showCloneCardModal;
 window.showSwapCardModal = showSwapCardModal;
+window.hideSwapCardModal = hideSwapCardModal;
 
 // Expose card flipping functions for game integration
 window.flipCardInUI = flipCardInUI;
@@ -604,11 +605,315 @@ window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
 window.updateActiveRulesDisplay = updateActiveRulesDisplay;
 
 /**
- * Placeholder function to show the swap card selection modal.
- * This will be implemented in a future task.
+ * Show the swap card selection modal with other players' cards.
+ * Displays all other players in the session and their cards for selection.
  */
-function showSwapCardModal() {
+async function showSwapCardModal() {
     console.log('[SWAP_CARD] Showing swap card modal.');
-    window.showNotification('Swap card modal functionality is not yet implemented.', 'Under Construction');
-    // TODO: Implement the actual modal for selecting players and cards to swap
+    
+    try {
+        // Get current session and player info
+        const currentSessionId = window.currentSessionId;
+        const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+        
+        if (!currentSessionId) {
+            console.error('[SWAP_CARD] No current session ID available');
+            window.showNotification('No active session found.', 'Error');
+            return;
+        }
+        
+        if (!currentUser) {
+            console.error('[SWAP_CARD] No current user available');
+            window.showNotification('User not authenticated.', 'Error');
+            return;
+        }
+        
+        // Get all players in the session
+        const { getFirestorePlayersInSession } = await import('./firebaseOperations.js');
+        const allPlayers = await getFirestorePlayersInSession(currentSessionId);
+        
+        // Filter out current player and inactive players
+        const otherPlayers = allPlayers.filter(player =>
+            player.playerId !== currentUser.uid &&
+            player.status === 'active' &&
+            player.hand &&
+            player.hand.length > 0
+        );
+        
+        if (otherPlayers.length === 0) {
+            window.showNotification('No other players with cards found in this session.', 'No Players Available');
+            return;
+        }
+        
+        // Populate the modal with players and their cards
+        populateSwapModal(otherPlayers);
+        
+        // Show the modal
+        const modal = document.getElementById('swap-card-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            console.log('[SWAP_CARD] Swap modal displayed');
+        } else {
+            console.error('[SWAP_CARD] Swap modal element not found');
+            window.showNotification('Swap modal not available.', 'Error');
+        }
+        
+    } catch (error) {
+        console.error('[SWAP_CARD] Error showing swap modal:', error);
+        window.showNotification('Error loading swap options.', 'Error');
+    }
+}
+
+/**
+ * Populate the swap modal with players and their cards
+ * @param {Array} players - Array of player objects with their cards
+ */
+function populateSwapModal(players) {
+    const container = document.getElementById('swap-players-container');
+    if (!container) {
+        console.error('[SWAP_CARD] Swap players container not found');
+        return;
+    }
+    
+    // Clear existing content
+    container.innerHTML = '';
+    
+    // Create sections for each player
+    players.forEach(player => {
+        const playerSection = createPlayerSection(player);
+        container.appendChild(playerSection);
+    });
+    
+    // Set up modal event handlers
+    setupSwapModalEventHandlers();
+}
+
+/**
+ * Create a player section with their cards
+ * @param {Object} player - Player object with cards
+ * @returns {HTMLElement} - Player section element
+ */
+function createPlayerSection(player) {
+    const section = document.createElement('div');
+    section.className = 'swap-player-section';
+    section.dataset.playerId = player.playerId;
+    
+    // Player header
+    const header = document.createElement('div');
+    header.className = 'swap-player-header';
+    
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'swap-player-name';
+    nameDiv.textContent = player.displayName || 'Unknown Player';
+    
+    // Add badges for special roles
+    const badges = document.createElement('div');
+    badges.className = 'swap-player-badges';
+    
+    if (player.hasRefereeCard) {
+        const refereeBadge = document.createElement('span');
+        refereeBadge.className = 'swap-player-badge referee';
+        refereeBadge.textContent = 'Referee';
+        badges.appendChild(refereeBadge);
+    }
+    
+    // Check if player is host (this would need to be passed from session data)
+    const currentSession = window.gameManager?.gameSessions?.[window.currentSessionId];
+    if (currentSession && currentSession.hostId === player.playerId) {
+        const hostBadge = document.createElement('span');
+        hostBadge.className = 'swap-player-badge host';
+        hostBadge.textContent = 'Host';
+        badges.appendChild(hostBadge);
+    }
+    
+    header.appendChild(nameDiv);
+    header.appendChild(badges);
+    section.appendChild(header);
+    
+    // Cards grid
+    const cardsGrid = document.createElement('div');
+    cardsGrid.className = 'swap-cards-grid';
+    
+    if (player.hand && player.hand.length > 0) {
+        player.hand.forEach(card => {
+            const cardElement = createSwapCardElement(card, player.playerId);
+            cardsGrid.appendChild(cardElement);
+        });
+    } else {
+        const noCards = document.createElement('div');
+        noCards.className = 'swap-no-cards';
+        noCards.textContent = 'No cards available';
+        cardsGrid.appendChild(noCards);
+    }
+    
+    section.appendChild(cardsGrid);
+    return section;
+}
+
+/**
+ * Create a card element for the swap modal
+ * @param {Object} card - Card object
+ * @param {string} playerId - Owner player ID
+ * @returns {HTMLElement} - Card element
+ */
+function createSwapCardElement(card, playerId) {
+    const cardDiv = document.createElement('div');
+    cardDiv.className = 'swap-card-item';
+    cardDiv.dataset.cardId = card.id;
+    cardDiv.dataset.playerId = playerId;
+    
+    // Card name
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'swap-card-name';
+    nameDiv.textContent = card.name || 'Unknown Card';
+    
+    // Card description
+    const descDiv = document.createElement('div');
+    descDiv.className = 'swap-card-description';
+    
+    // Get the active rule text based on flip state
+    let ruleText = '';
+    if (card.isFlipped && card.backRule) {
+        ruleText = card.backRule;
+    } else if (card.frontRule) {
+        ruleText = card.frontRule;
+    } else if (card.sideA) {
+        ruleText = card.isFlipped ? (card.sideB || card.sideA) : card.sideA;
+    } else {
+        ruleText = 'No description available';
+    }
+    
+    descDiv.textContent = ruleText;
+    
+    // Card type badge
+    const typeDiv = document.createElement('div');
+    typeDiv.className = `swap-card-type ${card.type || 'unknown'}`;
+    typeDiv.textContent = (card.type || 'unknown').toUpperCase();
+    
+    // Selection indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'swap-selection-indicator';
+    indicator.textContent = '✓';
+    
+    cardDiv.appendChild(nameDiv);
+    cardDiv.appendChild(descDiv);
+    cardDiv.appendChild(typeDiv);
+    cardDiv.appendChild(indicator);
+    
+    return cardDiv;
+}
+
+/**
+ * Set up event handlers for the swap modal
+ */
+function setupSwapModalEventHandlers() {
+    const modal = document.getElementById('swap-card-modal');
+    const closeBtn = document.getElementById('swap-modal-close');
+    const cancelBtn = document.getElementById('swap-cancel-btn');
+    const confirmBtn = document.getElementById('swap-confirm-btn');
+    
+    // Close modal handlers
+    if (closeBtn) {
+        closeBtn.onclick = hideSwapCardModal;
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.onclick = hideSwapCardModal;
+    }
+    
+    // Close when clicking outside modal
+    if (modal) {
+        modal.onclick = (event) => {
+            if (event.target === modal) {
+                hideSwapCardModal();
+            }
+        };
+    }
+    
+    // Card selection handlers
+    const cardItems = document.querySelectorAll('.swap-card-item');
+    cardItems.forEach(cardItem => {
+        cardItem.onclick = () => {
+            // Toggle selection
+            const wasSelected = cardItem.classList.contains('selected');
+            
+            // Clear all selections first (single selection for now)
+            document.querySelectorAll('.swap-card-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Select this card if it wasn't selected
+            if (!wasSelected) {
+                cardItem.classList.add('selected');
+            }
+            
+            // Update confirm button state
+            updateConfirmButtonState();
+        };
+    });
+    
+    // Confirm button handler
+    if (confirmBtn) {
+        confirmBtn.onclick = handleSwapConfirmation;
+    }
+}
+
+/**
+ * Update the state of the confirm button based on selections
+ */
+function updateConfirmButtonState() {
+    const confirmBtn = document.getElementById('swap-confirm-btn');
+    const selectedCards = document.querySelectorAll('.swap-card-item.selected');
+    
+    if (confirmBtn) {
+        if (selectedCards.length > 0) {
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+        } else {
+            confirmBtn.disabled = true;
+            confirmBtn.style.opacity = '0.5';
+        }
+    }
+}
+
+/**
+ * Handle swap confirmation
+ */
+function handleSwapConfirmation() {
+    const selectedCards = document.querySelectorAll('.swap-card-item.selected');
+    
+    if (selectedCards.length === 0) {
+        window.showNotification('Please select a card to swap.', 'No Selection');
+        return;
+    }
+    
+    // For now, just show the selected card info
+    const selectedCard = selectedCards[0];
+    const cardId = selectedCard.dataset.cardId;
+    const playerId = selectedCard.dataset.playerId;
+    const cardName = selectedCard.querySelector('.swap-card-name').textContent;
+    const playerName = selectedCard.closest('.swap-player-section').querySelector('.swap-player-name').textContent;
+    
+    console.log('[SWAP_CARD] Selected card for swap:', {
+        cardId,
+        playerId,
+        cardName,
+        playerName
+    });
+    
+    // TODO: Implement actual swap logic here
+    window.showNotification(`Selected ${cardName} from ${playerName}. Swap functionality will be implemented next.`, 'Card Selected');
+    
+    hideSwapCardModal();
+}
+
+/**
+ * Hide the swap card modal
+ */
+function hideSwapCardModal() {
+    const modal = document.getElementById('swap-card-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('[SWAP_CARD] Swap modal hidden');
+    }
 }
