@@ -768,7 +768,7 @@ export class CardManager {
      * @param {Object} gameManager - Reference to game manager
      * @returns {object} - {success: boolean, card?: Object, error?: string, errorCode?: string}
      */
-    flipCard(sessionId, playerId, cardIdentifier, gameManager) {
+    async flipCard(sessionId, playerId, cardIdentifier, gameManager) {
         console.log(`[CARD_MANAGER] Attempting to flip card for player ${playerId} in session ${sessionId}`);
         
         try {
@@ -777,18 +777,30 @@ export class CardManager {
 
             // Handle different card identifier types
             if (typeof cardIdentifier === 'string') {
-                // Find card by ID in player's hand
+                // Find card by ID in player's hand or active rule cards
                 const player = gameManager.players[playerId];
+                console.log(`[CARD_MANAGER] Searching for card ${cardIdentifier} in player ${playerId}`);
+                console.log(`[CARD_MANAGER] Player hand has ${player.hand?.length || 0} cards:`, player.hand?.map(c => c.id) || []);
+                console.log(`[CARD_MANAGER] Player ruleCards has ${player.ruleCards?.length || 0} cards:`, player.ruleCards?.map(c => c.id) || []);
+                
                 card = player.hand.find(c => c.id === cardIdentifier);
                 if (card) {
                     cardLocation = 'hand';
+                    console.log(`[CARD_MANAGER] Found card in hand`);
                 } else {
-                    // TODO: Check for card on the board/active rules when that system is implemented
-                    return {
-                        success: false,
-                        error: 'Card not found in player\'s hand',
-                        errorCode: 'CARD_NOT_FOUND'
-                    };
+                    // Check for card in active rule cards
+                    card = player.ruleCards.find(c => c.id === cardIdentifier);
+                    if (card) {
+                        cardLocation = 'ruleCards';
+                        console.log(`[CARD_MANAGER] Found card in ruleCards`);
+                    } else {
+                        console.log(`[CARD_MANAGER] Card not found in either hand or ruleCards`);
+                        return {
+                            success: false,
+                            error: 'Card not found in player\'s hand or active rules',
+                            errorCode: 'CARD_NOT_FOUND'
+                        };
+                    }
                 }
             } else if (cardIdentifier && typeof cardIdentifier === 'object' && cardIdentifier.id) {
                 // Card object provided directly
@@ -833,11 +845,19 @@ export class CardManager {
             console.log(`[CARD_MANAGER] Successfully flipped card ${card.id} to ${card.currentSide} side`);
             console.log(`[CARD_MANAGER] New rule text: ${card.getCurrentRule()}`);
 
-            // Update game state if card is in player's hand
+            // Update game state and sync to Firebase
             if (cardLocation === 'hand') {
                 // The card object is already updated by reference, but we could
                 // trigger a Firebase sync here if needed
                 // TODO: Sync updated card state to Firebase
+            } else if (cardLocation === 'ruleCards') {
+                // Sync updated rule cards to Firebase
+                try {
+                    await updateFirestorePlayerRuleCards(gameManager.players[playerId].playerId, gameManager.players[playerId].ruleCards);
+                    console.log(`[CARD_MANAGER] Synced flipped rule card to Firebase for player ${playerId}`);
+                } catch (error) {
+                    console.error(`[CARD_MANAGER] Failed to sync flipped rule card to Firebase:`, error);
+                }
             }
 
             return {

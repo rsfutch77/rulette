@@ -369,7 +369,7 @@ function closeCardModal() {
  * @param {HTMLElement} questionElement - The element displaying the card text
  * @param {HTMLElement} flipButton - The flip button element
  */
-function flipCardInUI(card, questionElement, flipButton) {
+async function flipCardInUI(card, questionElement, flipButton) {
     console.log('[CARD_FLIP] Attempting to flip card in UI:', card.id);
     
     try {
@@ -402,7 +402,7 @@ function flipCardInUI(card, questionElement, flipButton) {
         }
         
         // Attempt flip through GameManager
-        const flipResult = gameManager.flipCard(sessionId, currentUser.uid, card);
+        const flipResult = await gameManager.cardManager.flipCard(sessionId, currentUser.uid, card, gameManager);
         
         if (flipResult.success) {
             console.log('[CARD_FLIP] Card flipped successfully via GameManager');
@@ -455,7 +455,7 @@ function updateCardDisplayAfterFlip(card, questionElement, flipButton) {
  * @param {string} playerId - The player ID
  * @returns {object} - {success: boolean, card?: Object, error?: string}
  */
-function flipCardById(cardId, sessionId, playerId) {
+async function flipCardById(cardId, sessionId, playerId) {
     console.log('[CARD_FLIP] Attempting to flip card by ID:', cardId);
     
     if (!gameManager) {
@@ -465,7 +465,7 @@ function flipCardById(cardId, sessionId, playerId) {
         };
     }
     
-    const flipResult = gameManager.flipCard(sessionId, playerId, cardId);
+    const flipResult = await gameManager.cardManager.flipCard(sessionId, playerId, cardId, gameManager);
     
     if (flipResult.success) {
         console.log('[CARD_FLIP] Card flipped successfully by ID');

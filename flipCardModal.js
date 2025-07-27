@@ -245,7 +245,7 @@ function updateFlipConfirmButton() {
 /**
  * Executes the flip action
  */
-function executeFlipAction() {
+async function executeFlipAction() {
     if (!window.selectedFlipTarget || !window.currentFlipCard) {
         console.error("No flip target selected or flip card missing");
         return;
@@ -268,7 +268,7 @@ function executeFlipAction() {
     // Use the existing flip functionality from cardManager
     if (window.gameManager && window.gameManager.cardManager && window.gameManager.cardManager.flipCard) {
         try {
-            const result = window.gameManager.cardManager.flipCard(
+            const result = await window.gameManager.cardManager.flipCard(
                 sessionId,
                 currentUser.uid,
                 targetCard.id,
