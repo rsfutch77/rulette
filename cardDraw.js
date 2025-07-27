@@ -202,7 +202,7 @@ function displayDrawnCard(card, cardType) {
         if (card.type === 'prompt') {
             // Prompt cards need to be activated with timer and referee judgment
             const startPromptButton = document.createElement('button');
-            startPromptButton.textContent = '🎯 Start Prompt Challenge';
+            startPromptButton.textContent = 'Click here when you have accomplished your prompt';
             startPromptButton.style.cssText = `
                 display: block;
                 width: 100%;
@@ -230,23 +230,24 @@ function displayDrawnCard(card, cardType) {
             });
             
             startPromptButton.addEventListener('click', () => {
-                console.log('[CARD_DRAW] Starting prompt challenge');
-                console.log('[DEBUG] Checking if window.activatePromptChallenge exists:', typeof window.activatePromptChallenge);
-                console.log('[DEBUG] Available window functions:', Object.keys(window).filter(key => key.includes('activate')));
+                console.log('[CARD_DRAW] Player completed prompt challenge');
                 
                 const currentUser = getCurrentUser();
                 if (currentUser && window.currentSessionId) {
-                    if (typeof window.activatePromptChallenge === 'function') {
-                        window.activatePromptChallenge(window.currentSessionId, currentUser.uid, card);
+                    // Close the modal
+                    closeCardModal();
+                    
+                    // Advance to next turn
+                    if (window.gameManager && typeof window.gameManager.nextTurn === 'function') {
+                        window.gameManager.nextTurn(window.currentSessionId);
                     } else {
-                        console.error('[DEBUG] window.activatePromptChallenge is not a function, type:', typeof window.activatePromptChallenge);
-                        window.showNotification('Prompt function not available - please check console', 'Error');
+                        console.error('[CARD_DRAW] gameManager.nextTurn not available');
+                        window.showNotification('Prompt completed, but unable to advance turn automatically', 'Warning');
                     }
                 } else {
-                    console.error('[PROMPT] No current user or session for prompt activation');
-                    window.showNotification('Unable to start prompt challenge', 'Error');
+                    console.error('[PROMPT] No current user or session');
+                    window.showNotification('Unable to complete prompt', 'Error');
                 }
-                closeCardModal();
             });
             
             choices.appendChild(startPromptButton);
@@ -1111,7 +1112,7 @@ function populateSwapModal(players) {
     
     // Create sections for each player
     players.forEach(player => {
-        const playerSection = createPlayerSection(player);
+        const playerSection = createSwapPlayerSection(player);
         container.appendChild(playerSection);
     });
     

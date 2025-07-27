@@ -3102,6 +3102,28 @@ export class GameManager {
         }
         return await this.cardManager.applyModifierCardEffect(sessionId, playerId, card, effectContext, this);
     }
+
+    /**
+     * Activate a prompt card for a player
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID
+     * @param {Object} promptCard - The prompt card object
+     * @returns {object} - {success: boolean, promptState?: object, error?: string}
+     */
+    activatePromptCard(sessionId, playerId, promptCard) {
+        console.log(`[GAME_MANAGER] Activating prompt card for player ${playerId} in session ${sessionId}`);
+        
+        if (!this.cardManager) {
+            console.error('[GAME_MANAGER] CardManager not initialized');
+            return {
+                success: false,
+                error: 'CardManager not initialized'
+            };
+        }
+        
+        // Delegate to CardManager
+        return this.cardManager.activatePromptCard(sessionId, playerId, promptCard, this);
+    }
 }
 
 // Export an instance of GameManager for use in main.js
