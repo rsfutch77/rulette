@@ -1045,6 +1045,86 @@ export class CardManager {
         return errorMessages[errorCode] || 'An unknown error occurred while flipping the card.';
     }
 
+    /**
+     * Swap a single card from one player to another (simple transfer)
+     * @param {string} sessionId - Session ID
+     * @param {string} receivingPlayerId - Player who will receive the card
+     * @param {string} originalPlayerId - Player who currently owns the card
+     * @param {string} cardId - ID of the card to transfer
+     * @returns {Object} - Result object with success status
+     */
+    async swapCard(sessionId, receivingPlayerId, originalPlayerId, cardId) {
+        try {
+            console.log(`[CARD_MANAGER] Swapping card ${cardId} from ${originalPlayerId} to ${receivingPlayerId}`);
+            
+            // Get the original player
+            const originalPlayer = window.gameManager?.players?.[originalPlayerId];
+            if (!originalPlayer) {
+                return { success: false, error: 'Original player not found' };
+            }
+            
+            // Get the receiving player
+            const receivingPlayer = window.gameManager?.players?.[receivingPlayerId];
+            if (!receivingPlayer) {
+                return { success: false, error: 'Receiving player not found' };
+            }
+            
+            // Find and remove the card from original player
+            let cardToTransfer = null;
+            let cardLocation = null;
+            
+            // Check hand first
+            if (originalPlayer.hand) {
+                const handIndex = originalPlayer.hand.findIndex(card => card.id === cardId);
+                if (handIndex !== -1) {
+                    cardToTransfer = originalPlayer.hand.splice(handIndex, 1)[0];
+                    cardLocation = 'hand';
+                }
+            }
+            
+            // Check rule cards if not found in hand
+            if (!cardToTransfer && originalPlayer.ruleCards) {
+                const ruleIndex = originalPlayer.ruleCards.findIndex(card => card.id === cardId);
+                if (ruleIndex !== -1) {
+                    cardToTransfer = originalPlayer.ruleCards.splice(ruleIndex, 1)[0];
+                    cardLocation = 'ruleCards';
+                }
+            }
+            
+            if (!cardToTransfer) {
+                return { success: false, error: 'Card not found in original player\'s collection' };
+            }
+            
+            // Update card ownership
+            cardToTransfer.owner = receivingPlayerId;
+            
+            // Add card to receiving player's hand
+            if (!receivingPlayer.hand) {
+                receivingPlayer.hand = [];
+            }
+            receivingPlayer.hand.push(cardToTransfer);
+            
+            // Update Firebase
+            await updateFirestorePlayerHand(sessionId, originalPlayerId, originalPlayer.hand);
+            await updateFirestorePlayerHand(sessionId, receivingPlayerId, receivingPlayer.hand);
+            
+            if (cardLocation === 'ruleCards') {
+                await updateFirestorePlayerRuleCards(sessionId, originalPlayerId, originalPlayer.ruleCards);
+            }
+            
+            console.log(`[CARD_MANAGER] Successfully swapped card ${cardId}`);
+            return {
+                success: true,
+                card: cardToTransfer.getDisplayInfo(),
+                message: `Card transferred from ${originalPlayer.displayName || originalPlayerId} to ${receivingPlayer.displayName || receivingPlayerId}`
+            };
+            
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error swapping card:`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
     swapCards(sessionId, player1Id, player2Id, card1Id, card2Id, gameManager) {
         // TODO: Move implementation from gameManager.js
         console.log(`[CARD_MANAGER] swapCards placeholder called`);

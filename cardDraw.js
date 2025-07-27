@@ -312,6 +312,28 @@ function displayDrawnCard(card, cardType) {
                 closeCardModal(); // Close the drawn card modal
             });
             choices.appendChild(useButton);
+        } else if (card.type === 'flip_action' || card.type === 'flip') {
+            const useButton = document.createElement('button');
+            useButton.textContent = 'Use Flip Card';
+            useButton.style.cssText = `
+                display: block;
+                width: 100%;
+                margin: 0.5rem 0;
+                padding: 0.7rem;
+                background: #FFEAA7;
+                color: #333;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 1rem;
+                transition: all 0.2s;
+            `;
+            useButton.addEventListener('click', () => {
+                // Open the flip card modal to select which card to flip
+                window.showFlipCardModal(card);
+                closeCardModal(); // Close the drawn card modal
+            });
+            choices.appendChild(useButton);
         }
         
         // Show modal
@@ -641,17 +663,69 @@ async function showSwapCardModal() {
         const { getFirestorePlayersInSession } = await import('./firebaseOperations.js');
         const allPlayers = await getFirestorePlayersInSession(currentSessionId);
         
+        console.log('[SWAP_CARD] All players retrieved:', allPlayers.length);
+        console.log('[SWAP_CARD] Current user ID:', currentUser.uid);
+        
+        // Debug each player
+        allPlayers.forEach((player, index) => {
+            console.log(`[SWAP_CARD] Player ${index}:`, {
+                id: player.id,
+                playerId: player.playerId,
+                displayName: player.displayName,
+                status: player.status,
+                hasHand: !!player.hand,
+                handLength: player.hand ? player.hand.length : 0,
+                hasRuleCards: !!player.ruleCards,
+                ruleCardsLength: player.ruleCards ? player.ruleCards.length : 0,
+                handContents: player.hand,
+                ruleCardsContents: player.ruleCards
+            });
+        });
+        
         // Filter out current player and inactive players
-        const otherPlayers = allPlayers.filter(player =>
-            player.playerId !== currentUser.uid &&
-            player.status === 'active' &&
-            player.hand &&
-            player.hand.length > 0
-        );
+        // Note: Firebase returns player ID in 'id' field, not 'playerId'
+        const otherPlayers = allPlayers.filter(player => {
+            const isNotCurrentUser = player.id !== currentUser.uid;
+            const isActive = player.status === 'active';
+            
+            // Check for cards in both hand and ruleCards arrays
+            const hasHandCards = player.hand && Array.isArray(player.hand) && player.hand.length > 0;
+            const hasRuleCards = player.ruleCards && Array.isArray(player.ruleCards) && player.ruleCards.length > 0;
+            const hasAnyCards = hasHandCards || hasRuleCards;
+            
+            console.log(`[SWAP_CARD] Filtering player ${player.displayName}:`, {
+                isNotCurrentUser,
+                isActive,
+                hasHandCards,
+                hasRuleCards,
+                hasAnyCards,
+                included: isNotCurrentUser && isActive && hasAnyCards
+            });
+            
+            return isNotCurrentUser && isActive && hasAnyCards;
+        });
+        
+        console.log('[SWAP_CARD] Filtered other players:', otherPlayers.length);
         
         if (otherPlayers.length === 0) {
-            window.showNotification('No other players with cards found in this session.', 'No Players Available');
-            return;
+            console.log('[SWAP_CARD] No other players with cards found. Showing all active players instead for debugging.');
+            
+            // For debugging, let's show all other active players regardless of cards
+            const debugPlayers = allPlayers.filter(player =>
+                player.playerId !== currentUser.uid &&
+                player.status === 'active'
+            );
+            
+            if (debugPlayers.length === 0) {
+                window.showNotification('No other active players found in this session.', 'No Players Available');
+                return;
+            }
+            
+            // Show modal with debug players (even if they have no cards)
+            populateSwapModal(debugPlayers);
+        } else {
+            // Populate the modal with players and their cards
+            populateSwapModal(otherPlayers);
         }
         
         // Populate the modal with players and their cards
@@ -705,7 +779,7 @@ function populateSwapModal(players) {
 function createPlayerSection(player) {
     const section = document.createElement('div');
     section.className = 'swap-player-section';
-    section.dataset.playerId = player.playerId;
+    section.dataset.playerId = player.id; // Use 'id' field from Firebase
     
     // Player header
     const header = document.createElement('div');
@@ -728,7 +802,7 @@ function createPlayerSection(player) {
     
     // Check if player is host (this would need to be passed from session data)
     const currentSession = window.gameManager?.gameSessions?.[window.currentSessionId];
-    if (currentSession && currentSession.hostId === player.playerId) {
+    if (currentSession && currentSession.hostId === player.id) {
         const hostBadge = document.createElement('span');
         hostBadge.className = 'swap-player-badge host';
         hostBadge.textContent = 'Host';
@@ -743,16 +817,45 @@ function createPlayerSection(player) {
     const cardsGrid = document.createElement('div');
     cardsGrid.className = 'swap-cards-grid';
     
-    if (player.hand && player.hand.length > 0) {
+    console.log(`[SWAP_CARD] Creating section for ${player.displayName}:`);
+    console.log(`[SWAP_CARD] - hand:`, player.hand);
+    console.log(`[SWAP_CARD] - ruleCards:`, player.ruleCards);
+    
+    // Collect all cards from both hand and ruleCards
+    const allCards = [];
+    
+    // Add cards from hand
+    if (player.hand && Array.isArray(player.hand)) {
         player.hand.forEach(card => {
-            const cardElement = createSwapCardElement(card, player.playerId);
+            if (card) {
+                allCards.push({ ...card, source: 'hand' });
+            }
+        });
+    }
+    
+    // Add cards from ruleCards
+    if (player.ruleCards && Array.isArray(player.ruleCards)) {
+        player.ruleCards.forEach(card => {
+            if (card) {
+                allCards.push({ ...card, source: 'ruleCards' });
+            }
+        });
+    }
+    
+    console.log(`[SWAP_CARD] Total cards for ${player.displayName}:`, allCards.length);
+    
+    if (allCards.length > 0) {
+        allCards.forEach((card, index) => {
+            console.log(`[SWAP_CARD] Creating card element ${index} for ${player.displayName}:`, card);
+            const cardElement = createSwapCardElement(card, player.id);
             cardsGrid.appendChild(cardElement);
         });
     } else {
         const noCards = document.createElement('div');
         noCards.className = 'swap-no-cards';
-        noCards.textContent = 'No cards available';
+        noCards.textContent = `No cards available`;
         cardsGrid.appendChild(noCards);
+        console.log(`[SWAP_CARD] No cards for ${player.displayName}`);
     }
     
     section.appendChild(cardsGrid);
@@ -770,11 +873,22 @@ function createSwapCardElement(card, playerId) {
     cardDiv.className = 'swap-card-item';
     cardDiv.dataset.cardId = card.id;
     cardDiv.dataset.playerId = playerId;
+    cardDiv.dataset.source = card.source || 'unknown';
     
     // Card name
     const nameDiv = document.createElement('div');
     nameDiv.className = 'swap-card-name';
     nameDiv.textContent = card.name || 'Unknown Card';
+    
+    // Add source indicator
+    if (card.source) {
+        const sourceSpan = document.createElement('span');
+        sourceSpan.style.fontSize = '0.7rem';
+        sourceSpan.style.color = '#666';
+        sourceSpan.style.marginLeft = '0.5rem';
+        sourceSpan.textContent = `(${card.source})`;
+        nameDiv.appendChild(sourceSpan);
+    }
     
     // Card description
     const descDiv = document.createElement('div');
@@ -788,6 +902,8 @@ function createSwapCardElement(card, playerId) {
         ruleText = card.frontRule;
     } else if (card.sideA) {
         ruleText = card.isFlipped ? (card.sideB || card.sideA) : card.sideA;
+    } else if (card.description) {
+        ruleText = card.description;
     } else {
         ruleText = 'No description available';
     }
@@ -796,7 +912,7 @@ function createSwapCardElement(card, playerId) {
     
     // Card type badge
     const typeDiv = document.createElement('div');
-    typeDiv.className = `swap-card-type ${card.type || 'unknown'}`;
+    typeDiv.className = `swap-card-type ${(card.type || 'unknown').toLowerCase()}`;
     typeDiv.textContent = (card.type || 'unknown').toUpperCase();
     
     // Selection indicator
@@ -910,10 +1026,172 @@ function handleSwapConfirmation() {
         playerName
     });
     
-    // TODO: Implement actual swap logic here
-    window.showNotification(`Selected ${cardName} from ${playerName}. Swap functionality will be implemented next.`, 'Card Selected');
+    // Implement actual swap logic - remove from original player, add to current player
+    executeSwapAction(cardId, playerId, cardName, playerName);
     
     hideSwapCardModal();
+}
+
+/**
+ * Execute the swap action - remove card from original player and add to current player
+ * @param {string} cardId - ID of the card to swap
+ * @param {string} originalPlayerId - ID of the player who currently owns the card
+ * @param {string} cardName - Name of the card being swapped
+ * @param {string} playerName - Display name of the original player
+ */
+async function executeSwapAction(cardId, originalPlayerId, cardName, playerName) {
+    try {
+        console.log('[SWAP_CARD] Executing swap action:', {
+            cardId,
+            originalPlayerId,
+            cardName,
+            playerName
+        });
+
+        // Get current player and session info
+        const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+        const currentSessionId = window.currentSessionId;
+        
+        if (!currentUser || !currentSessionId) {
+            console.error('[SWAP_CARD] Missing current user or session');
+            window.showNotification('Unable to complete swap. Missing session info.', 'Error');
+            return;
+        }
+
+        // Use the card manager's swap functionality if available
+        if (window.gameManager && window.gameManager.cardManager) {
+            const result = await window.gameManager.cardManager.swapCard(
+                currentSessionId,
+                currentUser.uid,
+                originalPlayerId,
+                cardId
+            );
+            
+            if (result && result.success) {
+                // Show success notification
+                window.showNotification({
+                    message: `Successfully swapped "${cardName}" from ${playerName}`,
+                    title: 'Card Swapped!'
+                });
+                
+                // Update UI displays
+                if (window.updateActiveRulesDisplay) {
+                    window.updateActiveRulesDisplay();
+                }
+                
+                console.log('[SWAP_CARD] Swap completed successfully');
+            } else {
+                console.error('[SWAP_CARD] Swap failed:', result?.error);
+                window.showNotification({
+                    message: result?.error || 'Failed to swap card',
+                    title: 'Swap Failed'
+                });
+            }
+        } else {
+            // Fallback: Direct manipulation if card manager not available
+            console.log('[SWAP_CARD] Using fallback swap logic');
+            await executeDirectSwap(cardId, originalPlayerId, currentUser.uid, currentSessionId, cardName, playerName);
+        }
+        
+    } catch (error) {
+        console.error('[SWAP_CARD] Error during swap execution:', error);
+        window.showNotification({
+            message: 'An error occurred while swapping the card',
+            title: 'Error'
+        });
+    }
+}
+
+/**
+ * Direct swap implementation as fallback
+ * @param {string} cardId - ID of the card to swap
+ * @param {string} originalPlayerId - ID of the original player
+ * @param {string} currentPlayerId - ID of the current player
+ * @param {string} sessionId - Session ID
+ * @param {string} cardName - Name of the card
+ * @param {string} playerName - Name of the original player
+ */
+async function executeDirectSwap(cardId, originalPlayerId, currentPlayerId, sessionId, cardName, playerName) {
+    try {
+        // Get the card from the original player
+        const originalPlayer = window.gameManager?.players?.[originalPlayerId];
+        if (!originalPlayer) {
+            throw new Error('Original player not found');
+        }
+
+        // Find the card in the original player's hand or rule cards
+        let cardToSwap = null;
+        let cardLocation = null;
+        
+        // Check hand first
+        if (originalPlayer.hand) {
+            const handIndex = originalPlayer.hand.findIndex(card => card.id === cardId);
+            if (handIndex !== -1) {
+                cardToSwap = originalPlayer.hand[handIndex];
+                cardLocation = 'hand';
+            }
+        }
+        
+        // Check rule cards if not found in hand
+        if (!cardToSwap && originalPlayer.ruleCards) {
+            const ruleIndex = originalPlayer.ruleCards.findIndex(card => card.id === cardId);
+            if (ruleIndex !== -1) {
+                cardToSwap = originalPlayer.ruleCards[ruleIndex];
+                cardLocation = 'ruleCards';
+            }
+        }
+        
+        if (!cardToSwap) {
+            throw new Error('Card not found in original player\'s collection');
+        }
+
+        // Remove card from original player
+        if (cardLocation === 'hand') {
+            originalPlayer.hand = originalPlayer.hand.filter(card => card.id !== cardId);
+        } else if (cardLocation === 'ruleCards') {
+            originalPlayer.ruleCards = originalPlayer.ruleCards.filter(card => card.id !== cardId);
+        }
+
+        // Add card to current player
+        const currentPlayer = window.gameManager?.players?.[currentPlayerId];
+        if (!currentPlayer) {
+            throw new Error('Current player not found');
+        }
+
+        // Update card ownership
+        cardToSwap.owner = currentPlayerId;
+        
+        // Add to current player's hand
+        if (!currentPlayer.hand) {
+            currentPlayer.hand = [];
+        }
+        currentPlayer.hand.push(cardToSwap);
+
+        // Update Firebase if available
+        if (window.updateFirestorePlayerHand) {
+            await window.updateFirestorePlayerHand(sessionId, originalPlayerId, originalPlayer.hand);
+            await window.updateFirestorePlayerHand(sessionId, currentPlayerId, currentPlayer.hand);
+            
+            if (cardLocation === 'ruleCards') {
+                await window.updateFirestorePlayerRuleCards(sessionId, originalPlayerId, originalPlayer.ruleCards);
+            }
+        }
+
+        console.log('[SWAP_CARD] Direct swap completed successfully');
+        window.showNotification({
+            message: `Successfully swapped "${cardName}" from ${playerName}`,
+            title: 'Card Swapped!'
+        });
+        
+        // Update UI displays
+        if (window.updateActiveRulesDisplay) {
+            window.updateActiveRulesDisplay();
+        }
+        
+    } catch (error) {
+        console.error('[SWAP_CARD] Error in direct swap:', error);
+        throw error;
+    }
 }
 
 /**

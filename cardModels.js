@@ -270,7 +270,7 @@ async function loadCardData() {
     // Clone cards replicate other cards' effects
     const cloneCards = filterCards('clone');
     const flipCards = filterCards('flip_action'); // Now filters for 'flip_action' cards
-    const swapCards = []; // TODO: Implement swap cards
+    const swapCards = filterCards('swap'); // Swap cards from CSV
     
     // Distribute cards across the 6 deck types to match wheel segments
     // This maintains compatibility with the existing wheel component

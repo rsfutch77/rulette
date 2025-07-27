@@ -12,3 +12,11 @@ modifier,QUIETLY,LOUDLY,,,,,,
 modifier,CONFIDENTLY,DOUBTFULLY,,,,,,
 modifier,WITH A SMILE,WITH A FROWN,,,,,,
 flip_action,FLIP ONE OF YOUR OWN CARDS,,,,,,
+flip_action,FLIP ONE OF YOUR OWN CARDS,,,,,,
+flip_action,FLIP ONE OF YOUR OWN CARDS,,,,,,
+clone,CLONE ANOTHER PLAYER'S CARD,,CLONE_001,Clone Card,Copy the effect of another player's active rule or modifier card,Select a target player and one of their active rule/modifier cards to clone.,0,false
+clone,CLONE ANOTHER PLAYER'S CARD,,CLONE_002,Clone Card,Copy the effect of another player's active rule or modifier card,Select a target player and one of their active rule/modifier cards to clone.,0,false
+clone,CLONE ANOTHER PLAYER'S CARD,,CLONE_003,Clone Card,Copy the effect of another player's active rule or modifier card,Select a target player and one of their active rule/modifier cards to clone.,0,false
+swap,SWAP CARDS WITH ANOTHER PLAYER,,SWAP_001,Card Swap,Exchange one of your cards with another player's card,Select a player and cards to swap.,0,false
+swap,SWAP CARDS WITH ANOTHER PLAYER,,SWAP_002,Card Swap,Exchange one of your cards with another player's card,Select a player and cards to swap.,0,false
+swap,SWAP CARDS WITH ANOTHER PLAYER,,SWAP_003,Card Swap,Exchange one of your cards with another player's card,Select a player and cards to swap.,0,false
