@@ -268,8 +268,17 @@ class WheelComponent {
         console.log('[WHEEL] Spin complete, selected index:', selectedIndex);
         
         try {
-           
-            console.log('[WHEEL] Selected card type:', selectedCardType.name);
+            // Convert selectedIndex to selectedCardType
+            const selectedCardType = this.cardTypes[selectedIndex];
+            
+            // Add validation logging
+            console.log('[WHEEL] Available card types:', this.cardTypes.length);
+            console.log('[WHEEL] Selected index bounds check:', selectedIndex >= 0 && selectedIndex < this.cardTypes.length);
+            console.log('[WHEEL] Selected card type:', selectedCardType ? selectedCardType.name : 'UNDEFINED');
+            
+            if (!selectedCardType) {
+                throw new Error(`Invalid selectedIndex ${selectedIndex}. Available indices: 0-${this.cardTypes.length - 1}`);
+            }
             
             // Set final appearance
             const wheel = document.getElementById('wheel');
