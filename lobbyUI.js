@@ -93,12 +93,108 @@ function setupLobbyEventListeners() {
 function showLobby() {
     console.log('[LOBBY] Showing lobby UI');
     
-    const lobbyContainer = document.getElementById('lobby-container');
-    if (lobbyContainer) {
-        lobbyContainer.style.display = 'block';
-        updateLobbyDisplay();
-    } else {
-        console.error('[LOBBY] Lobby container not found');
+    try {
+        console.log('[DEBUG_LOBBY] showLobby() called - checking lobby container...');
+        
+        const lobbyContainer = document.getElementById('lobby-container');
+        const mainMenu = document.getElementById('main-menu');
+        
+        console.log('[DEBUG_LOBBY] Elements found:', {
+            lobbyContainer: !!lobbyContainer,
+            mainMenu: !!mainMenu
+        });
+        
+        if (lobbyContainer) {
+            console.log('[DEBUG_LOBBY] Lobby container found, current display style:', lobbyContainer.style.display);
+            console.log('[DEBUG_LOBBY] Lobby container computed style:', window.getComputedStyle(lobbyContainer).display);
+            
+            // Hide main menu first
+            if (mainMenu) {
+                mainMenu.style.display = 'none';
+                console.log('[DEBUG_LOBBY] Main menu hidden');
+            } else {
+                console.warn('[DEBUG_LOBBY] Main menu element not found');
+            }
+            
+            // Fix body layout for lobby display
+            document.body.style.setProperty('display', 'block', 'important');
+            document.body.style.setProperty('visibility', 'visible', 'important');
+            document.body.style.setProperty('opacity', '1', 'important');
+            document.body.style.setProperty('justify-content', 'flex-start', 'important');
+            document.body.style.setProperty('align-items', 'stretch', 'important');
+            document.body.style.setProperty('height', 'auto', 'important');
+            document.body.style.setProperty('min-height', '100vh', 'important');
+            document.documentElement.style.setProperty('display', 'block', 'important');
+            document.documentElement.style.setProperty('visibility', 'visible', 'important');
+            console.log('[DEBUG_LOBBY] Body layout fixed for lobby display');
+            
+            // Show lobby container with important flag to override any CSS
+            lobbyContainer.style.setProperty('display', 'block', 'important');
+            console.log('[DEBUG_LOBBY] Lobby container display set to block !important');
+            console.log('[DEBUG_LOBBY] Lobby container final computed style:', window.getComputedStyle(lobbyContainer).display);
+            
+            // Ensure lobby is visible and positioned correctly
+            lobbyContainer.style.setProperty('visibility', 'visible', 'important');
+            lobbyContainer.style.setProperty('opacity', '1', 'important');
+            lobbyContainer.style.setProperty('position', 'relative', 'important');
+            lobbyContainer.style.setProperty('z-index', '1000', 'important');
+            
+            // Ensure proper dimensions and layout
+            lobbyContainer.style.setProperty('width', 'auto', 'important');
+            lobbyContainer.style.setProperty('height', 'auto', 'important');
+            lobbyContainer.style.setProperty('min-height', '400px', 'important');
+            lobbyContainer.style.setProperty('max-width', '800px', 'important');
+            lobbyContainer.style.setProperty('margin', '2rem auto', 'important');
+            lobbyContainer.style.setProperty('padding', '2rem', 'important');
+            lobbyContainer.style.setProperty('background', '#fff', 'important');
+            lobbyContainer.style.setProperty('border', '2px solid #e9ecef', 'important');
+            lobbyContainer.style.setProperty('border-radius', '12px', 'important');
+            lobbyContainer.style.setProperty('box-shadow', '0 4px 12px rgba(0,0,0,0.1)', 'important');
+            
+            console.log('[DEBUG_LOBBY] Lobby container visibility and layout properties set');
+            
+            // Check lobby container dimensions and position
+            const rect = lobbyContainer.getBoundingClientRect();
+            const computedStyle = window.getComputedStyle(lobbyContainer);
+            
+            console.log('[DEBUG_LOBBY] Lobby container dimensions and position:', {
+                width: rect.width,
+                height: rect.height,
+                top: rect.top,
+                left: rect.left,
+                bottom: rect.bottom,
+                right: rect.right,
+                visible: rect.width > 0 && rect.height > 0
+            });
+            
+            console.log('[DEBUG_LOBBY] Lobby container computed styles:', {
+                display: computedStyle.display,
+                visibility: computedStyle.visibility,
+                opacity: computedStyle.opacity,
+                position: computedStyle.position,
+                zIndex: computedStyle.zIndex,
+                transform: computedStyle.transform,
+                overflow: computedStyle.overflow,
+                maxHeight: computedStyle.maxHeight,
+                height: computedStyle.height
+            });
+            
+            // Check if lobby container has any content
+            console.log('[DEBUG_LOBBY] Lobby container content:', {
+                innerHTML: lobbyContainer.innerHTML.length > 0,
+                children: lobbyContainer.children.length,
+                textContent: lobbyContainer.textContent.trim().length > 0
+            });
+            
+            updateLobbyDisplay();
+        } else {
+            console.error('[LOBBY] Lobby container not found');
+            console.error('[DEBUG_LOBBY] Available elements with "lobby" in ID:',
+                Array.from(document.querySelectorAll('[id*="lobby"]')).map(el => el.id));
+        }
+    } catch (error) {
+        console.error('[DEBUG_LOBBY] Error in showLobby():', error);
+        console.error('[DEBUG_LOBBY] Error stack:', error.stack);
     }
 }
 
@@ -1422,13 +1518,11 @@ async function handleCreateGame() {
             // Save session ID to localStorage for persistence
             localStorage.setItem('rulette_session_id', session.sessionId);
             
-            // Hide main menu and show lobby
-            console.log("DEBUG: Hiding main menu and showing lobby");
-            document.getElementById('main-menu').style.display = 'none';
-            document.getElementById('lobby-container').style.display = 'block';
+            // Hide main menu and show lobby using proper function
+            console.log("DEBUG: Showing lobby after session creation");
+            showLobby();
             
-            // Update lobby with session info - this will call updateLobbySessionInfo, updateLobbyPlayerList, and updateHostControls
-            console.log('[DEBUG] Updating full lobby display after create');
+            console.log('[DEBUG] Lobby display completed after session creation');
             
             // Note: window.currentSessionId already set above at line 439, no need to duplicate
             
@@ -1528,12 +1622,9 @@ async function handleJoinGame(gameCode) {
             window.currentSessionId = result.sessionId;
             localStorage.setItem('rulette_session_id', result.sessionId);
             
-            // Hide main menu and show lobby
-            document.getElementById('main-menu').style.display = 'none';
-            document.getElementById('lobby-container').style.display = 'block';
-            
-            // Update lobby with session info
-            updateLobbyDisplay();
+            // Hide main menu and show lobby using proper function
+            console.log("DEBUG: Showing lobby after joining session");
+            showLobby();
             
             // Set up Firebase listener for session updates
             setTimeout(() => {
