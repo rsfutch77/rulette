@@ -1385,11 +1385,16 @@ export class GameManager {
             const player = this.players[playerId];
             console.log('[DEBUG] Processing player:', playerId, 'Player data:', player);
             console.log('[DEBUG] Player exists in gameManager.players:', !!player);
+            console.log('[DEBUG] Player displayName field:', player?.displayName);
+            console.log('[DEBUG] Player name field:', player?.name);
             
             if (player) {
+                // Try multiple possible name fields for robustness
+                const displayName = player.displayName || player.name || 'Unknown Player';
+                console.log('[DEBUG] Using displayName:', displayName);
                 
                 playerStatuses[playerId] = {
-                    displayName: player.displayName,
+                    displayName: displayName,
                     status: 'active', // Always show as active since we don't need live connection tracking
                     points: player.points,
                     isHost: session.hostId === playerId,
@@ -1402,13 +1407,24 @@ export class GameManager {
                 // Attempt to recover player data from Firebase if available
                 try {
                     // Try to get player data from Firebase
-                    const playerData = await getFirestorePlayer(playerId);
-                    console.log('[RECOVERY] Firebase player data for', playerId, ':', playerData);
+                    const playerDoc = await getFirestorePlayer(playerId);
+                    console.log('[RECOVERY] Firebase player document for', playerId, ':', playerDoc);
+                    console.log('[RECOVERY] Firebase player document exists:', playerDoc?.exists());
                     
-                    if (playerData) {
-                        console.log('[RECOVERY] Found player data in Firebase, recreating player:', playerData);
+                    if (playerDoc && playerDoc.exists()) {
+                        const playerData = playerDoc.data();
+                        console.log('[RECOVERY] Firebase player data extracted:', playerData);
+                        console.log('[RECOVERY] Available fields in Firebase player data:', Object.keys(playerData || {}));
+                        console.log('[RECOVERY] displayName field value:', playerData?.displayName);
+                        console.log('[RECOVERY] name field value:', playerData?.name);
+                        
+                        // Try multiple possible name fields
+                        const displayName = playerData?.displayName || playerData?.name || 'Unknown Player';
+                        console.log('[RECOVERY] Using display name:', displayName);
+                        
+                        console.log('[RECOVERY] Found player data in Firebase, recreating player with name:', displayName);
                         // Recreate the player object with Firebase data
-                        await this.playerManager.initializePlayer(session.sessionId, playerId, playerData.displayName || 'Unknown Player');
+                        await this.playerManager.initializePlayer(session.sessionId, playerId, displayName);
                         
                         // Update points if available
                         if (playerData.points !== undefined) {

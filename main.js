@@ -4,37 +4,17 @@ import { getFirestoreGameSession } from "./firebaseOperations.js";
 
 // CardManager and sample decks (using dynamic import for CommonJS compatibility)
 import { CardManager } from './cardManager.js';
+import { gameManager } from './gameManager.js';
 
 // Import lobby UI functionality
 import {
     initializeLobbyUI,
-    showLobby,
-    hideLobby,
-    showGameBoard,
-    hideGameBoard,
     updateLobbyDisplay,
-    updateLobbySessionInfo,
-    updateLobbyPlayerList,
-    setupFirebaseSessionListener,
-    cleanupFirebaseListeners,
     showNotification,
     initNotificationElements,
     initializePlayerSetup,
     tryReconnectToSession,
-    clearSession,
-    initializeSessionManagement,
-    showSessionModal,
-    hideSessionModal,
-    showCreatePanel,
-    showJoinPanel,
-    initializeSessionTerminationUI,
-    updateSessionTerminationButtonVisibility,
-    showSessionTerminationModal,
-    hideSessionTerminationModal,
-    initializeQuitGameUI,
-    showQuitGameModal,
-    hideQuitGameModal,
-    updateQuitButtonVisibility
+    initializeQuitGameUI
 } from './lobbyUI.js';
 
 // Import card draw functionality
@@ -45,7 +25,6 @@ import {
 
 import { loadCardData } from './cardModels.js';
 import { WheelComponent } from './wheelComponent.js';
-import { GameManager } from './gameManager.js';
 
 // Import callout functionality
 import {
@@ -56,8 +35,8 @@ import {
 // Import RuleDisplayManager
 import { RuleDisplayManager } from './ruleDisplayManager.js';
 
-// Instantiate GameManager and expose it globally
-window.gameManager = new GameManager();
+// Import and use the shared GameManager instance
+window.gameManager = gameManager;
 
 import {
   getCurrentUser,
@@ -232,9 +211,13 @@ function getTurnOrderDiceRoll() {
   console.log("[WHEEL] Wheel component initialized and integrated");
   
   // Attempt session reconnect if session exists in localStorage
-  if (tryReconnectToSession()) {
-    console.log("[SESSION] Reconnected to existing session");
-  }
+  tryReconnectToSession().then((reconnected) => {
+    if (reconnected) {
+      console.log("[SESSION] Reconnected to existing session");
+    }
+  }).catch((error) => {
+    console.error("[SESSION] Error during session reconnection:", error);
+  });
 
   // ...rest of your initialization code that depends on cardManager...
 })();
@@ -1487,11 +1470,6 @@ window.drawCardWithErrorHandling = drawCardWithErrorHandling;
 window.handlePlayerDisconnection = handlePlayerDisconnection;
 window.updatePlayerScores = updatePlayerScores;
 
-// Expose prompt functions
-window.activatePromptChallenge = activatePromptChallenge;
-window.completePromptChallenge = completePromptChallenge;
-window.judgePrompt = judgePrompt;
-window.hidePromptUI = hidePromptUI;
 // ===== REFEREE SWAP NOTIFICATION SYSTEM =====
 
 /**
@@ -1671,7 +1649,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log('[SESSION_RESTORE] Loaded session data from Firebase:', sessionData);
                         
                         // Store session in gameManager
+                        console.log('[SESSION_RESTORE] About to store session in gameManager.gameSessions');
+                        console.log('[SESSION_RESTORE] gameManager.gameSessions before:', Object.keys(gameManager.gameSessions));
+                        console.log('[SESSION_RESTORE] storedSessionId:', storedSessionId);
+                        console.log('[SESSION_RESTORE] sessionData:', sessionData);
+                        
                         gameManager.gameSessions[storedSessionId] = sessionData;
+                        
+                        console.log('[SESSION_RESTORE] gameManager.gameSessions after:', Object.keys(gameManager.gameSessions));
+                        console.log('[SESSION_RESTORE] Stored session verification:', gameManager.gameSessions[storedSessionId]);
                         console.log('[SESSION_RESTORE] Session stored in gameManager');
                         
                         // Load existing players in the session to gameManager.players

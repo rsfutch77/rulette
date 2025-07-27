@@ -349,9 +349,16 @@ async function updateLobbyDisplay() {
     console.log('[DEBUG] Using sessionId:', sessionId);
     
     let session = gameManager.gameSessions[sessionId];
-    console.log('[DEBUG] Retrieved session from LOCAL storage:', session);
-    console.log('[DEBUG] LOCAL session has players:', session?.players);
-    console.log('[DEBUG] LOCAL session players count:', session?.players?.length || 0);
+    console.log('[DEBUG] Retrieved session from imported gameManager:', session);
+    
+    // If not found in imported gameManager, try window.gameManager
+    if (!session && window.gameManager) {
+        session = window.gameManager.gameSessions[sessionId];
+        console.log('[DEBUG] Retrieved session from window.gameManager:', session);
+    }
+    
+    console.log('[DEBUG] Final session has players:', session?.players);
+    console.log('[DEBUG] Final session players count:', session?.players?.length || 0);
     
     // Firebase session check to compare with local data
     console.log('[FIREBASE_SYNC] Checking if local session data is stale...');
@@ -1138,6 +1145,11 @@ async function setupFirebaseSessionListener() {
                 console.log('[FIREBASE_LISTENER] Local turn data before update:', gameManager.currentTurn[sessionId]);
                 
                 // Update local session data
+                console.log('[FIREBASE_LISTENER] Checking if session exists in gameManager.gameSessions');
+                console.log('[FIREBASE_LISTENER] sessionId:', sessionId);
+                console.log('[FIREBASE_LISTENER] gameManager.gameSessions keys:', Object.keys(gameManager.gameSessions));
+                console.log('[FIREBASE_LISTENER] Session exists check:', !!gameManager.gameSessions[sessionId]);
+                
                 if (gameManager.gameSessions[sessionId]) {
                     const previousState = gameManager.gameSessions[sessionId].status;
                     const previousPlayers = gameManager.gameSessions[sessionId].players || [];
@@ -1235,6 +1247,22 @@ async function setupFirebaseSessionListener() {
                     } else {
                         console.log('[FIREBASE_LISTENER] No UI update needed - no significant changes detected');
                     }
+                } else {
+                    console.log('[FIREBASE_LISTENER] Session NOT found in gameManager.gameSessions - creating it now');
+                    console.log('[FIREBASE_LISTENER] Available sessions:', Object.keys(gameManager.gameSessions));
+                    console.log('[FIREBASE_LISTENER] Creating session with data:', sessionData);
+                    
+                    // Create the session since it doesn't exist
+                    gameManager.gameSessions[sessionId] = sessionData;
+                    
+                    console.log('[FIREBASE_LISTENER] Session created. New sessions:', Object.keys(gameManager.gameSessions));
+                    console.log('[FIREBASE_LISTENER] Verification - session now exists:', !!gameManager.gameSessions[sessionId]);
+                    
+                    // Update lobby display since we now have session data
+                    setTimeout(() => {
+                        console.log('[FIREBASE_LISTENER] Updating lobby display after creating session');
+                        updateLobbyDisplay();
+                    }, 100);
                 }
             }
         }, (error) => {
@@ -1550,7 +1578,7 @@ async function handleCreateGame() {
  * Attempts to reconnect to a previously saved session.
  * @returns {boolean} True if reconnection was attempted, false otherwise.
  */
-export function tryReconnectToSession() {
+export async function tryReconnectToSession() {
     const sessionId = localStorage.getItem('rulette_session_id');
     
     // Handle undefined or invalid session IDs
@@ -1577,9 +1605,78 @@ export function tryReconnectToSession() {
     window.currentSessionId = sessionId;
     console.log('[SESSION] Reconnecting to session:', sessionId);
     
-    // Hide main menu and show game page
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('game-page').style.display = 'block';
+    // DIAGNOSIS LOGGING: Check if we can retrieve session state from Firebase
+    console.log('[DIAGNOSIS] Attempting to retrieve session state from Firebase...');
+    
+    try {
+        // Import Firebase operations
+        const { getFirestoreGameSession } = await import('./firebaseOperations.js');
+        
+        // Retrieve session data from Firebase
+        const sessionData = await getFirestoreGameSession(sessionId);
+        console.log('[DIAGNOSIS] Retrieved session data from Firebase:', sessionData);
+        
+        if (sessionData) {
+            console.log('[DIAGNOSIS] Session status from Firebase:', sessionData.status);
+            
+            // Store session data locally in BOTH gameManager instances to ensure consistency
+            console.log('[DIAGNOSIS] Storing session data in gameManager instances...');
+            
+            // Store in imported gameManager
+            if (typeof gameManager !== 'undefined' && gameManager) {
+                gameManager.gameSessions[sessionId] = sessionData;
+                console.log('[DIAGNOSIS] Stored in imported gameManager');
+            }
+            
+            // Store in window.gameManager
+            if (typeof window.gameManager !== 'undefined' && window.gameManager) {
+                window.gameManager.gameSessions[sessionId] = sessionData;
+                console.log('[DIAGNOSIS] Stored in window.gameManager');
+            }
+            
+            // Wait a moment to ensure the data is properly stored
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            // Verify the session data is stored in both instances
+            const storedSessionImported = gameManager?.gameSessions?.[sessionId];
+            const storedSessionWindow = window.gameManager?.gameSessions?.[sessionId];
+            console.log('[DIAGNOSIS] Verified stored session (imported):', storedSessionImported);
+            console.log('[DIAGNOSIS] Verified stored session (window):', storedSessionWindow);
+            
+            // DIAGNOSIS: Check session state and determine which UI to show
+            if (sessionData.status === 'lobby') {
+                console.log('[DIAGNOSIS] Session is in LOBBY state - should show lobby UI');
+                // Hide main menu and show lobby
+                document.getElementById('main-menu').style.display = 'none';
+                showLobby();
+                // Ensure lobby display is updated after session data is available
+                setTimeout(() => updateLobbyDisplay(), 100);
+            } else if (sessionData.status === 'in-game') {
+                console.log('[DIAGNOSIS] Session is in IN-GAME state - should show game UI');
+                // Hide main menu and show game page
+                document.getElementById('main-menu').style.display = 'none';
+                document.getElementById('game-page').style.display = 'block';
+                showGameBoard();
+            } else {
+                console.log('[DIAGNOSIS] Session has unknown status:', sessionData.status, '- defaulting to lobby');
+                document.getElementById('main-menu').style.display = 'none';
+                showLobby();
+                // Ensure lobby display is updated after session data is available
+                setTimeout(() => updateLobbyDisplay(), 100);
+            }
+        } else {
+            console.log('[DIAGNOSIS] No session data found in Firebase - session may have been deleted');
+            // Clear invalid session and return to main menu
+            clearSession();
+            return false;
+        }
+    } catch (error) {
+        console.error('[DIAGNOSIS] Error retrieving session state from Firebase:', error);
+        // Fallback to previous behavior but with logging
+        console.log('[DIAGNOSIS] FALLBACK: Using previous behavior - showing game page without state check');
+        document.getElementById('main-menu').style.display = 'none';
+        document.getElementById('game-page').style.display = 'block';
+    }
     
     // Set up Firebase listener for session updates
     if (typeof setupFirebaseSessionListener === 'function') {
