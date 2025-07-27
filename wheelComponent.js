@@ -413,6 +413,7 @@ class WheelComponent {
 
     /**
      * Get available card types for a specific player, filtering out flip cards if they have no rule/modifier cards
+     * and swap cards if current player and at least one other player don't have cards
      * @param {string} playerId - The player ID to check
      * @returns {Array} - Array of available card types for this player
      */
@@ -430,10 +431,21 @@ class WheelComponent {
                 
                 if (!hasRulesOrModifiers) {
                     // Filter out flip cards (deckType5)
-                    availableTypes = this.cardTypes.filter(cardType => cardType.deckKey !== 'deckType5');
+                    availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType5');
                     console.log('[WHEEL] Player has no rules/modifiers, excluding flip cards. Available types:', availableTypes.map(t => t.name));
                 } else {
                     console.log('[WHEEL] Player has rules/modifiers, all card types available');
+                }
+                
+                // Check if swap cards should be available
+                const canUseSwapCard = this.canPlayerUseSwapCard(playerId);
+                
+                if (!canUseSwapCard) {
+                    // Filter out swap cards (deckType6)
+                    availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType6');
+                    console.log('[WHEEL] Swap card conditions not met, excluding swap cards. Available types:', availableTypes.map(t => t.name));
+                } else {
+                    console.log('[WHEEL] Swap card conditions met, swap cards available');
                 }
             } else {
                 console.log('[WHEEL] No game manager or player data available, using all card types');
@@ -444,6 +456,53 @@ class WheelComponent {
         }
         
         return availableTypes;
+    }
+
+    /**
+     * Check if a player can use swap cards - requires current player and at least one other player to have cards
+     * @param {string} playerId - The player ID to check
+     * @returns {boolean} - True if swap card can be used, false otherwise
+     */
+    canPlayerUseSwapCard(playerId) {
+        try {
+            if (!window.gameManager || !playerId) {
+                return false;
+            }
+
+            // Get current session ID
+            const sessionId = window.currentSessionId;
+            if (!sessionId || !window.gameManager.gameSessions[sessionId]) {
+                return false;
+            }
+
+            const session = window.gameManager.gameSessions[sessionId];
+            const currentPlayer = window.gameManager.players[playerId];
+
+            // Check if current player has any cards
+            if (!currentPlayer || !currentPlayer.hand || currentPlayer.hand.length === 0) {
+                console.log('[WHEEL] Current player has no cards, swap not available');
+                return false;
+            }
+
+            // Check if at least one other player has cards
+            let otherPlayersWithCards = 0;
+            for (const otherPlayerId of session.players) {
+                if (otherPlayerId !== playerId) {
+                    const otherPlayer = window.gameManager.players[otherPlayerId];
+                    if (otherPlayer && otherPlayer.hand && otherPlayer.hand.length > 0) {
+                        otherPlayersWithCards++;
+                    }
+                }
+            }
+
+            const canUseSwap = otherPlayersWithCards > 0;
+            console.log(`[WHEEL] Swap card availability check: current player has ${currentPlayer.hand.length} cards, ${otherPlayersWithCards} other players have cards, can use swap: ${canUseSwap}`);
+            
+            return canUseSwap;
+        } catch (error) {
+            console.error('[WHEEL] Error checking swap card availability:', error);
+            return false;
+        }
     }
 
     /**

@@ -1105,17 +1105,36 @@ export class CardManager {
             receivingPlayer.hand.push(cardToTransfer);
             
             // Update Firebase
-            await updateFirestorePlayerHand(sessionId, originalPlayerId, originalPlayer.hand);
-            await updateFirestorePlayerHand(sessionId, receivingPlayerId, receivingPlayer.hand);
+            await updateFirestorePlayerHand(originalPlayerId, originalPlayer.hand);
+            await updateFirestorePlayerHand(receivingPlayerId, receivingPlayer.hand);
             
             if (cardLocation === 'ruleCards') {
-                await updateFirestorePlayerRuleCards(sessionId, originalPlayerId, originalPlayer.ruleCards);
+                await updateFirestorePlayerRuleCards(originalPlayerId, originalPlayer.ruleCards);
             }
             
             console.log(`[CARD_MANAGER] Successfully swapped card ${cardId}`);
+            
+            // Create safe display info (handle both GameCard instances and plain objects)
+            let cardDisplayInfo;
+            if (cardToTransfer && typeof cardToTransfer.getDisplayInfo === 'function') {
+                cardDisplayInfo = cardToTransfer.getDisplayInfo();
+            } else {
+                // Fallback for plain objects from Firebase
+                cardDisplayInfo = {
+                    id: cardToTransfer.id,
+                    type: cardToTransfer.type,
+                    name: cardToTransfer.name,
+                    frontRule: cardToTransfer.frontRule || cardToTransfer.sideA,
+                    backRule: cardToTransfer.backRule || cardToTransfer.sideB,
+                    currentSide: cardToTransfer.currentSide || 'front',
+                    isFlipped: cardToTransfer.isFlipped || false,
+                    owner: cardToTransfer.owner
+                };
+            }
+            
             return {
                 success: true,
-                card: cardToTransfer.getDisplayInfo(),
+                card: cardDisplayInfo,
                 message: `Card transferred from ${originalPlayer.displayName || originalPlayerId} to ${receivingPlayer.displayName || receivingPlayerId}`
             };
             

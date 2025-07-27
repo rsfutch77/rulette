@@ -612,7 +612,7 @@ function showCloneCardModal(cloneCard) {
 /**
  * Populates the clone players container with available players and their cloneable cards
  */
-function populateClonePlayersContainer() {
+async function populateClonePlayersContainer() {
     const container = document.getElementById('clone-players-container');
     if (!container) {
         console.error("Clone players container not found");
@@ -621,40 +621,70 @@ function populateClonePlayersContainer() {
     
     container.innerHTML = '';
     
-    // Get current player and game manager
-    if (!window.gameManager || !window.gameManager.getCurrentPlayer) {
-        console.error("Game manager not available");
-        container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">Game manager not ready.</p>';
-        return;
-    }
-    
-    const currentPlayer = window.gameManager.getCurrentPlayer();
-    const sessionId = window.gameManager.currentSessionId;
-    
-    if (!currentPlayer || !sessionId) {
-        console.error("Current player or session not available");
-        container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">Player or session not ready.</p>';
-        return;
-    }
-    
-    // Get all players in the session except current player
-    const allPlayers = window.gameManager.players || {};
-    const otherPlayers = Object.values(allPlayers).filter(player =>
-        player.id !== currentPlayer.id && player.sessionId === sessionId
-    );
-    
-    if (otherPlayers.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">No other players available to clone from.</p>';
-        return;
-    }
-    
-    // Create player sections
-    otherPlayers.forEach(player => {
-        const playerSection = createPlayerSection(player);
-        if (playerSection) {
-            container.appendChild(playerSection);
+    try {
+        // Get current session and player info (same approach as swap modal)
+        const currentSessionId = window.currentSessionId;
+        const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+        
+        if (!currentSessionId) {
+            console.error('[CLONE_CARD] No current session ID available');
+            container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">No active session found.</p>';
+            return;
         }
-    });
+        
+        if (!currentUser) {
+            console.error('[CLONE_CARD] No current user available');
+            container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">User not authenticated.</p>';
+            return;
+        }
+        
+        // Get all players in the session
+        const { getFirestorePlayersInSession } = await import('./firebaseOperations.js');
+        const allPlayers = await getFirestorePlayersInSession(currentSessionId);
+        
+        console.log('[CLONE_CARD] All players retrieved:', allPlayers.length);
+        console.log('[CLONE_CARD] Current user ID:', currentUser.uid);
+        
+        // Filter out current player and get players with cloneable cards
+        const otherPlayers = allPlayers.filter(player => {
+            const isNotCurrentUser = player.id !== currentUser.uid;
+            const isActive = player.status === 'active';
+            
+            // Check for rule/modifier cards in both hand and ruleCards arrays
+            const hasCloneableHandCards = player.hand && Array.isArray(player.hand) &&
+                player.hand.some(card => card && (card.type === 'rule' || card.type === 'modifier'));
+            const hasCloneableRuleCards = player.ruleCards && Array.isArray(player.ruleCards) &&
+                player.ruleCards.some(card => card && (card.type === 'rule' || card.type === 'modifier'));
+            const hasCloneableCards = hasCloneableHandCards || hasCloneableRuleCards;
+            
+            console.log(`[CLONE_CARD] Filtering player ${player.displayName}:`, {
+                isNotCurrentUser,
+                isActive,
+                hasCloneableHandCards,
+                hasCloneableRuleCards,
+                hasCloneableCards
+            });
+            
+            return isNotCurrentUser && isActive && hasCloneableCards;
+        });
+        
+        if (otherPlayers.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">No other players with cloneable cards available.</p>';
+            return;
+        }
+        
+        // Create player sections
+        otherPlayers.forEach(player => {
+            const playerSection = createPlayerSection(player);
+            if (playerSection) {
+                container.appendChild(playerSection);
+            }
+        });
+        
+    } catch (error) {
+        console.error('[CLONE_CARD] Error populating clone players:', error);
+        container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">Error loading players.</p>';
+    }
 }
 
 /**
@@ -852,12 +882,12 @@ function executeCloneAction() {
     const { card: targetCard, player: targetPlayer } = window.selectedCloneTarget;
     const cloneCard = window.currentCloneCard;
     
-    // Get current player and session
-    const currentPlayer = window.gameManager.getCurrentPlayer();
-    const sessionId = window.gameManager.currentSessionId;
+    // Get current session and player info (same approach as swap modal)
+    const sessionId = window.currentSessionId;
+    const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
     
-    if (!currentPlayer || !sessionId) {
-        console.error("Current player or session not available");
+    if (!sessionId || !currentUser) {
+        console.error("Current user or session not available");
         return;
     }
     
@@ -868,7 +898,7 @@ function executeCloneAction() {
         try {
             const result = window.gameManager.cardManager.cloneCard(
                 sessionId,
-                currentPlayer.id,
+                currentUser.uid,
                 targetPlayer.id,
                 targetCard.id,
                 window.gameManager
