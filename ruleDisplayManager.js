@@ -35,6 +35,52 @@ export class RuleDisplayManager {
     }
 
     /**
+     * Set up event listeners for rule display interactions
+     */
+    setupEventListeners() {
+        // Listen for rule updates from the game manager
+        if (this.gameManager) {
+            // Set up listeners for rule changes, if gameManager supports events
+            // This is a placeholder for future event-driven updates
+            console.log('Rule display event listeners initialized');
+        }
+        
+        // Listen for window resize to adjust rule panel layout
+        window.addEventListener('resize', () => {
+            this.adjustRulePanelLayout();
+        });
+        
+        // Listen for rule panel toggle events
+        document.addEventListener('toggleRulesPanel', () => {
+            this.toggleRulesPanel();
+        });
+    }
+
+    /**
+     * Adjust rule panel layout on window resize
+     */
+    adjustRulePanelLayout() {
+        if (this.rulesPanel) {
+            // Responsive adjustments can be added here
+            console.log('Adjusting rule panel layout for window resize');
+        }
+    }
+
+    /**
+     * Toggle the visibility of the rules panel
+     */
+    toggleRulesPanel() {
+        if (this.rulesPanel) {
+            const isVisible = this.rulesPanel.style.display !== 'none';
+            if (isVisible) {
+                this.hideRulesPanel();
+            } else {
+                this.showRulesPanel();
+            }
+        }
+    }
+
+    /**
      * Start displaying rules for a session
      */
     startDisplayForSession(sessionId) {

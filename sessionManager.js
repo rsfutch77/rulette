@@ -15,13 +15,12 @@ import {
     getFirestoreSessionByShareableCode,
     getDevUID,
 } from './firebaseOperations.js';
-import { 
-    getCurrentUser, 
+import {
+    getCurrentUser,
     getCurrentUserId,
-    setCurrentPlayer,
-    getCurrentSessionId
+    setCurrentPlayer
 } from './playerSystem.js';
-import { showNotification } from './main.js';
+import { showNotification } from './lobbyUI.js';
 
 // Session Manager Class - Handles all session-related operations
 export class SessionManager {

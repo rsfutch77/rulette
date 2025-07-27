@@ -47,10 +47,18 @@ import { loadCardData } from './cardModels.js';
 import { WheelComponent } from './wheelComponent.js';
 import { GameManager } from './gameManager.js';
 
+// Import callout functionality
+import {
+    initCalloutEventHandlers,
+    initCardTransferEventHandlers
+} from './callout.js';
+
+// Import RuleDisplayManager
+import { RuleDisplayManager } from './ruleDisplayManager.js';
+
 // Instantiate GameManager and expose it globally
 window.gameManager = new GameManager();
 
-import { RuleDisplayManager } from './ruleDisplayManager.js';
 import {
   getCurrentUser,
   getCurrentUserId,
