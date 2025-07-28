@@ -10,12 +10,21 @@
  * - isFlipped: Boolean indicating if the card has been flipped from its default state
  */
 class GameCard {
-    constructor({ type, sideA, sideB = null, isClone = false, cloneSource = null, id = null, name = null, description = null, rules_for_referee = null, point_value = null, discard_rule_on_success = null, owner = null }) {
+    constructor({ type, sideA, sideB = null, frontRule = null, backRule = null, isClone = false, cloneSource = null, id = null, name = null, description = null, rules_for_referee = null, point_value = null, discard_rule_on_success = null, owner = null }) {
+        console.log(`[GAMECARD_CONSTRUCTOR] Input parameters:`, { type, sideA, sideB, frontRule, backRule });
+        
         this.type = type; // 'rule', 'prompt', 'modifier'
         
+        // Handle both legacy (sideA/sideB) and new (frontRule/backRule) property formats
+        // Priority: explicit frontRule/backRule > sideA/sideB
+        const resolvedFrontRule = frontRule || sideA;
+        const resolvedBackRule = backRule || sideB;
+        
+        console.log(`[GAMECARD_CONSTRUCTOR] Resolved rules:`, { resolvedFrontRule, resolvedBackRule });
+        
         // Front/Back rule properties for clear distinction
-        this.frontRule = sideA; // string - default/front rule or effect
-        this.backRule = sideB; // string or null - alternate/flipped rule or effect
+        this.frontRule = resolvedFrontRule; // string - default/front rule or effect
+        this.backRule = resolvedBackRule; // string or null - alternate/flipped rule or effect
         
         // Legacy properties maintained for backward compatibility
         this.sideA = sideA; // string
@@ -98,13 +107,27 @@ class GameCard {
      * Flip the card to the other side (only for rule and modifier cards)
      */
     flip() {
+        console.log(`[FLIP_METHOD] Attempting to flip card:`, {
+            id: this.id,
+            type: this.type,
+            frontRule: this.frontRule,
+            backRule: this.backRule,
+            currentSide: this.currentSide,
+            isFlipped: this.isFlipped,
+            hasBackRule: !!this.backRule,
+            backRuleType: typeof this.backRule,
+            backRuleValue: this.backRule
+        });
+        
         if (this.type === 'prompt') {
             console.warn('Cannot flip prompt cards - they only have front rules');
             return false;
         }
         
         if (!this.backRule) {
-            console.warn('Cannot flip card with no back rule defined');
+            console.warn(`[FLIP_METHOD] Cannot flip card with no back rule defined. backRule value:`, this.backRule);
+            console.warn(`[FLIP_METHOD] Card object properties:`, Object.keys(this));
+            console.warn(`[FLIP_METHOD] Full card object:`, this);
             return false;
         }
         

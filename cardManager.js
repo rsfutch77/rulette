@@ -1,5 +1,5 @@
 // CardManager.js
-// Card Manager subsystem for deck management, shuffling, discard piles, and draw logic
+// Card Manager subsystem for deck management, discard piles, and draw logic
 
 import { GameCard } from './cardModels.js';
 import {
@@ -14,6 +14,7 @@ export class CardManager {
         // deckDefinitions: { [deckType]: [cardData, ...] }
         this.decks = {};
         this.discardPiles = {};
+        // Initialize decks and discard piles
         for (const [deckType, cards] of Object.entries(deckDefinitions)) {
             this.decks[deckType] = this._shuffle(cards.map(card => {
                 return card instanceof GameCard ? card : new GameCard(card);
@@ -46,16 +47,6 @@ export class CardManager {
             throw error;
         }
         
-        // Edge case: Empty deck
-        if (this.decks[deckType].length === 0) {
-            this._reshuffle(deckType);
-            if (this.decks[deckType].length === 0) {
-                const error = new Error(`No cards left in deck or discard pile for "${deckType}"`);
-                error.code = 'DECK_EMPTY';
-                throw error;
-            }
-        }
-        
         const card = this.decks[deckType].pop();
         console.log(`[CARD_MANAGER] Drew card from ${deckType}:`, card.name || card.id);
         return card;
@@ -64,14 +55,6 @@ export class CardManager {
     discard(deckType, card) {
         if (!this.discardPiles[deckType]) throw new Error(`Discard pile for ${deckType} does not exist`);
         this.discardPiles[deckType].push(card);
-    }
-
-    _reshuffle(deckType) {
-        // Move discard pile back to deck and shuffle
-        if (this.discardPiles[deckType].length > 0) {
-            this.decks[deckType] = this._shuffle(this.discardPiles[deckType]);
-            this.discardPiles[deckType] = [];
-        }
     }
 
     getDeckTypes() {
@@ -785,11 +768,20 @@ export class CardManager {
         try {
             let card = null;
             let cardLocation = null;
+            
+            // Get player reference for all cases
+            const player = gameManager.players[playerId];
+            if (!player) {
+                return {
+                    success: false,
+                    error: 'Player not found',
+                    errorCode: 'PLAYER_NOT_FOUND'
+                };
+            }
 
             // Handle different card identifier types
             if (typeof cardIdentifier === 'string') {
                 // Find card by ID in player's hand or active rule cards
-                const player = gameManager.players[playerId];
                 console.log(`[CARD_MANAGER] Searching for card ${cardIdentifier} in player ${playerId}`);
                 console.log(`[CARD_MANAGER] Player hand has ${player.hand?.length || 0} cards:`, player.hand?.map(c => c.id) || []);
                 console.log(`[CARD_MANAGER] Player ruleCards has ${player.ruleCards?.length || 0} cards:`, player.ruleCards?.map(c => c.id) || []);
@@ -858,20 +850,25 @@ export class CardManager {
                 const { GameCard } = await import('./cardModels.js');
                 // Create a new GameCard instance from the plain object
                 const gameCardInstance = new GameCard(card);
-                // Update the card reference in the player's data
+                
+                // Update the card reference in the player's data based on location
                 if (cardLocation === 'hand') {
-                    const cardIndex = player.hand.findIndex(c => c.id === cardIdentifier);
+                    const cardIndex = player.hand.findIndex(c => c.id === card.id);
                     if (cardIndex !== -1) {
                         player.hand[cardIndex] = gameCardInstance;
-                        card = gameCardInstance;
+                        console.log(`[CARD_MANAGER] Updated card in player hand at index ${cardIndex}`);
                     }
                 } else if (cardLocation === 'ruleCards') {
-                    const cardIndex = player.ruleCards.findIndex(c => c.id === cardIdentifier);
+                    const cardIndex = player.ruleCards.findIndex(c => c.id === card.id);
                     if (cardIndex !== -1) {
                         player.ruleCards[cardIndex] = gameCardInstance;
-                        card = gameCardInstance;
+                        console.log(`[CARD_MANAGER] Updated card in player ruleCards at index ${cardIndex}`);
                     }
                 }
+                // For 'provided' cards, we don't need to update player arrays
+                
+                // Use the converted GameCard instance
+                card = gameCardInstance;
                 console.log(`[CARD_MANAGER] Card converted to GameCard instance:`, card instanceof GameCard);
             }
 

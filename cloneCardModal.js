@@ -1,6 +1,6 @@
 // cloneCardModal.js
 
-import { updateFirestorePlayerHand } from './firebaseOperations.js';
+import { updateFirestorePlayerRuleCards } from './firebaseOperations.js';
 
 /**
  * Shows the clone card modal and populates it with available players and their cards
@@ -380,12 +380,36 @@ async function executeCloneAction() {
                 
                 console.log(`[CLONE] Successfully cloned card:`, result.clone);
                 
-                // Update Firebase with the current player's updated hand
+                // Update Firebase with the current player's updated ruleCards
                 try {
                     const updatedPlayer = window.gameManager.players[currentPlayer.id];
-                    if (updatedPlayer && updatedPlayer.hand) {
-                        await updateFirestorePlayerHand(currentPlayer.id, updatedPlayer.hand);
-                        console.log(`[CLONE] Firebase updated with cloned card for player ${currentPlayer.id}`);
+                    if (updatedPlayer && updatedPlayer.ruleCards) {
+                        // Serialize GameCard objects to plain objects for Firebase
+                        const serializedRuleCards = updatedPlayer.ruleCards.map(card => {
+                            if (card && typeof card === 'object') {
+                                // Convert GameCard instance to plain object, filtering out undefined values
+                                const serializedCard = {};
+                                
+                                // Only include defined properties
+                                const properties = [
+                                    'id', 'type', 'text', 'name', 'currentRule',
+                                    'frontRule', 'backRule', 'isFlipped', 'isClone',
+                                    'originalCardId', 'clonedFromPlayer', 'currentSide'
+                                ];
+                                
+                                properties.forEach(prop => {
+                                    if (card[prop] !== undefined) {
+                                        serializedCard[prop] = card[prop];
+                                    }
+                                });
+                                
+                                return serializedCard;
+                            }
+                            return card;
+                        });
+                        
+                        await updateFirestorePlayerRuleCards(currentPlayer.id, serializedRuleCards);
+                        console.log(`[CLONE] Firebase updated with cloned rule card for player ${currentPlayer.id}`);
                     }
                 } catch (firebaseError) {
                     console.error(`[CLONE] Failed to update Firebase after clone:`, firebaseError);

@@ -126,7 +126,7 @@ function drawCardFromDeck(deckKey) {
         if (error.message.includes('does not exist')) {
             console.error('[CARD_DRAW] Deck type mapping error - check wheel cardTypes deckKey values');
         } else if (error.message.includes('No cards left')) {
-            console.warn('[CARD_DRAW] Deck is empty, attempting to reshuffle');
+            console.warn('[CARD_DRAW] Deck is empty');
         }
         
         return null;
