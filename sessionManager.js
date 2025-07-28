@@ -13,6 +13,7 @@ import {
     getFirestorePlayer,
     getFirestorePlayersInSession,
     getFirestoreSessionByShareableCode,
+    broadcastRuleCardUpdate,
     getDevUID,
 } from './firebaseOperations.js';
 import {
@@ -439,6 +440,23 @@ export class SessionManager {
 
         } catch (error) {
             console.error('[SESSION] Error broadcasting session state change:', error);
+        }
+    }
+
+    /**
+     * Broadcast rule card update to all players in a session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who received the new rule card
+     * @param {object} ruleCard - The rule card that was added
+     * @returns {Promise<void>}
+     */
+    async broadcastRuleCardUpdate(sessionId, playerId, ruleCard) {
+        try {
+            console.log(`[SESSION] Broadcasting rule card update for player ${playerId} in session ${sessionId}`);
+            await broadcastRuleCardUpdate(sessionId, playerId, ruleCard);
+            console.log(`[SESSION] Rule card update broadcast completed`);
+        } catch (error) {
+            console.error('[SESSION] Error broadcasting rule card update:', error);
         }
     }
 

@@ -512,6 +512,14 @@ export class CardManager {
                     await this.assignPlayerHand(sessionId, playerId, player.hand, gameManager);
                 }
 
+                // Broadcast rule card update to all players in the session
+                try {
+                    await gameManager.broadcastRuleCardUpdate(sessionId, playerId, ruleCard);
+                    console.log(`[CARD_MANAGER] Rule card update broadcasted for player ${playerId}`);
+                } catch (error) {
+                    console.error(`[CARD_MANAGER] Error broadcasting rule card update:`, error);
+                }
+
                 // Update rule displays automatically after adding rule card
                 try {
                     // Update current player's active rules display
@@ -585,6 +593,14 @@ export class CardManager {
                 if (!player.hand.find(c => c.id === modifierCard.id)) {
                     player.hand.push(modifierCard);
                     await this.assignPlayerHand(sessionId, playerId, player.hand, gameManager);
+                }
+
+                // Broadcast rule card update to all players in the session
+                try {
+                    await gameManager.broadcastRuleCardUpdate(sessionId, playerId, modifierCard);
+                    console.log(`[CARD_MANAGER] Modifier card update broadcasted for player ${playerId}`);
+                } catch (error) {
+                    console.error(`[CARD_MANAGER] Error broadcasting modifier card update:`, error);
                 }
 
                 // Update rule displays automatically after adding modifier card
@@ -746,6 +762,12 @@ export class CardManager {
         clone.setOwner(playerId);
         
         gameManager.players[playerId].hand.push(clone);
+        
+        // Also add cloned cards to ruleCards array for Firebase storage
+        if (!gameManager.players[playerId].ruleCards) {
+            gameManager.players[playerId].ruleCards = [];
+        }
+        gameManager.players[playerId].ruleCards.push(clone);
 
         if (!gameManager.cloneMap[originalCard.id]) gameManager.cloneMap[originalCard.id] = [];
         gameManager.cloneMap[originalCard.id].push({ ownerId: playerId, cloneId: clone.id });

@@ -250,6 +250,42 @@ async function getFirestoreSessionByShareableCode(shareableCode) {
   }
 }
 
+/**
+ * Broadcast rule card update to all players in a session
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player who received the new rule card
+ * @param {object} ruleCard - The rule card that was added
+ * @returns {Promise<void>}
+ */
+async function broadcastRuleCardUpdate(sessionId, playerId, ruleCard) {
+  try {
+    const ruleCardUpdateEvent = {
+      type: 'rule_card_update',
+      sessionId,
+      playerId,
+      ruleCard: {
+        id: ruleCard.id,
+        name: ruleCard.name,
+        type: ruleCard.type,
+        isFlipped: ruleCard.isFlipped || false
+      },
+      timestamp: Date.now()
+    };
+
+    // Update session document with the rule card update event
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, {
+      lastRuleCardUpdate: ruleCardUpdateEvent,
+      lastUpdated: new Date().toISOString()
+    });
+
+    console.log("[FIRESTORE] Rule card update broadcasted:", ruleCardUpdateEvent);
+  } catch (error) {
+    console.error("[FIRESTORE] Error broadcasting rule card update:", error);
+    throw error;
+  }
+}
+
 // Export all Firebase functions
 export {
   createFirestoreGameSession,
@@ -265,5 +301,6 @@ export {
   getFirestorePlayer,
   getFirestorePlayersInSession,
   getFirestoreSessionByShareableCode,
+  broadcastRuleCardUpdate,
   getDevUID
 };

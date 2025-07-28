@@ -580,7 +580,6 @@ function createRuleCardElement(card) {
     <div class="player-rule-card-item">
       <span class="card-icon">${icon}</span>
       <span class="card-name">${cardText}</span>
-      <span class="card-type">(${card.type.replace('_', ' ')})</span>
     </div>
   `;
 }

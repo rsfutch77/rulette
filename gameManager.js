@@ -771,6 +771,17 @@ export class GameManager {
         return await this.sessionManager.broadcastSessionStateChange(sessionId, stateChangeEvent);
     }
 
+    /**
+     * Broadcast rule card update to all players in a session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who received the new rule card
+     * @param {object} ruleCard - The rule card that was added
+     * @returns {Promise<void>}
+     */
+    async broadcastRuleCardUpdate(sessionId, playerId, ruleCard) {
+        return await this.sessionManager.broadcastRuleCardUpdate(sessionId, playerId, ruleCard);
+    }
+
     triggerSessionStateChangeEvent(sessionId, stateChangeEvent) {
         return this.sessionManager.triggerSessionStateChangeEvent(sessionId, stateChangeEvent);
     }

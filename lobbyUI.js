@@ -1209,6 +1209,40 @@ async function setupFirebaseSessionListener() {
                         }
                     }
                     
+                    // Check for rule card updates
+                    if (sessionData.lastRuleCardUpdate) {
+                        const ruleCardUpdate = sessionData.lastRuleCardUpdate;
+                        console.log('[FIREBASE_LISTENER] Rule card update detected:', ruleCardUpdate);
+                        
+                        // Only process if this is a new update (check timestamp)
+                        const lastProcessedUpdate = window.lastProcessedRuleCardUpdate || 0;
+                        if (ruleCardUpdate.timestamp > lastProcessedUpdate) {
+                            console.log('[FIREBASE_LISTENER] Processing new rule card update');
+                            window.lastProcessedRuleCardUpdate = ruleCardUpdate.timestamp;
+                            
+                            // Refresh rule display for all players
+                            if (typeof window.refreshRuleDisplay === 'function') {
+                                window.refreshRuleDisplay();
+                                console.log('[FIREBASE_LISTENER] Rule display refreshed for all players');
+                            }
+                            
+                            // Update rule cards list display
+                            if (typeof window.updatePlayerRuleCards === 'function') {
+                                window.updatePlayerRuleCards(sessionId);
+                                console.log('[FIREBASE_LISTENER] Player rule cards display updated');
+                            }
+                            
+                            // Show notification about the rule card update
+                            if (typeof window.showNotification === 'function') {
+                                const playerName = ruleCardUpdate.playerId === window.currentUser?.uid ? 'You' : 'A player';
+                                const cardName = ruleCardUpdate.ruleCard?.name || 'rule card';
+                                window.showNotification(`${playerName} received a new ${cardName}`, 'Rule Update');
+                            }
+                        } else {
+                            console.log('[FIREBASE_LISTENER] Skipping rule card update (already processed)');
+                        }
+                    }
+                    
                     // Trigger UI changes if state changed OR if player list changed
                     if (previousState !== newState || playersChanged) {
                         console.log('[FIREBASE_LISTENER] Triggering UI update - State changed:', previousState !== newState, 'Players changed:', playersChanged);

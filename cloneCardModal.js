@@ -41,6 +41,10 @@ function hideCloneCardModal() {
     // Clean up stored data
     window.currentCloneCard = null;
     window.selectedCloneTarget = null;
+    
+    // Clear the last drawn card to prevent stale data for turn management
+    window.lastDrawnCard = null;
+    console.log("[CLONE] Cleared lastDrawnCard data on modal close");
 }
 
 /**
@@ -379,6 +383,16 @@ async function executeCloneAction() {
                 hideCloneCardModal();
                 
                 console.log(`[CLONE] Successfully cloned card:`, result.clone);
+                
+                // Advance to next turn after successful clone
+                if (window.completeTurn) {
+                    console.log(`[CLONE] Advancing turn after successful clone action`);
+                    setTimeout(async () => {
+                        await window.completeTurn(sessionId);
+                    }, 1000); // Brief delay to allow UI updates
+                } else {
+                    console.warn(`[CLONE] completeTurn function not available`);
+                }
                 
                 // Update Firebase with the current player's updated ruleCards
                 try {
