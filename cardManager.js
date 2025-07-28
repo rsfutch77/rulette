@@ -739,9 +739,20 @@ export class CardManager {
         }
 
         console.log(`[CLONE_DEBUG] Target player ${targetPlayerId} hand:`, targetPlayer.hand?.map(c => ({ id: c.id, type: c.type })));
-        const originalCard = targetPlayer.hand.find(c => c.id === targetCardId);
+        console.log(`[CLONE_DEBUG] Target player ${targetPlayerId} ruleCards:`, targetPlayer.ruleCards?.map(c => ({ id: c.id, type: c.type })));
+        
+        // Search in both hand and ruleCards arrays
+        let originalCard = targetPlayer.hand.find(c => c.id === targetCardId);
+        if (!originalCard && targetPlayer.ruleCards) {
+            console.log(`[CLONE_DEBUG] Card not found in hand, searching ruleCards array...`);
+            originalCard = targetPlayer.ruleCards.find(c => c.id === targetCardId);
+            if (originalCard) {
+                console.log(`[CLONE_DEBUG] Card ${targetCardId} found in ruleCards array`);
+            }
+        }
         if (!originalCard) {
-            console.error(`[CLONE_DEBUG] Card ${targetCardId} not found in target player ${targetPlayerId} hand. Available cards:`, targetPlayer.hand?.map(c => c.id));
+            console.error(`[CLONE_DEBUG] Card ${targetCardId} not found in target player ${targetPlayerId}. Hand cards:`, targetPlayer.hand?.map(c => c.id));
+            console.error(`[CLONE_DEBUG] RuleCards:`, targetPlayer.ruleCards?.map(c => c.id));
             return { success: false, error: 'Card not found for target player', errorCode: 'CARD_NOT_FOUND' };
         }
 
@@ -830,6 +841,38 @@ export class CardManager {
                     error: 'Card has no alternate side to flip to',
                     errorCode: 'NO_BACK_RULE'
                 };
+            }
+
+            // Add diagnostic logging to understand card object structure
+            console.log(`[CARD_MANAGER] Card object type:`, typeof card);
+            console.log(`[CARD_MANAGER] Card constructor:`, card?.constructor?.name);
+            console.log(`[CARD_MANAGER] Card has flip method:`, typeof card?.flip === 'function');
+            console.log(`[CARD_MANAGER] Card instanceof GameCard:`, card instanceof GameCard);
+            console.log(`[CARD_MANAGER] Card object keys:`, Object.keys(card || {}));
+            console.log(`[CARD_MANAGER] Card object:`, card);
+
+            // Check if card is a plain object and needs to be converted to GameCard instance
+            if (!(card instanceof GameCard)) {
+                console.log(`[CARD_MANAGER] Converting plain object to GameCard instance`);
+                // Import GameCard class
+                const { GameCard } = await import('./cardModels.js');
+                // Create a new GameCard instance from the plain object
+                const gameCardInstance = new GameCard(card);
+                // Update the card reference in the player's data
+                if (cardLocation === 'hand') {
+                    const cardIndex = player.hand.findIndex(c => c.id === cardIdentifier);
+                    if (cardIndex !== -1) {
+                        player.hand[cardIndex] = gameCardInstance;
+                        card = gameCardInstance;
+                    }
+                } else if (cardLocation === 'ruleCards') {
+                    const cardIndex = player.ruleCards.findIndex(c => c.id === cardIdentifier);
+                    if (cardIndex !== -1) {
+                        player.ruleCards[cardIndex] = gameCardInstance;
+                        card = gameCardInstance;
+                    }
+                }
+                console.log(`[CARD_MANAGER] Card converted to GameCard instance:`, card instanceof GameCard);
             }
 
             // Attempt to flip the card

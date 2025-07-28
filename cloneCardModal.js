@@ -1,5 +1,7 @@
 // cloneCardModal.js
 
+import { updateFirestorePlayerHand } from './firebaseOperations.js';
+
 /**
  * Shows the clone card modal and populates it with available players and their cards
  * @param {Object} cloneCard - The clone card that was drawn
@@ -59,19 +61,45 @@ function populateClonePlayersContainer() {
         return;
     }
     
-    const currentPlayer = window.gameManager.getCurrentPlayer();
-    const sessionId = window.gameManager.currentSessionId;
+    const sessionId = window.currentSessionId;
+    if (!sessionId) {
+        console.error("Session not available");
+        return;
+    }
     
-    if (!currentPlayer || !sessionId) {
-        console.error("Current player or session not available");
+    const currentPlayer = window.gameManager.getCurrentPlayer(sessionId);
+    if (!currentPlayer) {
+        console.error("Current player not available");
         return;
     }
     
     // Get all players in the session except current player
     const allPlayers = window.gameManager.players || {};
-    const otherPlayers = Object.values(allPlayers).filter(player => 
-        player.id !== currentPlayer.id && player.sessionId === sessionId
-    );
+    console.log(`[CLONE_DEBUG] All players:`, allPlayers);
+    console.log(`[CLONE_DEBUG] Current player ID: ${currentPlayer}`);
+    console.log(`[CLONE_DEBUG] Session ID: ${sessionId}`);
+    
+    const otherPlayers = Object.values(allPlayers).filter(player => {
+        if (!player || !player.playerId) {
+            console.warn(`[CLONE_DEBUG] Invalid player object:`, player);
+            return false;
+        }
+        
+        console.log(`[CLONE_DEBUG] Checking player ${player.playerId}:`);
+        console.log(`[CLONE_DEBUG] - player.playerId: ${player.playerId}`);
+        console.log(`[CLONE_DEBUG] - currentPlayer: ${currentPlayer}`);
+        console.log(`[CLONE_DEBUG] - playerId match: ${player.playerId !== currentPlayer}`);
+        
+        const isOtherPlayer = player.playerId !== currentPlayer;
+        
+        console.log(`[CLONE_DEBUG] - Final result: ${isOtherPlayer}`);
+        
+        // Since window.gameManager.players should only contain players from current session,
+        // we only need to filter out the current player
+        return isOtherPlayer;
+    });
+    
+    console.log(`[CLONE_DEBUG] Other players found: ${otherPlayers.length}`, otherPlayers);
     
     if (otherPlayers.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">No other players available to clone from.</p>';
@@ -144,20 +172,27 @@ function createPlayerSection(player) {
 function getCloneableCards(player) {
     const cards = [];
     
-    // Add rule cards
+    console.log(`[CLONE_DEBUG] Getting cloneable cards for player:`, player);
+    
+    // Add rule cards (legacy support)
     if (player.ruleCards && Array.isArray(player.ruleCards)) {
-        cards.push(...player.ruleCards.filter(card => 
+        const ruleCards = player.ruleCards.filter(card =>
             card && (card.type === 'rule' || card.type === 'modifier')
-        ));
+        );
+        console.log(`[CLONE_DEBUG] Found ${ruleCards.length} rule cards from ruleCards array`);
+        cards.push(...ruleCards);
     }
     
     // Add cards from hand that are rule or modifier type
     if (player.hand && Array.isArray(player.hand)) {
-        cards.push(...player.hand.filter(card => 
+        const handCards = player.hand.filter(card =>
             card && (card.type === 'rule' || card.type === 'modifier')
-        ));
+        );
+        console.log(`[CLONE_DEBUG] Found ${handCards.length} rule/modifier cards from hand array`);
+        cards.push(...handCards);
     }
     
+    console.log(`[CLONE_DEBUG] Total cloneable cards: ${cards.length}`, cards);
     return cards;
 }
 
@@ -273,7 +308,7 @@ function updateCloneConfirmButton() {
 /**
  * Executes the clone action
  */
-function executeCloneAction() {
+async function executeCloneAction() {
     if (!window.selectedCloneTarget || !window.currentCloneCard) {
         console.error("No clone target selected or clone card missing");
         return;
@@ -283,12 +318,29 @@ function executeCloneAction() {
     const cloneCard = window.currentCloneCard;
     
     // Get current player and session
-    const sessionId = window.gameManager.currentSessionId;
+    const sessionId = window.currentSessionId;
     console.log(`[CLONE_DEBUG] Session ID: ${sessionId}`);
     console.log(`[CLONE_DEBUG] Current turn data:`, window.gameManager.currentTurn[sessionId]);
     
     const currentPlayer = window.gameManager.getCurrentPlayer(sessionId);
     console.log(`[CLONE_DEBUG] Current player: ${currentPlayer}`);
+    console.log(`[CLONE_DEBUG] Current player type: ${typeof currentPlayer}`);
+    console.log(`[CLONE_DEBUG] Current player structure:`, currentPlayer);
+    console.log(`[CLONE_DEBUG] Current player.id:`, currentPlayer?.id);
+    console.log(`[CLONE_DEBUG] Current player.playerId:`, currentPlayer?.playerId);
+    
+    // Add diagnostic logging for targetPlayer
+    console.log(`[CLONE_DEBUG] Target player: ${targetPlayer}`);
+    console.log(`[CLONE_DEBUG] Target player type: ${typeof targetPlayer}`);
+    console.log(`[CLONE_DEBUG] Target player structure:`, targetPlayer);
+    console.log(`[CLONE_DEBUG] Target player.id:`, targetPlayer?.id);
+    console.log(`[CLONE_DEBUG] Target player.playerId:`, targetPlayer?.playerId);
+    
+    // Ensure targetPlayer has an id property for compatibility
+    if (targetPlayer && !targetPlayer.id && targetPlayer.playerId) {
+        targetPlayer.id = targetPlayer.playerId;
+        console.log(`[CLONE_DEBUG] Fixed targetPlayer.id to: ${targetPlayer.id}`);
+    }
     
     if (!currentPlayer || !sessionId) {
         console.error("Current player or session not available");
@@ -327,6 +379,18 @@ function executeCloneAction() {
                 hideCloneCardModal();
                 
                 console.log(`[CLONE] Successfully cloned card:`, result.clone);
+                
+                // Update Firebase with the current player's updated hand
+                try {
+                    const updatedPlayer = window.gameManager.players[currentPlayer.id];
+                    if (updatedPlayer && updatedPlayer.hand) {
+                        await updateFirestorePlayerHand(currentPlayer.id, updatedPlayer.hand);
+                        console.log(`[CLONE] Firebase updated with cloned card for player ${currentPlayer.id}`);
+                    }
+                } catch (firebaseError) {
+                    console.error(`[CLONE] Failed to update Firebase after clone:`, firebaseError);
+                    // Don't fail the entire operation if Firebase update fails
+                }
             } else {
                 console.error("[CLONE] Failed to clone card:", result.error);
                 if (window.showNotification) {

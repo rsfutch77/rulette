@@ -49,11 +49,12 @@ h1 { margin-bottom: 1.5rem; }
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   position: relative;
   overflow: hidden;
-  transition: all 0.15s ease-in-out;
+  transition: all 0.5s ease-in-out;
 }
 
 #wheel.spinning {
-  animation: flashColors 0.1s infinite;
+  /* Removed CSS animation - JavaScript will handle color changes */
+  transition: none; /* Disable transitions during spinning to prevent fast visual effects */
 }
 
 @keyframes flashColors {
@@ -67,11 +68,12 @@ h1 { margin-bottom: 1.5rem; }
 }
 
 #wheel-text {
-  transition: all 0.15s ease-in-out;
+  transition: all 0.5s ease-in-out;
 }
 
 #wheel.spinning #wheel-text {
-  animation: flashText 0.1s infinite;
+  /* Removed CSS animation - JavaScript will handle text changes */
+  transition: none; /* Disable transitions during spinning to prevent fast visual effects */
 }
 
 @keyframes flashText {

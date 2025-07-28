@@ -257,7 +257,7 @@ class WheelComponent {
                 }
                 
                 currentFlashIndex++;
-            }, 100); // Flash every 100ms
+            }, 600); // Flash every 600ms (matches CSS animation timing)
             
             // Stop flashing after 3 seconds and show result
             setTimeout(() => {
@@ -426,8 +426,8 @@ class WheelComponent {
             if (window.gameManager && playerId && window.gameManager.players[playerId]) {
                 const player = window.gameManager.players[playerId];
                 
-                // Check if player has rule or modifier cards using the same logic as cardDraw.js
-                const hasRulesOrModifiers = this.playerHasRulesOrModifiers(player.hand);
+                // Check if player has rule or modifier cards in both hand and ruleCards arrays
+                const hasRulesOrModifiers = this.playerHasRulesOrModifiers(player);
                 
                 if (!hasRulesOrModifiers) {
                     // Filter out flip cards (deckType5)
@@ -590,16 +590,37 @@ class WheelComponent {
     }
 
     /**
-     * Check if a player's hand contains any 'rule' or 'modifier' cards
-     * Same logic as in cardDraw.js
-     * @param {Array<Object>} playerHand - The array of card objects in the player's hand
+     * Check if a player has any 'rule' or 'modifier' cards in either hand or ruleCards arrays
+     * Updated to check both arrays to maintain consistency with rest of codebase
+     * @param {Object} player - The player object containing hand and ruleCards arrays
      * @returns {boolean} - True if the player has at least one rule or modifier card, false otherwise
      */
-    playerHasRulesOrModifiers(playerHand) {
-        if (!playerHand || !Array.isArray(playerHand)) {
+    playerHasRulesOrModifiers(player) {
+        if (!player) {
             return false;
         }
-        return playerHand.some(card => card.type === 'rule' || card.type === 'modifier');
+
+        // Check hand array for rule or modifier cards
+        if (player.hand && Array.isArray(player.hand)) {
+            const hasRuleCardsInHand = player.hand.some(card =>
+                card && (card.type === 'rule' || card.type === 'modifier')
+            );
+            if (hasRuleCardsInHand) {
+                return true;
+            }
+        }
+
+        // Check ruleCards array for rule or modifier cards
+        if (player.ruleCards && Array.isArray(player.ruleCards)) {
+            const hasRuleCardsInRuleCards = player.ruleCards.some(card =>
+                card && (card.type === 'rule' || card.type === 'modifier')
+            );
+            if (hasRuleCardsInRuleCards) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }

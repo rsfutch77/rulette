@@ -305,7 +305,7 @@ function judgePrompt(sessionId, refereeId, successful) {
         }
         
         // Update UI displays
-        updateTurnUI();
+        updateTurnUI(sessionId);
         updateActiveRulesDisplay();
     }, 1500); // 1.5 second delay to show completion status
 }

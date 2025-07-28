@@ -2421,7 +2421,22 @@ export class GameManager {
      */
     getCurrentPlayer(sessionId) {
         const turn = this.currentTurn[sessionId];
-        return turn ? turn.currentPlayerId : null;
+        if (!turn || !turn.currentPlayerId) {
+            return null;
+        }
+        
+        // Return the actual player object, not just the ID
+        const player = this.players[turn.currentPlayerId];
+        if (!player) {
+            console.warn(`[GAME_MANAGER] Player ${turn.currentPlayerId} not found in players registry`);
+            return null;
+        }
+        
+        // Ensure the player object has an 'id' property for compatibility
+        return {
+            ...player,
+            id: player.playerId || turn.currentPlayerId
+        };
     }
 
     /**
@@ -3123,6 +3138,148 @@ export class GameManager {
         
         // Delegate to CardManager
         return this.cardManager.activatePromptCard(sessionId, playerId, promptCard, this);
+    }
+
+    /**
+     * Complete a prompt challenge (when player finishes the prompt)
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player ID who completed the prompt
+     * @returns {object} - {success: boolean, result?: object, error?: string}
+     */
+    completePrompt(sessionId, playerId) {
+        console.log(`[GAME_MANAGER] Player ${playerId} completed prompt in session ${sessionId}`);
+        
+        // Validate session and player
+        if (!this.gameSessions[sessionId]) {
+            return {
+                success: false,
+                error: 'Session not found'
+            };
+        }
+
+        if (!this.players[playerId]) {
+            return {
+                success: false,
+                error: 'Player not found'
+            };
+        }
+
+        // Check if there's an active prompt for this session
+        if (!this.activePrompts[sessionId]) {
+            return {
+                success: false,
+                error: 'No active prompt found for this session'
+            };
+        }
+
+        const promptState = this.activePrompts[sessionId];
+        
+        // Verify the player completing the prompt is the one who drew it
+        if (promptState.playerId !== playerId) {
+            return {
+                success: false,
+                error: 'Only the player who drew the prompt can complete it'
+            };
+        }
+
+        // Update prompt status to completed (awaiting referee judgment)
+        promptState.status = 'completed';
+        promptState.completedAt = Date.now();
+
+        console.log(`[GAME_MANAGER] Prompt completed by ${playerId}, awaiting referee judgment`);
+
+        return {
+            success: true,
+            result: {
+                playerId: playerId,
+                promptState: promptState,
+                status: 'awaiting_judgment'
+            }
+        };
+    }
+
+    /**
+     * Judge a prompt challenge (referee decision)
+     * @param {string} sessionId - The session ID
+     * @param {string} refereeId - The referee ID making the judgment
+     * @param {boolean} successful - Whether the prompt was successful
+     * @returns {object} - {success: boolean, result?: object, error?: string}
+     */
+    judgePrompt(sessionId, refereeId, successful) {
+        console.log(`[GAME_MANAGER] Referee ${refereeId} judging prompt in session ${sessionId} as ${successful ? 'successful' : 'unsuccessful'}`);
+        
+        // Validate session
+        if (!this.gameSessions[sessionId]) {
+            return {
+                success: false,
+                error: 'Session not found'
+            };
+        }
+
+        // Check if there's an active prompt for this session
+        if (!this.activePrompts[sessionId]) {
+            return {
+                success: false,
+                error: 'No active prompt found for this session'
+            };
+        }
+
+        const promptState = this.activePrompts[sessionId];
+        const playerId = promptState.playerId;
+        const player = this.players[playerId];
+
+        if (!player) {
+            return {
+                success: false,
+                error: 'Player not found'
+            };
+        }
+
+        // Calculate points awarded
+        const pointValue = promptState.promptCard.point_value || promptState.promptCard.pointValue || 1;
+        let pointsAwarded = 0;
+        let requiresCardDiscard = false;
+
+        if (successful) {
+            pointsAwarded = pointValue;
+            player.points = (player.points || 0) + pointsAwarded;
+            
+            // Check if player should discard a rule card (if they have 5+ rule/modifier cards)
+            const ruleAndModifierCards = player.hand.filter(card =>
+                card.type === 'rule' || card.type === 'modifier'
+            );
+            
+            if (ruleAndModifierCards.length >= 5) {
+                requiresCardDiscard = true;
+            }
+
+            console.log(`[GAME_MANAGER] Player ${playerId} earned ${pointsAwarded} points for successful prompt`);
+        } else {
+            console.log(`[GAME_MANAGER] Player ${playerId} did not earn points for unsuccessful prompt`);
+        }
+
+        // Update prompt status to finished
+        promptState.status = 'finished';
+        promptState.successful = successful;
+        promptState.pointsAwarded = pointsAwarded;
+        promptState.judgedAt = Date.now();
+        promptState.refereeId = refereeId;
+
+        // Clean up the active prompt
+        delete this.activePrompts[sessionId];
+
+        console.log(`[GAME_MANAGER] Prompt judgment complete`);
+
+        return {
+            success: true,
+            result: {
+                playerId: playerId,
+                successful: successful,
+                pointsAwarded: pointsAwarded,
+                requiresCardDiscard: requiresCardDiscard,
+                promptState: promptState
+            }
+        };
     }
 }
 

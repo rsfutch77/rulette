@@ -57,6 +57,9 @@ let ruleDisplayManager = null;
 let cardManager = null;
 let cardManagerInitialized = false;
 
+// Global variable to track the last drawn card for turn management
+window.lastDrawnCard = null;
+
 // DEV ONLY - Helper for managing a local dev UID for localhost testing
 function getDevUID() {
   if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
@@ -143,11 +146,16 @@ function isDevEnvironment() {
     }
     
     // Advance to next player's turn after spin completes
-    // Get current session ID (this would be stored globally in a real implementation)
+    // Skip turn advancement for prompt cards - they advance when completed
     const currentSessionId = window.currentSessionId;
     if (currentSessionId) {
       setTimeout(async () => {
-        await completeTurn(currentSessionId);
+        if (!checkIfPromptCardDrawn()) {
+          console.log("[WHEEL] Regular card drawn, advancing turn automatically");
+          await completeTurn(currentSessionId);
+        } else {
+          console.log("[WHEEL] Prompt or clone card drawn, skipping automatic turn advancement");
+        }
       }, 2000); // Give time for card draw to complete
     }
   });
@@ -1211,6 +1219,9 @@ function disableWheelForNonCurrentPlayer() {
   console.log("[TURN_UI] Wheel disabled for non-current player");
 }
 
+// Expose function globally for access from other scripts
+window.disableWheelForNonCurrentPlayer = disableWheelForNonCurrentPlayer;
+
 // Function to initialize turn management for a session
 function initializeTurnManagement(sessionId, playerIds) {
   if (!gameManager) {
@@ -1277,6 +1288,33 @@ window.advanceTurn = advanceTurn;
 window.updateTurnUI = updateTurnUI;
 window.initializeTurnManagement = initializeTurnManagement;
 window.completeTurn = completeTurn;
+
+/**
+ * Check if the last drawn card requires manual turn advancement (prompt or clone cards)
+ * @returns {boolean} - True if a prompt or clone card was drawn, false otherwise
+ */
+function checkIfPromptCardDrawn() {
+  if (!window.lastDrawnCard) {
+    console.log("[TURN_MGMT] No card data available for turn management check");
+    return false;
+  }
+  
+  const isPromptCard = window.lastDrawnCard.type === 'prompt';
+  const isCloneCard = window.lastDrawnCard.type === 'clone';
+  const requiresManualAdvancement = isPromptCard || isCloneCard;
+  
+  console.log("[TURN_MGMT] Checking if manual turn advancement required:", {
+    cardType: window.lastDrawnCard.type,
+    isPromptCard: isPromptCard,
+    isCloneCard: isCloneCard,
+    requiresManualAdvancement: requiresManualAdvancement
+  });
+  
+  return requiresManualAdvancement;
+}
+
+// Expose the prompt card check function
+window.checkIfPromptCardDrawn = checkIfPromptCardDrawn;
 
 
 // ===== EDGE CASES AND ERROR HANDLING =====
