@@ -504,7 +504,13 @@ export class CardManager {
                     player.ruleCards.push(ruleCard);
                     console.log(`[DEBUG] Player ${playerId} ruleCards after adding:`, player.ruleCards);
                     // Persist the updated ruleCards to Firebase
-                    await updateFirestorePlayerRuleCards(playerId, player.ruleCards);
+                    try {
+                        console.log(`[DEBUG] Calling updateFirestorePlayerRuleCards for player ${playerId} with:`, player.ruleCards);
+                        await updateFirestorePlayerRuleCards(playerId, player.ruleCards);
+                        console.log(`[DEBUG] Successfully updated Firebase ruleCards for player ${playerId}`);
+                    } catch (error) {
+                        console.error(`[DEBUG] Error updating Firebase ruleCards for player ${playerId}:`, error);
+                    }
                 }
                 // Also add to hand if it's not there (for display purposes, if needed elsewhere)
                 if (!player.hand.find(c => c.id === ruleCard.id)) {
@@ -587,7 +593,13 @@ export class CardManager {
                     player.ruleCards.push(modifierCard);
                     console.log(`[DEBUG] Player ${playerId} ruleCards after adding modifier:`, player.ruleCards);
                     // Persist the updated ruleCards to Firebase
-                    await updateFirestorePlayerRuleCards(playerId, player.ruleCards);
+                    try {
+                        console.log(`[DEBUG] Calling updateFirestorePlayerRuleCards for modifier card - player ${playerId} with:`, player.ruleCards);
+                        await updateFirestorePlayerRuleCards(playerId, player.ruleCards);
+                        console.log(`[DEBUG] Successfully updated Firebase ruleCards for modifier card - player ${playerId}`);
+                    } catch (error) {
+                        console.error(`[DEBUG] Error updating Firebase ruleCards for modifier card - player ${playerId}:`, error);
+                    }
                 }
                 // Also add to hand if it's not there (for display purposes, if needed elsewhere)
                 if (!player.hand.find(c => c.id === modifierCard.id)) {

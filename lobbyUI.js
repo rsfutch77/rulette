@@ -1136,7 +1136,7 @@ async function setupFirebaseSessionListener() {
         // Set up real-time listener for session document
         const sessionRef = doc(db, 'gameSessions', sessionId);
         
-        const unsubscribe = onSnapshot(sessionRef, (docSnapshot) => {
+        const unsubscribe = onSnapshot(sessionRef, async (docSnapshot) => {
             if (docSnapshot.exists()) {
                 const sessionData = docSnapshot.data();
                 console.log('[FIREBASE_LISTENER] Session state changed:', sessionData);
@@ -1216,20 +1216,41 @@ async function setupFirebaseSessionListener() {
                         
                         // Only process if this is a new update (check timestamp)
                         const lastProcessedUpdate = window.lastProcessedRuleCardUpdate || 0;
+                        console.log('[FIREBASE_LISTENER] Comparing timestamps - new:', ruleCardUpdate.timestamp, 'last processed:', lastProcessedUpdate);
+                        
                         if (ruleCardUpdate.timestamp > lastProcessedUpdate) {
-                            console.log('[FIREBASE_LISTENER] Processing new rule card update');
+                            console.log('[FIREBASE_LISTENER] Processing new rule card update for player:', ruleCardUpdate.playerId);
                             window.lastProcessedRuleCardUpdate = ruleCardUpdate.timestamp;
+                            
+                            // First, reload player data from Firebase to get the updated rule cards
+                            try {
+                                console.log('[FIREBASE_LISTENER] Reloading player data from Firebase...');
+                                if (gameManager && gameManager.playerManager && typeof gameManager.playerManager.loadExistingPlayersInSession === 'function') {
+                                    await gameManager.playerManager.loadExistingPlayersInSession(sessionId);
+                                    console.log('[FIREBASE_LISTENER] Player data reloaded successfully');
+                                } else {
+                                    console.warn('[FIREBASE_LISTENER] PlayerManager or loadExistingPlayersInSession not available');
+                                }
+                            } catch (error) {
+                                console.error('[FIREBASE_LISTENER] Error reloading player data:', error);
+                            }
                             
                             // Refresh rule display for all players
                             if (typeof window.refreshRuleDisplay === 'function') {
+                                console.log('[FIREBASE_LISTENER] Calling refreshRuleDisplay...');
                                 window.refreshRuleDisplay();
                                 console.log('[FIREBASE_LISTENER] Rule display refreshed for all players');
+                            } else {
+                                console.warn('[FIREBASE_LISTENER] refreshRuleDisplay function not available');
                             }
                             
                             // Update rule cards list display
                             if (typeof window.updatePlayerRuleCards === 'function') {
+                                console.log('[FIREBASE_LISTENER] Calling updatePlayerRuleCards for session:', sessionId);
                                 window.updatePlayerRuleCards(sessionId);
                                 console.log('[FIREBASE_LISTENER] Player rule cards display updated');
+                            } else {
+                                console.warn('[FIREBASE_LISTENER] updatePlayerRuleCards function not available');
                             }
                             
                             // Show notification about the rule card update
@@ -1237,10 +1258,15 @@ async function setupFirebaseSessionListener() {
                                 const playerName = ruleCardUpdate.playerId === window.currentUser?.uid ? 'You' : 'A player';
                                 const cardName = ruleCardUpdate.ruleCard?.name || 'rule card';
                                 window.showNotification(`${playerName} received a new ${cardName}`, 'Rule Update');
+                                console.log('[FIREBASE_LISTENER] Notification shown for rule card update');
+                            } else {
+                                console.warn('[FIREBASE_LISTENER] showNotification function not available');
                             }
                         } else {
-                            console.log('[FIREBASE_LISTENER] Skipping rule card update (already processed)');
+                            console.log('[FIREBASE_LISTENER] Skipping rule card update (already processed or older)');
                         }
+                    } else {
+                        console.log('[FIREBASE_LISTENER] No rule card update in session data');
                     }
                     
                     // Trigger UI changes if state changed OR if player list changed

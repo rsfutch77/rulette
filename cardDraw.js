@@ -279,20 +279,39 @@ function displayDrawnCard(card, cardType) {
             
             acceptButton.addEventListener('click', async () => {
                 console.log('[CARD_DRAW] Card accepted:', card.getCurrentText());
+                console.log('[CARD_DRAW] Card type:', card.type);
+                console.log('[CARD_DRAW] Card object:', card);
+                
                 const currentUser = getCurrentUser();
+                console.log('[CARD_DRAW] Current user:', currentUser);
+                console.log('[CARD_DRAW] GameManager available:', !!gameManager);
+                console.log('[CARD_DRAW] Current session ID:', window.currentSessionId);
+                
                 if (currentUser && gameManager && window.currentSessionId) {
                     try {
                         // Apply the card effect through gameManager to properly handle ruleCards
                         if (card.type === 'rule') {
+                            console.log('[CARD_DRAW] Applying rule card effect...');
                             await gameManager.applyRuleCardEffect(window.currentSessionId, currentUser.uid, card);
+                            console.log('[CARD_DRAW] Rule card effect applied successfully');
                         } else if (card.type === 'modifier') {
+                            console.log('[CARD_DRAW] Applying modifier card effect...');
                             await gameManager.applyModifierCardEffect(window.currentSessionId, currentUser.uid, card);
+                            console.log('[CARD_DRAW] Modifier card effect applied successfully');
+                        } else {
+                            console.log('[CARD_DRAW] Card type not rule or modifier, skipping effect application');
                         }
                         window.refreshRuleDisplay();
                     } catch (error) {
                         console.error('[CARD_DRAW] Error applying card effect:', error);
                         window.showNotification('Error applying card effect', 'Error');
                     }
+                } else {
+                    console.warn('[CARD_DRAW] Missing required data for card effect application:', {
+                        currentUser: !!currentUser,
+                        gameManager: !!gameManager,
+                        sessionId: window.currentSessionId
+                    });
                 }
                 closeCardModal();
             });

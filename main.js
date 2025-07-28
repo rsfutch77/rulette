@@ -475,19 +475,26 @@ function updatePlayerRuleCards(sessionId) {
     return;
   }
 
+  console.log("DEBUG: Found session with players:", session.players);
+
   session.players.forEach(playerId => {
     const player = gameManager.players[playerId];
-    if (!player || player.status !== 'active') return;
+    console.log(`DEBUG: Processing player ${playerId}:`, player);
+    
+    if (!player || player.status !== 'active') {
+      console.log(`DEBUG: Skipping player ${playerId} - not found or not active`);
+      return;
+    }
 
     const ruleCardsContainer = document.getElementById(`player-${playerId}-rule-cards`);
     if (!ruleCardsContainer) {
-      console.warn(`DEBUG: Rule cards container not found for player ${player.displayName}`);
+      console.warn(`DEBUG: Rule cards container not found for player ${player.displayName} (ID: ${playerId})`);
       return;
     }
 
     const ruleCardsList = ruleCardsContainer.querySelector('.rule-cards-list');
     if (!ruleCardsList) {
-      console.warn(`DEBUG: Rule cards list not found for player ${player.displayName}`);
+      console.warn(`DEBUG: Rule cards list not found for player ${player.displayName} (ID: ${playerId})`);
       return;
     }
 
@@ -496,25 +503,32 @@ function updatePlayerRuleCards(sessionId) {
     
     // Add cards from hand that are rules or modifiers
     if (player.hand && Array.isArray(player.hand)) {
+      console.log(`DEBUG: Player ${player.displayName} hand:`, player.hand);
       player.hand.forEach(card => {
         if (card.type === 'Rule' || card.type === 'Modifier' || card.type === 'rule' || card.type === 'modifier') {
           allRuleCards.push(card);
+          console.log(`DEBUG: Added rule/modifier card from hand:`, card);
         }
       });
     }
     
     // Add cards from ruleCards array
     if (player.ruleCards && Array.isArray(player.ruleCards)) {
+      console.log(`DEBUG: Player ${player.displayName} ruleCards:`, player.ruleCards);
       player.ruleCards.forEach(card => {
         // Check if this card is already in allRuleCards to avoid duplicates
         const isDuplicate = allRuleCards.some(existing => existing.id === card.id);
         if (!isDuplicate) {
           allRuleCards.push(card);
+          console.log(`DEBUG: Added rule card from ruleCards array:`, card);
+        } else {
+          console.log(`DEBUG: Skipped duplicate rule card:`, card);
         }
       });
     }
     
     console.log(`DEBUG: Player ${player.displayName} has ${allRuleCards.length} total rule cards (from hand: ${player.hand ? player.hand.filter(c => c.type === 'Rule' || c.type === 'Modifier' || c.type === 'rule' || c.type === 'modifier').length : 0}, from ruleCards: ${player.ruleCards ? player.ruleCards.length : 0}).`);
+    console.log(`DEBUG: All rule cards for ${player.displayName}:`, allRuleCards);
 
     if (allRuleCards.length > 0) {
       ruleCardsList.innerHTML = allRuleCards.map(card => createRuleCardElement(card)).join('');

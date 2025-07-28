@@ -199,6 +199,9 @@ export class PlayerManager {
                     this.gameManager.players[playerId].displayName = playerData.displayName || this.gameManager.players[playerId].displayName;
                     this.gameManager.players[playerId].points = playerData.points || this.gameManager.players[playerId].points;
                     this.gameManager.players[playerId].status = playerData.status || this.gameManager.players[playerId].status;
+                    // Update ruleCards from Firebase data
+                    this.gameManager.players[playerId].ruleCards = playerData.ruleCards || [];
+                    console.log(`[DEBUG LOAD_PLAYERS] Updated player ${playerId} ruleCards from Firebase:`, this.gameManager.players[playerId].ruleCards);
                 } else {
                     console.log(`[DEBUG LOAD_PLAYERS] Loading new player ${playerId} (${playerData.displayName}) into local storage`);
                     

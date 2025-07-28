@@ -259,18 +259,23 @@ async function getFirestoreSessionByShareableCode(shareableCode) {
  */
 async function broadcastRuleCardUpdate(sessionId, playerId, ruleCard) {
   try {
+    // Ensure all required fields have valid values (no undefined)
+    const safeRuleCard = {
+      id: ruleCard.id || 'unknown-id',
+      name: ruleCard.name || ruleCard.cardName || 'Unknown Rule Card',
+      type: ruleCard.type || 'rule',
+      isFlipped: Boolean(ruleCard.isFlipped)
+    };
+
     const ruleCardUpdateEvent = {
       type: 'rule_card_update',
       sessionId,
       playerId,
-      ruleCard: {
-        id: ruleCard.id,
-        name: ruleCard.name,
-        type: ruleCard.type,
-        isFlipped: ruleCard.isFlipped || false
-      },
+      ruleCard: safeRuleCard,
       timestamp: Date.now()
     };
+
+    console.log("[FIRESTORE] Broadcasting rule card update with safe data:", ruleCardUpdateEvent);
 
     // Update session document with the rule card update event
     const sessionRef = doc(db, 'gameSessions', sessionId);
@@ -279,7 +284,7 @@ async function broadcastRuleCardUpdate(sessionId, playerId, ruleCard) {
       lastUpdated: new Date().toISOString()
     });
 
-    console.log("[FIRESTORE] Rule card update broadcasted:", ruleCardUpdateEvent);
+    console.log("[FIRESTORE] Rule card update broadcasted successfully:", ruleCardUpdateEvent);
   } catch (error) {
     console.error("[FIRESTORE] Error broadcasting rule card update:", error);
     throw error;
