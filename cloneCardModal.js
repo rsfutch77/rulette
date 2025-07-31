@@ -424,6 +424,14 @@ async function executeCloneAction() {
                         
                         await updateFirestorePlayerRuleCards(currentPlayer.id, serializedRuleCards);
                         console.log(`[CLONE] Firebase updated with cloned rule card for player ${currentPlayer.id}`);
+                        
+                        // Broadcast rule card update to trigger auto-refresh for all players
+                        if (window.gameManager && window.gameManager.broadcastRuleCardUpdate) {
+                            await window.gameManager.broadcastRuleCardUpdate(sessionId, currentPlayer.id, result.clone);
+                            console.log(`[CLONE] Rule card update broadcasted for cloned card`);
+                        } else {
+                            console.warn(`[CLONE] broadcastRuleCardUpdate not available`);
+                        }
                     }
                 } catch (firebaseError) {
                     console.error(`[CLONE] Failed to update Firebase after clone:`, firebaseError);
