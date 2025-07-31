@@ -279,7 +279,7 @@ async function executeFlipAction() {
                 // Show success notification
                 if (window.showNotification) {
                     window.showNotification(
-                        `Successfully flipped "${targetCard.name}" to ${result.newSide} side`,
+                        `A card has been flipped to the other side`,
                         'Card Flipped!'
                     );
                 }

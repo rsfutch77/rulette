@@ -1256,8 +1256,8 @@ async function setupFirebaseSessionListener() {
                             // Show notification about the rule card update
                             if (typeof window.showNotification === 'function') {
                                 const playerName = ruleCardUpdate.playerId === window.currentUser?.uid ? 'You' : 'A player';
-                                const cardName = ruleCardUpdate.ruleCard?.name || 'rule card';
-                                window.showNotification(`${playerName} received a new ${cardName}`, 'Rule Update');
+                                const cardType = ruleCardUpdate.ruleCard?.type;
+                                window.showNotification(`${playerName} received a new ${cardType} card`, 'Card Update');
                                 console.log('[FIREBASE_LISTENER] Notification shown for rule card update');
                             } else {
                                 console.warn('[FIREBASE_LISTENER] showNotification function not available');
