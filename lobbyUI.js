@@ -1209,18 +1209,18 @@ async function setupFirebaseSessionListener() {
                         }
                     }
                     
-                    // Check for rule card updates
+                    // Check for card updates (any card type)
                     if (sessionData.lastRuleCardUpdate) {
-                        const ruleCardUpdate = sessionData.lastRuleCardUpdate;
-                        console.log('[FIREBASE_LISTENER] Rule card update detected:', ruleCardUpdate);
+                        const cardUpdate = sessionData.lastRuleCardUpdate;
+                        console.log('[FIREBASE_LISTENER] Card update detected:', cardUpdate);
                         
                         // Only process if this is a new update (check timestamp)
                         const lastProcessedUpdate = window.lastProcessedRuleCardUpdate || 0;
-                        console.log('[FIREBASE_LISTENER] Comparing timestamps - new:', ruleCardUpdate.timestamp, 'last processed:', lastProcessedUpdate);
+                        console.log('[FIREBASE_LISTENER] Comparing timestamps - new:', cardUpdate.timestamp, 'last processed:', lastProcessedUpdate);
                         
-                        if (ruleCardUpdate.timestamp > lastProcessedUpdate) {
-                            console.log('[FIREBASE_LISTENER] Processing new rule card update for player:', ruleCardUpdate.playerId);
-                            window.lastProcessedRuleCardUpdate = ruleCardUpdate.timestamp;
+                        if (cardUpdate.timestamp > lastProcessedUpdate) {
+                            console.log('[FIREBASE_LISTENER] Processing new card update for player:', cardUpdate.playerId);
+                            window.lastProcessedRuleCardUpdate = cardUpdate.timestamp;
                             
                             // First, reload player data from Firebase to get the updated rule cards
                             try {
@@ -1253,20 +1253,20 @@ async function setupFirebaseSessionListener() {
                                 console.warn('[FIREBASE_LISTENER] updatePlayerRuleCards function not available');
                             }
                             
-                            // Show notification about the rule card update
+                            // Show notification about the card update
                             if (typeof window.showNotification === 'function') {
-                                const playerName = ruleCardUpdate.playerId === window.currentUser?.uid ? 'You' : 'A player';
-                                const cardType = ruleCardUpdate.ruleCard?.type;
+                                const playerName = cardUpdate.playerId === window.currentUser?.uid ? 'You' : 'A player';
+                                const cardType = cardUpdate.ruleCard?.type;
                                 window.showNotification(`${playerName} received a new ${cardType} card`, 'Card Update');
-                                console.log('[FIREBASE_LISTENER] Notification shown for rule card update');
+                                console.log('[FIREBASE_LISTENER] Notification shown for card update');
                             } else {
                                 console.warn('[FIREBASE_LISTENER] showNotification function not available');
                             }
                         } else {
-                            console.log('[FIREBASE_LISTENER] Skipping rule card update (already processed or older)');
+                            console.log('[FIREBASE_LISTENER] Skipping card update (already processed or older)');
                         }
                     } else {
-                        console.log('[FIREBASE_LISTENER] No rule card update in session data');
+                        console.log('[FIREBASE_LISTENER] No card update in session data');
                     }
                     
                     // Trigger UI changes if state changed OR if player list changed
