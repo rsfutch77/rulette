@@ -219,7 +219,7 @@ function createCloneableCardElement(card, player) {
         text-align: center;
     `;
     
-    // Card content
+    // Card content - use the same text display logic as ruleDisplayManager
     const cardName = document.createElement('div');
     cardName.style.cssText = `
         font-weight: bold;
@@ -227,7 +227,38 @@ function createCloneableCardElement(card, player) {
         margin-bottom: 0.25rem;
         font-size: 0.9rem;
     `;
-    cardName.textContent = card.name || 'Unnamed Card';
+    
+    // Get current side's text using the same logic as ruleDisplayManager
+    let displayText = '';
+    
+    // Priority 1: Use getCurrentText() method if available (GameCard instance)
+    if (card.getCurrentText && typeof card.getCurrentText === 'function') {
+        const currentText = card.getCurrentText();
+        if (currentText && currentText !== 'undefined' && currentText !== null) {
+            displayText = currentText;
+        }
+    }
+    
+    // Priority 2: Explicitly check currentSide and use side-specific properties
+    if (!displayText && card.currentSide) {
+        if (card.currentSide === 'front') {
+            displayText = card.frontRule || card.sideA;
+        } else if (card.currentSide === 'back') {
+            displayText = card.backRule || card.sideB;
+        }
+    }
+    
+    // Priority 3: Fallback to legacy properties
+    if (!displayText) {
+        displayText = card.name || card.frontRule || card.sideA || 'Unnamed Card';
+    }
+    
+    // Final fallback to prevent undefined display
+    if (!displayText || displayText === 'undefined') {
+        displayText = 'Unnamed Card';
+    }
+    
+    cardName.textContent = displayText;
     
     const cardType = document.createElement('div');
     cardType.style.cssText = `
@@ -239,6 +270,25 @@ function createCloneableCardElement(card, player) {
     
     cardElement.appendChild(cardName);
     cardElement.appendChild(cardType);
+    
+    // Add visual indicators for flipped cards (matching ruleDisplayManager behavior)
+    if (card.currentSide) {
+        cardElement.classList.add(`clone-card-${card.currentSide}`);
+    }
+    if (card.isFlipped) {
+        cardElement.classList.add('clone-card-flipped');
+        
+        // Add a small flip indicator
+        const flipIndicator = document.createElement('div');
+        flipIndicator.style.cssText = `
+            font-size: 0.7rem;
+            color: #007bff;
+            margin-top: 0.25rem;
+            font-style: italic;
+        `;
+        flipIndicator.textContent = '(flipped)';
+        cardElement.appendChild(flipIndicator);
+    }
     
     // Add click handler
     cardElement.addEventListener('click', () => {
@@ -466,6 +516,21 @@ async function executeCloneAction() {
     }
 }
 
+/**
+ * Refreshes the clone modal display to update card text after flips
+ */
+function refreshCloneModalDisplay() {
+    const modal = document.getElementById('clone-card-modal');
+    if (modal && modal.style.display === 'flex') {
+        console.log('[CLONE_MODAL] Refreshing clone modal display');
+        populateClonePlayersContainer();
+        // Maintain current selection if it still exists
+        if (window.selectedCloneTarget) {
+            updateCloneConfirmButton();
+        }
+    }
+}
+
 // Event listeners for modal controls
 document.addEventListener('DOMContentLoaded', () => {
     // Close button
@@ -495,8 +560,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // Listen for card flip events to refresh clone modal display
+    document.addEventListener('cardFlipped', (event) => {
+        console.log('[CLONE_MODAL] Card flip event detected, refreshing clone modal display');
+        refreshCloneModalDisplay();
+    });
+    
+    // Listen for rule updates to refresh clone modal display
+    document.addEventListener('rulesUpdated', (event) => {
+        console.log('[CLONE_MODAL] Rules updated event detected, refreshing clone modal display');
+        refreshCloneModalDisplay();
+    });
 });
 
 // Make functions globally accessible
 window.showCloneCardModal = showCloneCardModal;
 window.hideCloneCardModal = hideCloneCardModal;
+window.refreshCloneModalDisplay = refreshCloneModalDisplay;
