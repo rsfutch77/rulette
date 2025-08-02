@@ -47,6 +47,14 @@ export class CardManager {
             throw error;
         }
         
+        // Check if deck is empty
+        if (this.decks[deckType].length === 0) {
+            console.error(`[CARD_MANAGER] Attempted to draw from empty deck: ${deckType}`);
+            const error = new Error(`Cannot draw card: "${deckType}" deck is empty. No cards available.`);
+            error.code = 'DECK_EMPTY';
+            throw error;
+        }
+        
         const card = this.decks[deckType].pop();
         console.log(`[CARD_MANAGER] Drew card from ${deckType}:`, card.name || card.id);
         return card;
