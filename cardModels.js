@@ -131,8 +131,25 @@ class GameCard {
             return false;
         }
         
+        const previousSide = this.currentSide;
         this.currentSide = this.currentSide === 'front' ? 'back' : 'front';
         this.isFlipped = !this.isFlipped;
+        
+        console.log(`[FLIP_METHOD] Card flipped successfully from ${previousSide} to ${this.currentSide}`);
+        
+        // Dispatch event to notify other systems (like rule display) of the flip
+        if (typeof document !== 'undefined') {
+            const flipEvent = new CustomEvent('cardFlipped', {
+                detail: {
+                    cardId: this.id,
+                    previousSide: previousSide,
+                    currentSide: this.currentSide,
+                    isFlipped: this.isFlipped,
+                    card: this
+                }
+            });
+            document.dispatchEvent(flipEvent);
+        }
         
         return true;
     }

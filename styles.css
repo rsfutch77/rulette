@@ -98,6 +98,148 @@ h1 { margin-bottom: 1.5rem; }
 
 .wheel-result-highlight {
   background: linear-gradient(45deg, #FFD700, #FFA500);
+}
+
+/* Rule Display Styles */
+.rule-description {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #4a4a4a;
+  transition: all 0.3s ease;
+}
+
+/* Front side rule text styling */
+.rule-text-front {
+  border-left-color: #4ECDC4; /* Teal for front side */
+  background: rgba(78, 205, 196, 0.1);
+}
+
+/* Back side rule text styling */
+.rule-text-back {
+  border-left-color: #FF6B6B; /* Red for back side */
+  background: rgba(255, 107, 107, 0.1);
+}
+
+/* Flipped state indicator */
+.rule-text-flipped {
+  position: relative;
+  font-style: italic;
+}
+
+.rule-text-flipped::before {
+  content: "🔄 ";
+  color: #FFA500;
+  font-style: normal;
+  margin-right: 0.25rem;
+}
+
+/* Rule item container */
+.rule-item {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Rule header styling */
+.rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.rule-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #e0e0e0;
+}
+
+.rule-owner {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+/* Rule metadata badges */
+.rule-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.rule-metadata span {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Rule type badges */
+.rule-type-persistent {
+  background: #28a745;
+  color: white;
+}
+
+.rule-type-temporary {
+  background: #ffc107;
+  color: #333;
+}
+
+.rule-type-transferable {
+  background: #17a2b8;
+  color: white;
+}
+
+/* Rule state badges */
+.rule-state-active {
+  background: #28a745;
+  color: white;
+}
+
+.rule-state-inactive {
+  background: #6c757d;
+  color: white;
+}
+
+/* Rule priority badges */
+.rule-priority-low {
+  background: #6c757d;
+  color: white;
+}
+
+.rule-priority-normal {
+  background: #007bff;
+  color: white;
+}
+
+.rule-priority-high {
+  background: #fd7e14;
+  color: white;
+}
+
+.rule-priority-critical {
+  background: #dc3545;
+  color: white;
+}
+
+/* Special indicators */
+.rule-clone-indicator {
+  background: #96CEB4;
+  color: #333;
+}
+
+.rule-flip-indicator {
+  background: #FFEAA7;
+  color: #333;
+}
+
+.rule-duration-badge {
+  background: #e9ecef;
+  color: #495057;
   color: #333;
   padding: 0.5rem 1rem;
   border-radius: 8px;

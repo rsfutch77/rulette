@@ -54,6 +54,18 @@ export class RuleDisplayManager {
         document.addEventListener('toggleRulesPanel', () => {
             this.toggleRulesPanel();
         });
+        
+        // Listen for card flip events to refresh rule display
+        document.addEventListener('cardFlipped', (event) => {
+            console.log('[RULE_DISPLAY] Card flip event detected, refreshing display');
+            this.refreshRuleDisplay();
+        });
+        
+        // Listen for rule updates to refresh display
+        document.addEventListener('rulesUpdated', (event) => {
+            console.log('[RULE_DISPLAY] Rules updated event detected, refreshing display');
+            this.refreshRuleDisplay();
+        });
     }
 
     /**
@@ -280,19 +292,36 @@ export class RuleDisplayManager {
         // Add debugging logs to diagnose undefined rule card display issue
         console.log('[RULE_DISPLAY] Creating rule description - Debug info:');
         console.log('  - Rule object:', rule);
+        console.log('  - rule.currentSide:', rule.currentSide);
+        console.log('  - rule.isFlipped:', rule.isFlipped);
+        console.log('  - rule.frontRule:', rule.frontRule);
+        console.log('  - rule.backRule:', rule.backRule);
         console.log('  - rule.description:', rule.description);
         console.log('  - rule.ruleText:', rule.ruleText);
         console.log('  - rule.getCurrentText (if available):', rule.getCurrentText ? rule.getCurrentText() : 'N/A');
         
-        // Enhanced fallback logic to handle undefined values properly
-        let ruleText = rule.description || rule.ruleText;
+        let ruleText = '';
         
-        // If rule has getCurrentText method (GameCard instance), use it with fallback
+        // Priority 1: Use getCurrentText() method if available (GameCard instance)
         if (rule.getCurrentText && typeof rule.getCurrentText === 'function') {
             const currentText = rule.getCurrentText();
-            if (currentText && currentText !== 'undefined') {
+            if (currentText && currentText !== 'undefined' && currentText !== null) {
                 ruleText = currentText;
             }
+        }
+        
+        // Priority 2: Explicitly check currentSide and use side-specific properties
+        if (!ruleText && rule.currentSide) {
+            if (rule.currentSide === 'front') {
+                ruleText = rule.frontRule || rule.sideA;
+            } else if (rule.currentSide === 'back') {
+                ruleText = rule.backRule || rule.sideB;
+            }
+        }
+        
+        // Priority 3: Fallback to legacy properties
+        if (!ruleText) {
+            ruleText = rule.description || rule.ruleText || rule.frontRule || rule.sideA;
         }
         
         // Final fallback to prevent undefined display
@@ -301,6 +330,15 @@ export class RuleDisplayManager {
         }
         
         console.log('  - Final rule text:', ruleText);
+        console.log('  - Text source: currentSide-based selection');
+        
+        // Add CSS class to indicate which side is being displayed
+        if (rule.currentSide) {
+            description.classList.add(`rule-text-${rule.currentSide}`);
+        }
+        if (rule.isFlipped) {
+            description.classList.add('rule-text-flipped');
+        }
         
         description.textContent = ruleText;
 
