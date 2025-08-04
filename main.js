@@ -225,6 +225,84 @@ function initRuleDisplayManager() {
 // Save session ID to localStorage after successful join
 localStorage.setItem('rulette_session_id', window.currentSessionId);
 
+// Global variable to store dev card override
+window.devCardOverride = null;
+
+// Initialize dev dropdown functionality
+function initDevCardOverride() {
+  console.log('[DEV_OVERRIDE] Initializing dev card override functionality');
+  
+  const devOverrideContainer = document.getElementById('dev-card-override');
+  const devSelect = document.getElementById('dev-card-type-select');
+  const devClearButton = document.getElementById('dev-clear-override');
+  
+  if (!devOverrideContainer || !devSelect || !devClearButton) {
+    console.warn('[DEV_OVERRIDE] Dev override elements not found');
+    return;
+  }
+  
+  // Show/hide dev dropdown based on environment
+  if (isDevEnvironment()) {
+    devOverrideContainer.style.display = 'block';
+    console.log('[DEV_OVERRIDE] Dev environment detected, showing card override dropdown');
+  } else {
+    devOverrideContainer.style.display = 'none';
+    console.log('[DEV_OVERRIDE] Production environment, hiding card override dropdown');
+  }
+  
+  // Handle dropdown selection
+  devSelect.addEventListener('change', (event) => {
+    const selectedValue = event.target.value;
+    if (selectedValue) {
+      window.devCardOverride = selectedValue;
+      console.log('[DEV_OVERRIDE] Card type override set to:', selectedValue);
+      
+      // Visual feedback
+      devSelect.style.background = '#d4edda';
+      devSelect.style.borderColor = '#28a745';
+      
+      // Show notification
+      if (window.showNotification) {
+        const cardTypeName = event.target.options[event.target.selectedIndex].text;
+        window.showNotification(`Next spin will draw: ${cardTypeName}`, 'Dev Override Active');
+      }
+    } else {
+      window.devCardOverride = null;
+      console.log('[DEV_OVERRIDE] Card type override cleared');
+      
+      // Reset visual feedback
+      devSelect.style.background = '#fff';
+      devSelect.style.borderColor = '#ffc107';
+    }
+  });
+  
+  // Handle clear button
+  devClearButton.addEventListener('click', () => {
+    devSelect.value = '';
+    window.devCardOverride = null;
+    console.log('[DEV_OVERRIDE] Card type override cleared via button');
+    
+    // Reset visual feedback
+    devSelect.style.background = '#fff';
+    devSelect.style.borderColor = '#ffc107';
+    
+    // Show notification
+    if (window.showNotification) {
+      window.showNotification('Card override cleared - using wheel result', 'Dev Override Cleared');
+    }
+  });
+  
+  console.log('[DEV_OVERRIDE] Dev card override functionality initialized');
+}
+
+// Function to get dev card override for card draw logic
+function getDevCardOverride() {
+  return window.devCardOverride;
+}
+
+// Expose function globally for card draw logic
+window.getDevCardOverride = getDevCardOverride;
+
 // Initialize notification elements and rule display manager when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
   initNotificationElements();
@@ -235,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initScoreEventHandlers();
   initializeLobbyUI();
   initializeQuitGameUI();
+  initDevCardOverride(); // Add dev dropdown initialization
 });
 
 // Initialize score event handlers

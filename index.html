@@ -1121,6 +1121,29 @@
       </div>
     </div>
     
+    <!-- DEV ONLY: Card Type Override Dropdown -->
+    <div id="dev-card-override" style="display:none; margin:1rem auto 2rem; text-align:center; padding:1rem; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; max-width:400px;">
+      <div style="margin-bottom:0.5rem; font-weight:bold; color:#856404;">
+        🛠️ DEV MODE: Force Card Type
+      </div>
+      <div style="margin-bottom:1rem; font-size:0.9rem; color:#856404;">
+        Override the wheel result to draw a specific card type
+      </div>
+      <div style="display:flex; gap:0.5rem; align-items:center; justify-content:center; flex-wrap:wrap;">
+        <label for="dev-card-type-select" style="font-weight:bold; color:#856404;">Next Card:</label>
+        <select id="dev-card-type-select" style="padding:0.5rem; border:2px solid #ffc107; border-radius:4px; background:#fff; color:#333; font-weight:bold;">
+          <option value="">Use Wheel Result</option>
+          <option value="deckType1">Rule Card</option>
+          <option value="deckType2">Prompt Card</option>
+          <option value="deckType3">Modifier Card</option>
+          <option value="deckType4">Clone Card</option>
+          <option value="deckType5">Flip Card</option>
+          <option value="deckType6">Swap Card</option>
+        </select>
+        <button id="dev-clear-override" style="padding:0.5rem 1rem; background:#6c757d; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9rem;">Clear</button>
+      </div>
+    </div>
+
     <!-- Wheel Component -->
     <div id="wheel-container" style="display:none; margin:2rem auto; text-align:center;">
       <div id="wheel-wrapper" style="position:relative; width:300px; height:150px; margin:0 auto;">

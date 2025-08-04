@@ -15,6 +15,23 @@ import { getCurrentUser } from './playerSystem.js';
 // This connects the wheel result to the card drawing logic
 
 /**
+ * Helper function to get card type name from deck key
+ * @param {string} deckKey - The deck key (e.g., 'deckType1')
+ * @returns {string} - The human-readable card type name
+ */
+function getCardTypeNameFromDeckKey(deckKey) {
+    const cardTypeMap = {
+        'deckType1': 'Rule Card',
+        'deckType2': 'Prompt Card',
+        'deckType3': 'Modifier Card',
+        'deckType4': 'Clone Card',
+        'deckType5': 'Flip Card',
+        'deckType6': 'Swap Card'
+    };
+    return cardTypeMap[deckKey] || 'Unknown Card';
+}
+
+/**
  * Initialize the card manager and set up card draw mechanism
  */
 async function initializeCardDrawMechanism() {
@@ -53,8 +70,36 @@ function handleCardDraw(selectedCardType) {
     console.log('[CARD_DRAW] Handling card draw for type:', selectedCardType.name);
     
     try {
-        // Map wheel segment to deck type
+        // Check for dev card override first
         let deckKey = selectedCardType.deckKey;
+        const devOverride = window.getDevCardOverride ? window.getDevCardOverride() : null;
+        
+        if (devOverride) {
+            console.log('[CARD_DRAW] DEV OVERRIDE: Using forced card type:', devOverride);
+            deckKey = devOverride;
+            
+            // Clear the override after use (single use)
+            if (window.devCardOverride !== undefined) {
+                window.devCardOverride = null;
+                
+                // Reset the dropdown UI
+                const devSelect = document.getElementById('dev-card-type-select');
+                if (devSelect) {
+                    devSelect.value = '';
+                    devSelect.style.background = '#fff';
+                    devSelect.style.borderColor = '#ffc107';
+                }
+                
+                console.log('[CARD_DRAW] Dev override cleared after use');
+            }
+            
+            // Show notification about override
+            if (window.showNotification) {
+                const overrideCardName = getCardTypeNameFromDeckKey(devOverride);
+                window.showNotification(`DEV OVERRIDE: Drew ${overrideCardName} instead of ${selectedCardType.name}`, 'Dev Override Used');
+            }
+        }
+        
         const currentUser = getCurrentUser();
 
         if (!cardManager) {
