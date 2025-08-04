@@ -830,50 +830,6 @@ function populateSwapModal(players) {
  * @returns {HTMLElement} - Player section element
  */
 function createSwapPlayerSection(player) {
-    const section = document.createElement('div');
-    section.className = 'swap-player-section';
-    section.dataset.playerId = player.id; // Use 'id' field from Firebase
-    
-    // Player header
-    const header = document.createElement('div');
-    header.className = 'swap-player-header';
-    
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'swap-player-name';
-    nameDiv.textContent = player.displayName || 'Unknown Player';
-    
-    // Add badges for special roles
-    const badges = document.createElement('div');
-    badges.className = 'swap-player-badges';
-    
-    if (player.hasRefereeCard) {
-        const refereeBadge = document.createElement('span');
-        refereeBadge.className = 'swap-player-badge referee';
-        refereeBadge.textContent = 'Referee';
-        badges.appendChild(refereeBadge);
-    }
-    
-    // Check if player is host (this would need to be passed from session data)
-    const currentSession = window.gameManager?.gameSessions?.[window.currentSessionId];
-    if (currentSession && currentSession.hostId === player.id) {
-        const hostBadge = document.createElement('span');
-        hostBadge.className = 'swap-player-badge host';
-        hostBadge.textContent = 'Host';
-        badges.appendChild(hostBadge);
-    }
-    
-    header.appendChild(nameDiv);
-    header.appendChild(badges);
-    section.appendChild(header);
-    
-    // Cards grid
-    const cardsGrid = document.createElement('div');
-    cardsGrid.className = 'swap-cards-grid';
-    
-    console.log(`[SWAP_CARD] Creating section for ${player.displayName}:`);
-    console.log(`[SWAP_CARD] - hand:`, player.hand);
-    console.log(`[SWAP_CARD] - ruleCards:`, player.ruleCards);
-    
     // Collect all cards from both hand and ruleCards
     const allCards = [];
     
@@ -895,23 +851,44 @@ function createSwapPlayerSection(player) {
         });
     }
     
-    console.log(`[SWAP_CARD] Total cards for ${player.displayName}:`, allCards.length);
-    
-    if (allCards.length > 0) {
-        allCards.forEach((card, index) => {
-            console.log(`[SWAP_CARD] Creating card element ${index} for ${player.displayName}:`, card);
-            const cardElement = createSwapCardElement(card, player.id);
-            cardsGrid.appendChild(cardElement);
-        });
-    } else {
-        const noCards = document.createElement('div');
-        noCards.className = 'swap-no-cards';
-        noCards.textContent = `No cards available`;
-        cardsGrid.appendChild(noCards);
-        console.log(`[SWAP_CARD] No cards for ${player.displayName}`);
+    if (allCards.length === 0) {
+        return null; // Don't show players with no cards
     }
     
-    section.appendChild(cardsGrid);
+    const section = document.createElement('div');
+    section.style.cssText = `
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        background: #f8f9fa;
+    `;
+    section.dataset.playerId = player.id; // Use 'id' field from Firebase
+    
+    // Player header
+    const header = document.createElement('div');
+    header.style.cssText = `
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+    `;
+    header.textContent = player.displayName || `Player ${player.id}`;
+    section.appendChild(header);
+    
+    // Cards container
+    const cardsContainer = document.createElement('div');
+    cardsContainer.style.cssText = `
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    `;
+    
+    allCards.forEach(card => {
+        const cardElement = createSwapCardElement(card, player);
+        cardsContainer.appendChild(cardElement);
+    });
+    
+    section.appendChild(cardsContainer);
     return section;
 }
 
@@ -921,64 +898,103 @@ function createSwapPlayerSection(player) {
  * @param {string} playerId - Owner player ID
  * @returns {HTMLElement} - Card element
  */
-function createSwapCardElement(card, playerId) {
-    const cardDiv = document.createElement('div');
-    cardDiv.className = 'swap-card-item';
-    cardDiv.dataset.cardId = card.id;
-    cardDiv.dataset.playerId = playerId;
-    cardDiv.dataset.source = card.source || 'unknown';
+function createSwapCardElement(card, player) {
+    const cardElement = document.createElement('div');
+    cardElement.style.cssText = `
+        background: #fff;
+        border: 2px solid #dee2e6;
+        border-radius: 6px;
+        padding: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-width: 120px;
+        text-align: center;
+    `;
+    cardElement.dataset.cardId = card.id;
+    cardElement.dataset.playerId = player.id;
+    cardElement.dataset.source = card.source || 'unknown';
     
-    // Card name
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'swap-card-name';
-    nameDiv.textContent = card.name || 'Unknown Card';
+    // Card content - use the same text display logic as clone modal
+    const cardName = document.createElement('div');
+    cardName.style.cssText = `
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 0.25rem;
+        font-size: 0.9rem;
+    `;
     
-    // Add source indicator
-    if (card.source) {
-        const sourceSpan = document.createElement('span');
-        sourceSpan.style.fontSize = '0.7rem';
-        sourceSpan.style.color = '#666';
-        sourceSpan.style.marginLeft = '0.5rem';
-        sourceSpan.textContent = `(${card.source})`;
-        nameDiv.appendChild(sourceSpan);
+    // Get current side's text using the same logic as clone modal
+    let displayText = '';
+    
+    // Priority 1: Use getCurrentText() method if available (GameCard instance)
+    if (card.getCurrentText && typeof card.getCurrentText === 'function') {
+        const currentText = card.getCurrentText();
+        if (currentText && currentText !== 'undefined' && currentText !== null) {
+            displayText = currentText;
+        }
     }
     
-    // Card description
-    const descDiv = document.createElement('div');
-    descDiv.className = 'swap-card-description';
-    
-    // Get the active rule text based on flip state
-    let ruleText = '';
-    if (card.isFlipped && card.backRule) {
-        ruleText = card.backRule;
-    } else if (card.frontRule) {
-        ruleText = card.frontRule;
-    } else if (card.sideA) {
-        ruleText = card.isFlipped ? (card.sideB || card.sideA) : card.sideA;
-    } else if (card.description) {
-        ruleText = card.description;
-    } else {
-        ruleText = 'No description available';
+    // Priority 2: Explicitly check currentSide and use side-specific properties
+    if (!displayText && card.currentSide) {
+        if (card.currentSide === 'front') {
+            displayText = card.frontRule || card.sideA;
+        } else if (card.currentSide === 'back') {
+            displayText = card.backRule || card.sideB;
+        }
     }
     
-    descDiv.textContent = ruleText;
+    // Priority 3: Check isFlipped for legacy support
+    if (!displayText) {
+        if (card.isFlipped && card.backRule) {
+            displayText = card.backRule;
+        } else if (card.frontRule) {
+            displayText = card.frontRule;
+        } else if (card.sideA) {
+            displayText = card.isFlipped ? (card.sideB || card.sideA) : card.sideA;
+        } else if (card.description) {
+            displayText = card.description;
+        }
+    }
     
-    // Card type badge
-    const typeDiv = document.createElement('div');
-    typeDiv.className = `swap-card-type ${(card.type || 'unknown').toLowerCase()}`;
-    typeDiv.textContent = (card.type || 'unknown').toUpperCase();
+    // Final fallback to prevent undefined display
+    if (!displayText || displayText === 'undefined') {
+        displayText = card.name || 'Unnamed Card';
+    }
     
-    // Selection indicator
-    const indicator = document.createElement('div');
-    indicator.className = 'swap-selection-indicator';
-    indicator.textContent = '✓';
+    cardName.textContent = displayText;
     
-    cardDiv.appendChild(nameDiv);
-    cardDiv.appendChild(descDiv);
-    cardDiv.appendChild(typeDiv);
-    cardDiv.appendChild(indicator);
+    const cardType = document.createElement('div');
+    cardType.style.cssText = `
+        font-size: 0.8rem;
+        color: #666;
+        text-transform: capitalize;
+    `;
+    cardType.textContent = card.type || 'unknown';
     
-    return cardDiv;
+    cardElement.appendChild(cardName);
+    cardElement.appendChild(cardType);
+    
+    // Add visual indicators for flipped cards
+    if (card.currentSide) {
+        cardElement.classList.add(`swap-card-${card.currentSide}`);
+    }
+    
+    // Add hover effects
+    cardElement.addEventListener('mouseenter', () => {
+        cardElement.style.borderColor = '#007bff';
+        cardElement.style.transform = 'translateY(-2px)';
+        cardElement.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+    });
+    
+    cardElement.addEventListener('mouseleave', () => {
+        if (!cardElement.classList.contains('selected')) {
+            cardElement.style.borderColor = '#dee2e6';
+            cardElement.style.transform = 'translateY(0)';
+            cardElement.style.boxShadow = 'none';
+        }
+    });
+    
+    return cardElement;
 }
 
 /**

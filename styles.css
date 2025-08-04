@@ -1060,40 +1060,43 @@ h1 { margin-bottom: 1.5rem; }
 }
 
 .swap-card-item {
-  background: #3a3a3a;
-  border: 2px solid #4a4a4a;
-  border-radius: 8px;
+  background: #fff;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
   padding: 0.75rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
   position: relative;
+  min-width: 120px;
+  text-align: center;
 }
 
 .swap-card-item:hover {
   border-color: #007bff;
-  background: #404040;
+  background: #f8f9fa;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,123,255,0.2);
 }
 
 .swap-card-item.selected {
   border-color: #28a745;
-  background: #2d4a2d;
+  background: #d4edda;
   box-shadow: 0 0 10px rgba(40,167,69,0.3);
 }
 
 .swap-card-name {
   font-weight: bold;
-  color: #e0e0e0;
+  color: #333;
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
 }
 
 .swap-card-description {
-  color: #b0b0b0;
+  color: #333;
   font-size: 0.8rem;
   line-height: 1.3;
   margin-bottom: 0.5rem;
+  font-weight: bold;
 }
 
 .swap-card-type {
