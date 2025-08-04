@@ -201,6 +201,86 @@ async function getFirestorePlayer(playerId) {
   }
 }
 
+// Set up real-time listeners for all players in a session
+async function setupPlayerListeners(sessionId, gameManager) {
+  try {
+    console.log('[FIREBASE_LISTENERS] Setting up player listeners for session:', sessionId);
+    
+    const session = gameManager.gameSessions[sessionId];
+    if (!session || !session.players) {
+      console.warn('[FIREBASE_LISTENERS] No session or players found for:', sessionId);
+      return [];
+    }
+
+    const unsubscribeFunctions = [];
+
+    // Set up listener for each player
+    for (const playerId of session.players) {
+      console.log('[FIREBASE_LISTENERS] Setting up listener for player:', playerId);
+      
+      const playerRef = doc(db, 'players', playerId);
+      const unsubscribe = onSnapshot(playerRef, (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const playerData = docSnapshot.data();
+          console.log('[FIREBASE_LISTENERS] Player data changed:', playerId, playerData);
+          
+          // Update local player data
+          if (gameManager.players[playerId]) {
+            // Preserve existing player data and merge with Firebase data
+            const existingPlayer = gameManager.players[playerId];
+            gameManager.players[playerId] = {
+              ...existingPlayer,
+              ...playerData,
+              // Convert plain card objects back to GameCard instances if needed
+              ruleCards: playerData.ruleCards ? playerData.ruleCards.map(card => {
+                // Import GameCard class dynamically to avoid circular dependencies
+                return card;
+              }) : []
+            };
+            
+            console.log('[FIREBASE_LISTENERS] Updated local player data for:', playerId);
+            
+            // Update UI for all players when any player's data changes
+            if (window.updatePlayerRuleCards && window.currentSessionId) {
+              console.log('[FIREBASE_LISTENERS] Triggering UI update for all players');
+              window.updatePlayerRuleCards(window.currentSessionId);
+            }
+            
+            // Also update active rules display
+            if (window.updateActiveRulesDisplay) {
+              console.log('[FIREBASE_LISTENERS] Triggering active rules display update');
+              window.updateActiveRulesDisplay();
+            }
+          }
+        }
+      }, (error) => {
+        console.error('[FIREBASE_LISTENERS] Error in player listener for', playerId, ':', error);
+      });
+      
+      unsubscribeFunctions.push(unsubscribe);
+    }
+
+    console.log('[FIREBASE_LISTENERS] Set up', unsubscribeFunctions.length, 'player listeners');
+    return unsubscribeFunctions;
+    
+  } catch (error) {
+    console.error('[FIREBASE_LISTENERS] Error setting up player listeners:', error);
+    return [];
+  }
+}
+
+// Clean up player listeners
+function cleanupPlayerListeners(unsubscribeFunctions) {
+  if (unsubscribeFunctions && Array.isArray(unsubscribeFunctions)) {
+    console.log('[FIREBASE_LISTENERS] Cleaning up', unsubscribeFunctions.length, 'player listeners');
+    unsubscribeFunctions.forEach(unsubscribe => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    });
+  }
+}
+
 async function getFirestorePlayersInSession(sessionId) {
   try {
     console.log("[DEBUG] Firebase db object:", db);
@@ -307,5 +387,7 @@ export {
   getFirestorePlayersInSession,
   getFirestoreSessionByShareableCode,
   broadcastRuleCardUpdate,
-  getDevUID
+  getDevUID,
+  setupPlayerListeners,
+  cleanupPlayerListeners
 };

@@ -1132,6 +1132,7 @@ async function setupFirebaseSessionListener() {
         // Import Firebase functions
         const { onSnapshot, doc } = await import("https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js");
         const { db } = await import('./firebase-init.js');
+        const { setupPlayerListeners, cleanupPlayerListeners } = await import('./firebaseOperations.js');
 
         // Set up real-time listener for session document
         const sessionRef = doc(db, 'gameSessions', sessionId);
@@ -1332,7 +1333,17 @@ async function setupFirebaseSessionListener() {
         // Store unsubscribe function for cleanup
         window.sessionStateUnsubscribe = unsubscribe;
         
-        console.log('[FIREBASE_LISTENER] Real-time listener set up successfully');
+        // Set up player listeners for real-time player data updates
+        console.log('[FIREBASE_LISTENER] Setting up player listeners for session:', sessionId);
+        try {
+            const playerUnsubscribeFunctions = await setupPlayerListeners(sessionId, gameManager);
+            window.playerListenersUnsubscribe = playerUnsubscribeFunctions;
+            console.log('[FIREBASE_LISTENER] Player listeners set up successfully, count:', playerUnsubscribeFunctions.length);
+        } catch (error) {
+            console.error('[FIREBASE_LISTENER] Error setting up player listeners:', error);
+        }
+        
+        console.log('[FIREBASE_LISTENER] Real-time listeners set up successfully');
 
     } catch (error) {
         console.error('[FIREBASE_LISTENER] Error setting up Firebase listener:', error);
@@ -1347,6 +1358,17 @@ function cleanupFirebaseListeners() {
         console.log('[FIREBASE_LISTENER] Cleaning up session state listener');
         window.sessionStateUnsubscribe();
         window.sessionStateUnsubscribe = null;
+    }
+    
+    if (window.playerListenersUnsubscribe) {
+        console.log('[FIREBASE_LISTENER] Cleaning up player listeners');
+        // Import cleanup function
+        import('./firebaseOperations.js').then(({ cleanupPlayerListeners }) => {
+            cleanupPlayerListeners(window.playerListenersUnsubscribe);
+            window.playerListenersUnsubscribe = null;
+        }).catch(error => {
+            console.error('[FIREBASE_LISTENER] Error cleaning up player listeners:', error);
+        });
     }
 }
 
