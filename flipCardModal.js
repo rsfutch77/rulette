@@ -272,6 +272,16 @@ async function executeFlipAction() {
                     window.updateActiveRulesDisplay();
                 }
                 
+                // Update player rule cards display for all players
+                if (window.updatePlayerRuleCards && window.currentSessionId) {
+                    window.updatePlayerRuleCards(window.currentSessionId);
+                }
+                
+                // Update general player cards display for all players
+                if (window.updatePlayerCards && window.currentSessionId) {
+                    window.updatePlayerCards(window.currentSessionId);
+                }
+                
                 // Hide the modal
                 hideFlipCardModal();
                 

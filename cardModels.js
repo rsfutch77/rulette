@@ -10,8 +10,8 @@
  * - isFlipped: Boolean indicating if the card has been flipped from its default state
  */
 class GameCard {
-    constructor({ type, sideA, sideB = null, frontRule = null, backRule = null, isClone = false, cloneSource = null, id = null, name = null, description = null, rules_for_referee = null, point_value = null, discard_rule_on_success = null, owner = null }) {
-        console.log(`[GAMECARD_CONSTRUCTOR] Input parameters:`, { type, sideA, sideB, frontRule, backRule });
+    constructor({ type, sideA, sideB = null, frontRule = null, backRule = null, isClone = false, cloneSource = null, id = null, name = null, description = null, rules_for_referee = null, point_value = null, discard_rule_on_success = null, owner = null, currentSide = 'front', isFlipped = false }) {
+        console.log(`[GAMECARD_CONSTRUCTOR] Input parameters:`, { type, sideA, sideB, frontRule, backRule, currentSide, isFlipped });
         
         this.type = type; // 'rule', 'prompt', 'modifier'
         
@@ -30,8 +30,8 @@ class GameCard {
         this.sideA = sideA; // string
         this.sideB = sideB; // string or null (for prompt cards)
         
-        this.currentSide = 'front'; // 'front' or 'back' (maps to 'A' or 'B' internally)
-        this.isFlipped = false; // boolean - true when showing back rule
+        this.currentSide = currentSide || 'front'; // 'front' or 'back' (maps to 'A' or 'B' internally)
+        this.isFlipped = isFlipped || false; // boolean - true when showing back rule
         this.id = id || this.generateId(); // unique identifier
 
         // Card ownership tracking

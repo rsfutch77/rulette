@@ -935,7 +935,7 @@ export class CardManager {
             } else if (cardLocation === 'ruleCards') {
                 // Sync updated rule cards to Firebase
                 try {
-                    await updateFirestorePlayerRuleCards(gameManager.players[playerId].playerId, gameManager.players[playerId].ruleCards);
+                    await updateFirestorePlayerRuleCards(playerId, gameManager.players[playerId].ruleCards);
                     console.log(`[CARD_MANAGER] Synced flipped rule card to Firebase for player ${playerId}`);
                 } catch (error) {
                     console.error(`[CARD_MANAGER] Failed to sync flipped rule card to Firebase:`, error);
