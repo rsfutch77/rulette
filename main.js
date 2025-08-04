@@ -568,7 +568,7 @@ function createRuleCardElement(card) {
       break;
   }
 
-  // FIXME: Get the rule text properly - use getCurrentText() method if available, otherwise fallback to card properties
+  // Get the rule text properly - use getCurrentText() method if available, otherwise check currentSide for appropriate rule text
   let cardText = 'Unknown Rule';
   
   if (card.getCurrentText && typeof card.getCurrentText === 'function') {
@@ -577,7 +577,11 @@ function createRuleCardElement(card) {
     cardText = card.title;
   } else if (card.name) {
     cardText = card.name;
+  } else if (card.currentSide === 'back' && card.backRule) {
+    // Show backRule text when currentSide is "back"
+    cardText = card.backRule;
   } else if (card.frontRule) {
+    // Show frontRule text when currentSide is "front" or undefined/default
     cardText = card.frontRule;
   } else if (card.sideA) {
     cardText = card.sideA;
