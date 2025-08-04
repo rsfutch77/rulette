@@ -135,15 +135,6 @@ function createFlippableCardElement(card) {
     `;
     
     // Card content
-    const cardName = document.createElement('div');
-    cardName.style.cssText = `
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 0.5rem;
-        font-size: 0.9rem;
-    `;
-    cardName.textContent = card.name || 'Unnamed Card';
-    
     const cardType = document.createElement('div');
     cardType.style.cssText = `
         font-size: 0.8rem;
@@ -172,7 +163,6 @@ function createFlippableCardElement(card) {
     `;
     currentRule.textContent = card.getCurrentRule ? card.getCurrentRule() : (card.frontRule || 'No rule text');
     
-    cardElement.appendChild(cardName);
     cardElement.appendChild(cardType);
     cardElement.appendChild(currentSide);
     cardElement.appendChild(currentRule);
