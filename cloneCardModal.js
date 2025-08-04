@@ -89,12 +89,15 @@ function populateClonePlayersContainer() {
             return false;
         }
         
+        // getCurrentPlayer() returns a player object, so we need to compare IDs
+        const currentPlayerId = currentPlayer.playerId || currentPlayer.id;
+        
         console.log(`[CLONE_DEBUG] Checking player ${player.playerId}:`);
         console.log(`[CLONE_DEBUG] - player.playerId: ${player.playerId}`);
-        console.log(`[CLONE_DEBUG] - currentPlayer: ${currentPlayer}`);
-        console.log(`[CLONE_DEBUG] - playerId match: ${player.playerId !== currentPlayer}`);
+        console.log(`[CLONE_DEBUG] - currentPlayerId: ${currentPlayerId}`);
+        console.log(`[CLONE_DEBUG] - playerId match: ${player.playerId !== currentPlayerId}`);
         
-        const isOtherPlayer = player.playerId !== currentPlayer;
+        const isOtherPlayer = player.playerId !== currentPlayerId;
         
         console.log(`[CLONE_DEBUG] - Final result: ${isOtherPlayer}`);
         
