@@ -106,13 +106,6 @@ function getFlippableCards(player) {
         ));
     }
     
-    // Add cards from hand that are rule or modifier type and can be flipped
-    if (player.hand && Array.isArray(player.hand)) {
-        cards.push(...player.hand.filter(card =>
-            card && (card.type === 'rule' || card.type === 'modifier') && card.backRule
-        ));
-    }
-    
     return cards;
 }
 
