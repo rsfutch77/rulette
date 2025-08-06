@@ -225,9 +225,8 @@ function displayDrawnCard(card, cardType) {
                     Received Card:
                 </div>
             `;
-            title.style.color = cardType.color;
-            title.style.background = 'linear-gradient(135deg, #4ECDC4, #44A08D)';
             title.style.color = 'white';
+            title.style.background = 'blue';
             title.style.padding = '10px';
             title.style.borderRadius = '8px';
             title.style.marginBottom = '15px';
