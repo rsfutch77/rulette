@@ -217,7 +217,7 @@ function displayDrawnCard(card, cardType) {
                     <div style="width: 24px; height: 24px; background: #4ECDC4; border-radius: 50%; margin-right: 10px; display: flex; align-items: center; justify-content: center;">
                         <span style="color: white; font-weight: bold; font-size: 14px;">P</span>
                     </div>
-                    ${cardType.name} Card
+                    Received Card:
                 </div>
             `;
             title.style.color = cardType.color;
