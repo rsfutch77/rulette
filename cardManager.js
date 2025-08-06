@@ -35,31 +35,42 @@ export class CardManager {
         return array;
     }
 
-    draw(deckType) {
+    draw(deckType, playerId = null) {
+        const timestamp = new Date().toISOString();
+        const logContext = playerId ? `player=${playerId}` : 'system';
+        
         // Edge case: Invalid or undefined deck type
         if (!deckType) {
-            const error = new Error(`Cannot draw card: deck type is undefined or null`);
+            const errorMsg = `Cannot draw card: deck type is undefined or null`;
+            console.error(`[CARD_MANAGER] ${timestamp} DRAW_ERROR ${logContext} deck=null reason="Invalid deck type"`);
+            const error = new Error(errorMsg);
             error.code = 'INVALID_DECK_TYPE';
             throw error;
         }
         
         if (!this.decks[deckType]) {
-            console.error(`[DEBUG] Attempted to draw from deckType "${deckType}". Available decks: ${Object.keys(this.decks).join(", ")}`);
-            const error = new Error(`Deck type "${deckType}" does not exist. Available decks: ${Object.keys(this.decks).join(", ")}`);
+            const availableDecks = Object.keys(this.decks).join(", ");
+            const errorMsg = `Deck type "${deckType}" does not exist. Available decks: ${availableDecks}`;
+            console.error(`[CARD_MANAGER] ${timestamp} DRAW_ERROR ${logContext} deck=${deckType} reason="Deck not found" available_decks="${availableDecks}"`);
+            const error = new Error(errorMsg);
             error.code = 'DECK_NOT_FOUND';
             throw error;
         }
         
-        // Check if deck is empty
+        // Check if deck is empty - this is deck exhaustion
         if (this.decks[deckType].length === 0) {
-            console.error(`[CARD_MANAGER] Attempted to draw from empty deck: ${deckType}`);
-            const error = new Error(`Cannot draw card: "${deckType}" deck is empty. No cards available.`);
+            const errorMsg = `Cannot draw card: "${deckType}" deck is empty. No cards available.`;
+            console.error(`[CARD_MANAGER] ${timestamp} DECK_EXHAUSTED ${logContext} deck=${deckType} remaining_cards=0 discard_pile_size=${this.discardPiles[deckType]?.length || 0}`);
+            const error = new Error(errorMsg);
             error.code = 'DECK_EMPTY';
             throw error;
         }
         
         const card = this.decks[deckType].pop();
-        console.log(`[CARD_MANAGER] Drew card from ${deckType}:`, card.name || card.id);
+        const remainingCards = this.decks[deckType].length;
+        
+        console.log(`[CARD_MANAGER] ${timestamp} CARD_DRAWN ${logContext} deck=${deckType} card_id=${card.id || 'unknown'} card_name="${card.name || 'unnamed'}" card_type=${card.type || 'unknown'} remaining_cards=${remainingCards}`);
+        
         return card;
     }
 
@@ -71,12 +82,16 @@ export class CardManager {
      * @returns {object} - The drawn card
      */
     drawReplacementCard(deckType, playerId, maxAttempts = 3) {
+        const timestamp = new Date().toISOString();
         const recentCard = this.recentReplacementCards.get(playerId);
         const now = Date.now();
+        
+        console.log(`[CARD_MANAGER] ${timestamp} REPLACEMENT_DRAW_START player=${playerId} deck=${deckType} max_attempts=${maxAttempts} recent_card=${recentCard?.cardId || 'none'}`);
         
         // Clear old recent card data (older than 30 seconds)
         if (recentCard && (now - recentCard.timestamp) > 30000) {
             this.recentReplacementCards.delete(playerId);
+            console.log(`[CARD_MANAGER] ${timestamp} RECENT_CARD_CLEANUP player=${playerId} expired_card=${recentCard.cardId}`);
         }
         
         let attempts = 0;
@@ -84,19 +99,25 @@ export class CardManager {
         
         // Try to draw a card that's different from the recently drawn one
         while (attempts < maxAttempts) {
-            drawnCard = this.draw(deckType);
-            
-            // If no recent card or this card is different, use it
-            if (!recentCard || drawnCard.id !== recentCard.cardId) {
-                break;
+            try {
+                drawnCard = this.draw(deckType, playerId);
+                
+                // If no recent card or this card is different, use it
+                if (!recentCard || drawnCard.id !== recentCard.cardId) {
+                    console.log(`[CARD_MANAGER] ${timestamp} REPLACEMENT_DRAW_SUCCESS player=${playerId} deck=${deckType} card_id=${drawnCard.id} attempts=${attempts + 1} avoided_duplicate=${recentCard ? 'true' : 'false'}`);
+                    break;
+                }
+                
+                // Put the duplicate card back and shuffle the deck to try again
+                this.decks[deckType].unshift(drawnCard);
+                this.decks[deckType] = this._shuffle(this.decks[deckType]);
+                attempts++;
+                
+                console.log(`[CARD_MANAGER] ${timestamp} REPLACEMENT_DUPLICATE_AVOIDED player=${playerId} deck=${deckType} duplicate_card=${drawnCard.id} attempt=${attempts} reshuffled=true`);
+            } catch (error) {
+                console.error(`[CARD_MANAGER] ${timestamp} REPLACEMENT_DRAW_ERROR player=${playerId} deck=${deckType} attempt=${attempts + 1} error="${error.message}" error_code=${error.code || 'unknown'}`);
+                throw error;
             }
-            
-            // Put the duplicate card back and shuffle the deck to try again
-            this.decks[deckType].unshift(drawnCard);
-            this.decks[deckType] = this._shuffle(this.decks[deckType]);
-            attempts++;
-            
-            console.log(`[CARD_MANAGER] Attempt ${attempts}: Avoiding duplicate replacement card ${drawnCard.id || drawnCard.name} for player ${playerId}`);
         }
         
         // Track this card as recently drawn for this player
@@ -105,13 +126,23 @@ export class CardManager {
             timestamp: now
         });
         
-        console.log(`[CARD_MANAGER] Drew replacement card ${drawnCard.id || drawnCard.name} for player ${playerId} after ${attempts} attempts`);
+        console.log(`[CARD_MANAGER] ${timestamp} REPLACEMENT_DRAW_COMPLETE player=${playerId} deck=${deckType} final_card=${drawnCard.id} total_attempts=${attempts + 1} tracking_enabled=true`);
         return drawnCard;
     }
 
     discard(deckType, card) {
-        if (!this.discardPiles[deckType]) throw new Error(`Discard pile for ${deckType} does not exist`);
+        const timestamp = new Date().toISOString();
+        
+        if (!this.discardPiles[deckType]) {
+            const errorMsg = `Discard pile for ${deckType} does not exist`;
+            console.error(`[CARD_MANAGER] ${timestamp} DISCARD_ERROR deck=${deckType} card_id=${card?.id || 'unknown'} error="${errorMsg}"`);
+            throw new Error(errorMsg);
+        }
+        
         this.discardPiles[deckType].push(card);
+        const discardPileSize = this.discardPiles[deckType].length;
+        
+        console.log(`[CARD_MANAGER] ${timestamp} CARD_DISCARDED deck=${deckType} card_id=${card?.id || 'unknown'} card_name="${card?.name || 'unnamed'}" discard_pile_size=${discardPileSize}`);
     }
 
     /**
@@ -119,12 +150,17 @@ export class CardManager {
      * @param {string} playerId - Optional player ID to clear tracking for specific player
      */
     clearRecentReplacementCards(playerId = null) {
+        const timestamp = new Date().toISOString();
+        
         if (playerId) {
+            const hadTracking = this.recentReplacementCards.has(playerId);
+            const clearedCard = this.recentReplacementCards.get(playerId);
             this.recentReplacementCards.delete(playerId);
-            console.log(`[CARD_MANAGER] Cleared recent replacement card tracking for player ${playerId}`);
+            console.log(`[CARD_MANAGER] ${timestamp} RECENT_TRACKING_CLEARED player=${playerId} had_tracking=${hadTracking} cleared_card=${clearedCard?.cardId || 'none'}`);
         } else {
+            const trackingCount = this.recentReplacementCards.size;
             this.recentReplacementCards.clear();
-            console.log(`[CARD_MANAGER] Cleared all recent replacement card tracking`);
+            console.log(`[CARD_MANAGER] ${timestamp} ALL_RECENT_TRACKING_CLEARED cleared_players=${trackingCount}`);
         }
     }
 
@@ -187,16 +223,21 @@ export class CardManager {
      * @returns {object} - {success: boolean, card?: object, error?: string}
      */
     safeDraw(deckType, playerId, gameState = {}) {
+        const timestamp = new Date().toISOString();
+        console.log(`[CARD_MANAGER] ${timestamp} SAFE_DRAW_START player=${playerId} deck=${deckType}`);
+        
         try {
             const canDraw = this.canDrawCard(deckType, playerId, gameState);
             if (!canDraw.canDraw) {
+                console.warn(`[CARD_MANAGER] ${timestamp} SAFE_DRAW_BLOCKED player=${playerId} deck=${deckType} reason="${canDraw.reason}"`);
                 return { success: false, error: canDraw.reason };
             }
 
-            const card = this.draw(deckType);
+            const card = this.draw(deckType, playerId);
+            console.log(`[CARD_MANAGER] ${timestamp} SAFE_DRAW_SUCCESS player=${playerId} deck=${deckType} card_id=${card.id}`);
             return { success: true, card };
         } catch (error) {
-            console.error('[CARD_MANAGER] Error during safe draw:', error);
+            console.error(`[CARD_MANAGER] ${timestamp} SAFE_DRAW_ERROR player=${playerId} deck=${deckType} error="${error.message}" error_code=${error.code || 'unknown'}`);
             return { success: false, error: error.message };
         }
     }
@@ -209,24 +250,32 @@ export class CardManager {
      * @returns {object} - {success: boolean, card?: object, activeRule?: object, error?: string}
      */
     async drawAndActivate(deckType, playerId, gameState = {}) {
+        const timestamp = new Date().toISOString();
+        console.log(`[CARD_MANAGER] ${timestamp} DRAW_AND_ACTIVATE_START player=${playerId} deck=${deckType} session=${gameState.sessionId || 'unknown'}`);
+        
         try {
             // First check if drawing is allowed
             const canDraw = this.canDrawCard(deckType, playerId, gameState);
             if (!canDraw.canDraw) {
+                console.warn(`[CARD_MANAGER] ${timestamp} DRAW_AND_ACTIVATE_BLOCKED player=${playerId} deck=${deckType} reason="${canDraw.reason}"`);
                 return { success: false, error: canDraw.reason, restrictions: canDraw.restrictions };
             }
 
             // Draw the card
-            const card = this.draw(deckType);
+            const card = this.draw(deckType, playerId);
             
             // If GameManager is available, handle rule activation
             if (gameState.gameManager && gameState.sessionId) {
+                console.log(`[CARD_MANAGER] ${timestamp} CARD_ACTIVATION_START player=${playerId} card_id=${card.id} session=${gameState.sessionId}`);
+                
                 const activationResult = await this.handleCardDrawn(
                     gameState.sessionId,
                     playerId,
                     card,
                     gameState
                 );
+                
+                console.log(`[CARD_MANAGER] ${timestamp} DRAW_AND_ACTIVATE_SUCCESS player=${playerId} deck=${deckType} card_id=${card.id} activation_success=${activationResult.success || true}`);
                 
                 return {
                     success: true,
@@ -238,9 +287,10 @@ export class CardManager {
             }
 
             // Fallback for when GameManager is not available
+            console.log(`[CARD_MANAGER] ${timestamp} DRAW_AND_ACTIVATE_SUCCESS player=${playerId} deck=${deckType} card_id=${card.id} activation=none`);
             return { success: true, card };
         } catch (error) {
-            console.error('[CARD_MANAGER] Error during draw and activate:', error);
+            console.error(`[CARD_MANAGER] ${timestamp} DRAW_AND_ACTIVATE_ERROR player=${playerId} deck=${deckType} error="${error.message}" error_code=${error.code || 'unknown'}`);
             return { success: false, error: error.message };
         }
     }
@@ -338,21 +388,25 @@ export class CardManager {
      * @returns {object} - {success: boolean, activeRule?: object, error?: string}
      */
     async handleCardDrawn(sessionId, playerId, card, gameContext = {}) {
-        console.log(`[CARD_MANAGER] Handling card drawn for player ${playerId} in session ${sessionId}: ${card.name || card.id}`);
+        const timestamp = new Date().toISOString();
+        console.log(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_START player=${playerId} session=${sessionId} card_id=${card.id || 'unknown'} card_name="${card.name || 'unnamed'}" card_type=${card.type || 'unknown'}`);
         
         const { gameManager } = gameContext;
         if (!gameManager) {
-            console.error('[CARD_MANAGER] GameManager reference required for handleCardDrawn');
+            console.error(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_ERROR player=${playerId} session=${sessionId} error="GameManager reference required"`);
             return { success: false, error: 'GameManager reference required' };
         }
 
         let actualCard = card;
         let displayType = card.type;
+        let replacementOccurred = false;
         
         // If it's a flip card and player has no rule/modifier, replace it
         if (card.type === 'Flip' && !this.playerHasRuleOrModifier(playerId, gameManager)) {
             const replacementTypes = ['Rule', 'Modifier'];
             const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
+            
+            console.log(`[CARD_MANAGER] ${timestamp} FLIP_CARD_REPLACEMENT_START player=${playerId} original_card=${card.id} target_type=${newType} reason="player_has_no_rule_or_modifier"`);
             
             // Get replacement card with anti-duplicate logic
             try {
@@ -361,9 +415,10 @@ export class CardManager {
                 const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
                 actualCard = this.drawReplacementCard(deckKey, playerId);
                 displayType = newType;
-                console.log(`[CARD_MANAGER] Replaced flip card with ${newType} for player ${playerId}`);
+                replacementOccurred = true;
+                console.log(`[CARD_MANAGER] ${timestamp} FLIP_CARD_REPLACEMENT_SUCCESS player=${playerId} original_card=${card.id} replacement_card=${actualCard.id} replacement_type=${newType}`);
             } catch (error) {
-                console.error(`[CARD_MANAGER] Error replacing flip card:`, error);
+                console.error(`[CARD_MANAGER] ${timestamp} FLIP_CARD_REPLACEMENT_ERROR player=${playerId} original_card=${card.id} target_type=${newType} error="${error.message}" error_code=${error.code || 'unknown'}`);
                 // If replacement fails, proceed with the original flip card
             }
         }
@@ -373,13 +428,16 @@ export class CardManager {
             const replacementTypes = ['Rule', 'Modifier'];
             const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
             
+            console.log(`[CARD_MANAGER] ${timestamp} CLONE_CARD_REPLACEMENT_START player=${playerId} original_card=${card.id} target_type=${newType} reason="no_players_have_rule_or_modifier"`);
+            
             try {
                 const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
                 actualCard = this.drawReplacementCard(deckKey, playerId);
                 displayType = newType;
-                console.log(`[CARD_MANAGER] Replaced clone card with ${newType} for player ${playerId} as no other players had rule/modifier.`);
+                replacementOccurred = true;
+                console.log(`[CARD_MANAGER] ${timestamp} CLONE_CARD_REPLACEMENT_SUCCESS player=${playerId} original_card=${card.id} replacement_card=${actualCard.id} replacement_type=${newType}`);
             } catch (error) {
-                console.error(`[CARD_MANAGER] Error replacing clone card:`, error);
+                console.error(`[CARD_MANAGER] ${timestamp} CLONE_CARD_REPLACEMENT_ERROR player=${playerId} original_card=${card.id} target_type=${newType} error="${error.message}" error_code=${error.code || 'unknown'}`);
             }
         }
         
@@ -388,21 +446,24 @@ export class CardManager {
             const cardType = window.wheelComponent.getCardTypeByName(displayType);
             if (cardType) {
                 window.wheelComponent.updateWheelDisplay(cardType);
+                console.log(`[CARD_MANAGER] ${timestamp} WHEEL_DISPLAY_UPDATED player=${playerId} display_type=${displayType}`);
             }
         }
         
         try {
             // Handle special card types
             if (card.type === 'prompt') {
+                console.log(`[CARD_MANAGER] ${timestamp} PROMPT_CARD_ACTIVATION player=${playerId} card_id=${card.id}`);
                 return this.activatePromptCard(sessionId, playerId, card, gameManager);
             }
 
+            console.log(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_SUCCESS player=${playerId} session=${sessionId} final_card=${actualCard.id} replacement_occurred=${replacementOccurred}`);
             return {
                 success: true,
                 message: 'Card drawn successfully (no rule to activate)'
             };
         } catch (error) {
-            console.error(`[CARD_MANAGER] Error handling card drawn:`, error);
+            console.error(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_ERROR player=${playerId} session=${sessionId} error="${error.message}" error_code=${error.code || 'CARD_PROCESSING_ERROR'}`);
             return {
                 success: false,
                 error: 'Failed to process card draw',
