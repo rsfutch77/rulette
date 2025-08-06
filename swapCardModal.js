@@ -136,12 +136,20 @@ function populateOtherPlayersCards(currentPlayer) {
     const allPlayers = window.gameManager.players || {};
     const currentPlayerId = currentPlayer.playerId || currentPlayer.id;
     
+    console.log('[SWAP] Debug - All players:', allPlayers);
+    console.log('[SWAP] Debug - Current player ID for filtering:', currentPlayerId);
+    
     const otherPlayers = Object.values(allPlayers).filter(player => {
         if (!player || !player.playerId) {
+            console.log('[SWAP] Debug - Filtering out player with no playerId:', player);
             return false;
         }
-        return player.playerId !== currentPlayerId;
+        const isOtherPlayer = player.playerId !== currentPlayerId;
+        console.log(`[SWAP] Debug - Player ${player.playerId} is other player: ${isOtherPlayer}`);
+        return isOtherPlayer;
     });
+    
+    console.log('[SWAP] Debug - Other players after filtering:', otherPlayers);
     
     if (otherPlayers.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#666; font-style:italic;">No other players available.</p>';
@@ -354,6 +362,9 @@ function createSwapCardElement(card, player, selectionType) {
  * @param {string} selectionType - 'give' or 'receive'
  */
 function selectSwapCard(card, player, cardElement, selectionType) {
+    console.log(`[SWAP] selectSwapCard called - Type: ${selectionType}, Player:`, player);
+    console.log(`[SWAP] selectSwapCard - Player ID: ${player.playerId || player.id}`);
+    
     if (selectionType === 'give') {
         // Clear previous give selection
         const previousGive = document.querySelector('.swap-card-element.give.selected');
@@ -383,6 +394,9 @@ function selectSwapCard(card, player, cardElement, selectionType) {
         // Select new receive card
         window.selectedReceiveCard = card;
         window.selectedReceivePlayer = player;
+        
+        console.log('[SWAP] Set selectedReceivePlayer to:', window.selectedReceivePlayer);
+        console.log('[SWAP] selectedReceivePlayer ID:', window.selectedReceivePlayer.playerId || window.selectedReceivePlayer.id);
         
         cardElement.classList.add('selected');
         cardElement.style.borderColor = '#28a745';
@@ -529,13 +543,37 @@ async function executeSwapAction() {
     
     console.log(`[SWAP] Executing swap: giving "${getCardDisplayText(giveCard)}" to receive "${getCardDisplayText(receiveCard)}"`);
     
+    // Debug player information
+    console.log('[SWAP] Debug - Current player:', currentPlayer);
+    console.log('[SWAP] Debug - Give player:', givePlayer);
+    console.log('[SWAP] Debug - Receive player:', receivePlayer);
+    
+    // Get proper player IDs
+    const givePlayerId = givePlayer.playerId || givePlayer.id;
+    const currentPlayerId = currentPlayer.playerId || currentPlayer.id;
+    const receivePlayerId = receivePlayer.playerId || receivePlayer.id;
+    
+    console.log('[SWAP] Debug - Current player ID:', currentPlayerId);
+    console.log('[SWAP] Debug - Receive player ID:', receivePlayerId);
+    
+    if (!receivePlayerId) {
+        console.error('[SWAP] Receive player ID is undefined');
+        if (window.showNotification) {
+            window.showNotification({
+                message: 'Unable to identify the player to swap with',
+                title: 'Swap Failed'
+            });
+        }
+        return;
+    }
+    
     try {
         // Use the card manager's swap functionality if available
         if (window.gameManager && window.gameManager.cardManager && window.gameManager.cardManager.swapCards) {
             const result = window.gameManager.cardManager.swapCards(
                 sessionId,
-                currentPlayer.id,
-                receivePlayer.id,
+                givePlayerId,
+                receivePlayerId,
                 giveCard.id,
                 receiveCard.id,
                 window.gameManager
@@ -582,7 +620,7 @@ async function executeSwapAction() {
         } else {
             // Fallback: Use direct swap implementation
             console.log('[SWAP] Using fallback swap logic');
-            await executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePlayer, sessionId);
+            await executeDirectSwap(giveCard, receiveCard, givePlayer, receivePlayer, sessionId);
         }
         
     } catch (error) {

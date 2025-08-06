@@ -239,7 +239,7 @@ function displayDrawnCard(card, cardType) {
                 ` : ''}
             `;
         } else {
-            title.textContent = `${cardType.name} Card`;
+            title.textContent = `Received Card`;
             title.style.color = cardType.color;
             question.textContent = card.getCurrentText();
         }
