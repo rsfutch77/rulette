@@ -14,6 +14,9 @@ export class CardManager {
         // deckDefinitions: { [deckType]: [cardData, ...] }
         this.decks = {};
         this.discardPiles = {};
+        // Track recently drawn replacement cards to prevent consecutive duplicates
+        this.recentReplacementCards = new Map(); // playerId -> {cardId, timestamp}
+        
         // Initialize decks and discard piles
         for (const [deckType, cards] of Object.entries(deckDefinitions)) {
             this.decks[deckType] = this._shuffle(cards.map(card => {
@@ -60,9 +63,69 @@ export class CardManager {
         return card;
     }
 
+    /**
+     * Draw a replacement card while avoiding recently drawn cards for the same player
+     * @param {string} deckType - The deck type to draw from
+     * @param {string} playerId - The player ID to track recent cards for
+     * @param {number} maxAttempts - Maximum attempts to find a non-duplicate card
+     * @returns {object} - The drawn card
+     */
+    drawReplacementCard(deckType, playerId, maxAttempts = 3) {
+        const recentCard = this.recentReplacementCards.get(playerId);
+        const now = Date.now();
+        
+        // Clear old recent card data (older than 30 seconds)
+        if (recentCard && (now - recentCard.timestamp) > 30000) {
+            this.recentReplacementCards.delete(playerId);
+        }
+        
+        let attempts = 0;
+        let drawnCard = null;
+        
+        // Try to draw a card that's different from the recently drawn one
+        while (attempts < maxAttempts) {
+            drawnCard = this.draw(deckType);
+            
+            // If no recent card or this card is different, use it
+            if (!recentCard || drawnCard.id !== recentCard.cardId) {
+                break;
+            }
+            
+            // Put the duplicate card back and shuffle the deck to try again
+            this.decks[deckType].unshift(drawnCard);
+            this.decks[deckType] = this._shuffle(this.decks[deckType]);
+            attempts++;
+            
+            console.log(`[CARD_MANAGER] Attempt ${attempts}: Avoiding duplicate replacement card ${drawnCard.id || drawnCard.name} for player ${playerId}`);
+        }
+        
+        // Track this card as recently drawn for this player
+        this.recentReplacementCards.set(playerId, {
+            cardId: drawnCard.id,
+            timestamp: now
+        });
+        
+        console.log(`[CARD_MANAGER] Drew replacement card ${drawnCard.id || drawnCard.name} for player ${playerId} after ${attempts} attempts`);
+        return drawnCard;
+    }
+
     discard(deckType, card) {
         if (!this.discardPiles[deckType]) throw new Error(`Discard pile for ${deckType} does not exist`);
         this.discardPiles[deckType].push(card);
+    }
+
+    /**
+     * Clear recent replacement card tracking for a specific player or all players
+     * @param {string} playerId - Optional player ID to clear tracking for specific player
+     */
+    clearRecentReplacementCards(playerId = null) {
+        if (playerId) {
+            this.recentReplacementCards.delete(playerId);
+            console.log(`[CARD_MANAGER] Cleared recent replacement card tracking for player ${playerId}`);
+        } else {
+            this.recentReplacementCards.clear();
+            console.log(`[CARD_MANAGER] Cleared all recent replacement card tracking`);
+        }
     }
 
     getDeckTypes() {
@@ -291,12 +354,12 @@ export class CardManager {
             const replacementTypes = ['Rule', 'Modifier'];
             const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
             
-            // Get replacement card
+            // Get replacement card with anti-duplicate logic
             try {
                 // Map the card type to the deckKey used in the wheel
                 // Rule -> deckType1, Modifier -> deckType3
                 const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
-                actualCard = this.draw(deckKey);
+                actualCard = this.drawReplacementCard(deckKey, playerId);
                 displayType = newType;
                 console.log(`[CARD_MANAGER] Replaced flip card with ${newType} for player ${playerId}`);
             } catch (error) {
@@ -305,14 +368,14 @@ export class CardManager {
             }
         }
         
-        // Check for clone card replacement logic
+        // Check for clone card replacement logic with anti-duplicate protection
         if (card.type === 'Clone' && !this.anyPlayerHasRuleOrModifier(sessionId, gameManager)) {
             const replacementTypes = ['Rule', 'Modifier'];
             const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
             
             try {
                 const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
-                actualCard = this.draw(deckKey);
+                actualCard = this.drawReplacementCard(deckKey, playerId);
                 displayType = newType;
                 console.log(`[CARD_MANAGER] Replaced clone card with ${newType} for player ${playerId} as no other players had rule/modifier.`);
             } catch (error) {
