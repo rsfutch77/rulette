@@ -114,6 +114,11 @@ function handleCardDraw(selectedCardType) {
         // Handle swap card type separately
         if (deckKey === 'deckType6') { // Assuming deckType6 is the swap deck based on error
             console.log('[CARD_DRAW] Swap card drawn. Opening swap modal.');
+            
+            // Set a flag to indicate a swap card was drawn for turn management
+            window.lastDrawnCard = { type: 'swap' };
+            console.log('[CARD_DRAW] Set swap card flag for turn management');
+            
             window.showSwapCardModal(); // Call the new swap modal function
             return; // Exit as no card is drawn to display
         }

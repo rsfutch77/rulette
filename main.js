@@ -1397,12 +1397,16 @@ function checkIfPromptCardDrawn() {
   
   const isPromptCard = window.lastDrawnCard.type === 'prompt';
   const isCloneCard = window.lastDrawnCard.type === 'clone';
-  const requiresManualAdvancement = isPromptCard || isCloneCard;
+  const isSwapCard = window.lastDrawnCard.type === 'swap';
+  const isFlipCard = window.lastDrawnCard.type === 'flip' || window.lastDrawnCard.type === 'flip_action';
+  const requiresManualAdvancement = isPromptCard || isCloneCard || isSwapCard || isFlipCard;
   
   console.log("[TURN_MGMT] Checking if manual turn advancement required:", {
     cardType: window.lastDrawnCard.type,
     isPromptCard: isPromptCard,
     isCloneCard: isCloneCard,
+    isSwapCard: isSwapCard,
+    isFlipCard: isFlipCard,
     requiresManualAdvancement: requiresManualAdvancement
   });
   
