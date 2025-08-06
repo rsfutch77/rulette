@@ -1254,9 +1254,126 @@ export class CardManager {
     }
 
     swapCards(sessionId, player1Id, player2Id, card1Id, card2Id, gameManager) {
-        // TODO: Move implementation from gameManager.js
-        console.log(`[CARD_MANAGER] swapCards placeholder called`);
-        return { success: false, error: 'Not yet implemented' };
+        console.log(`[CARD_MANAGER] swapCards called: ${player1Id} giving ${card1Id} to ${player2Id} for ${card2Id}`);
+        
+        try {
+            // Get players from game manager
+            if (!gameManager || !gameManager.players) {
+                throw new Error('Game manager or players not available');
+            }
+            
+            const player1 = gameManager.players[player1Id];
+            const player2 = gameManager.players[player2Id];
+            
+            if (!player1 || !player2) {
+                throw new Error('One or both players not found');
+            }
+            
+            // Find cards in player collections
+            const card1 = this._findCardInPlayer(player1, card1Id);
+            const card2 = this._findCardInPlayer(player2, card2Id);
+            
+            if (!card1 || !card2) {
+                throw new Error('One or both cards not found in player collections');
+            }
+            
+            // Remove cards from current locations
+            const card1Location = this._removeCardFromPlayerCollection(player1, card1Id);
+            const card2Location = this._removeCardFromPlayerCollection(player2, card2Id);
+            
+            if (!card1Location || !card2Location) {
+                throw new Error('Failed to remove cards from player collections');
+            }
+            
+            // Update card ownership
+            card1.owner = player2Id;
+            card2.owner = player1Id;
+            
+            // Add cards to their new locations (swap the locations)
+            this._addCardToPlayerCollection(player2, card1, card1Location);
+            this._addCardToPlayerCollection(player1, card2, card2Location);
+            
+            console.log(`[CARD_MANAGER] Successfully swapped cards between ${player1Id} and ${player2Id}`);
+            
+            return {
+                success: true,
+                message: 'Cards swapped successfully',
+                swappedCards: {
+                    card1: { id: card1Id, newOwner: player2Id },
+                    card2: { id: card2Id, newOwner: player1Id }
+                }
+            };
+            
+        } catch (error) {
+            console.error(`[CARD_MANAGER] Error swapping cards:`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Finds a card in a player's collection
+     * @param {Object} player - Player object
+     * @param {string} cardId - Card ID to find
+     * @returns {Object|null} - Card object or null if not found
+     */
+    _findCardInPlayer(player, cardId) {
+        // Check hand first
+        if (player.hand && Array.isArray(player.hand)) {
+            const card = player.hand.find(card => card.id === cardId);
+            if (card) return card;
+        }
+        
+        // Check rule cards
+        if (player.ruleCards && Array.isArray(player.ruleCards)) {
+            const card = player.ruleCards.find(card => card.id === cardId);
+            if (card) return card;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Removes a card from a player's collection and returns the location
+     * @param {Object} player - Player object
+     * @param {string} cardId - Card ID to remove
+     * @returns {string|null} - Location where card was found ('hand' or 'ruleCards') or null if not found
+     */
+    _removeCardFromPlayerCollection(player, cardId) {
+        // Check hand first
+        if (player.hand && Array.isArray(player.hand)) {
+            const handIndex = player.hand.findIndex(card => card.id === cardId);
+            if (handIndex !== -1) {
+                player.hand.splice(handIndex, 1);
+                return 'hand';
+            }
+        }
+        
+        // Check rule cards
+        if (player.ruleCards && Array.isArray(player.ruleCards)) {
+            const ruleIndex = player.ruleCards.findIndex(card => card.id === cardId);
+            if (ruleIndex !== -1) {
+                player.ruleCards.splice(ruleIndex, 1);
+                return 'ruleCards';
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Adds a card to a player's collection at the specified location
+     * @param {Object} player - Player object
+     * @param {Object} card - Card to add
+     * @param {string} location - Location to add card ('hand' or 'ruleCards')
+     */
+    _addCardToPlayerCollection(player, card, location) {
+        if (location === 'hand') {
+            if (!player.hand) player.hand = [];
+            player.hand.push(card);
+        } else if (location === 'ruleCards') {
+            if (!player.ruleCards) player.ruleCards = [];
+            player.ruleCards.push(card);
+        }
     }
 
     swapRefereeRole(sessionId, currentRefereeId, newRefereeId, gameManager) {
