@@ -633,9 +633,7 @@ async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePl
         // Advance to next turn after successful swap
         if (window.completeTurn) {
             console.log(`[SWAP] Advancing turn after successful swap action`);
-            setTimeout(async () => {
-                await window.completeTurn(sessionId);
-            }, 1000); // Brief delay to allow UI updates
+            await window.completeTurn(sessionId);
         } else {
             console.warn(`[SWAP] completeTurn function not available`);
         }
