@@ -568,60 +568,9 @@ async function executeSwapAction() {
     }
     
     try {
-        // Use the card manager's swap functionality if available
-        if (window.gameManager && window.gameManager.cardManager && window.gameManager.cardManager.swapCards) {
-            const result = window.gameManager.cardManager.swapCards(
-                sessionId,
-                givePlayerId,
-                receivePlayerId,
-                giveCard.id,
-                receiveCard.id,
-                window.gameManager
-            );
-            
-            if (result.success) {
-                // Show success notification
-                if (window.showNotification) {
-                    window.showNotification({
-                        message: `Successfully swapped "${getCardDisplayText(giveCard)}" for "${getCardDisplayText(receiveCard)}"`,
-                        title: 'Cards Swapped!'
-                    });
-                }
-                
-                // Update UI displays
-                if (window.updateActiveRulesDisplay) {
-                    window.updateActiveRulesDisplay();
-                }
-                
-                // Hide the modal
-                hideSwapCardModal();
-                
-                console.log(`[SWAP] Successfully swapped cards`);
-                
-                // Advance to next turn after successful swap
-                if (window.completeTurn) {
-                    console.log(`[SWAP] Advancing turn after successful swap action`);
-                    setTimeout(async () => {
-                        await window.completeTurn(sessionId);
-                    }, 1000); // Brief delay to allow UI updates
-                } else {
-                    console.warn(`[SWAP] completeTurn function not available`);
-                }
-                
-            } else {
-                console.error("[SWAP] Failed to swap cards:", result.error);
-                if (window.showNotification) {
-                    window.showNotification({
-                        message: result.error || 'Failed to swap cards',
-                        title: 'Swap Failed'
-                    });
-                }
-            }
-        } else {
-            // Fallback: Use direct swap implementation
-            console.log('[SWAP] Using fallback swap logic');
-            await executeDirectSwap(giveCard, receiveCard, givePlayer, receivePlayer, sessionId);
-        }
+        // Use direct swap implementation with Firebase synchronization
+        console.log('[SWAP] Using direct swap implementation with Firebase updates');
+        await executeDirectSwap(giveCard, receiveCard, givePlayer, receivePlayer, sessionId);
         
     } catch (error) {
         console.error('[SWAP] Error during swap execution:', error);
@@ -664,12 +613,12 @@ async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePl
         await updateFirebaseAfterSwap(currentPlayer, receivePlayer);
         
         // Show success notification
-        if (window.showNotification) {
-            window.showNotification({
-                message: `Successfully swapped "${getCardDisplayText(giveCard)}" for "${getCardDisplayText(receiveCard)}"`,
-                title: 'Cards Swapped!'
-            });
-        }
+        // if (window.showNotification) {
+        //     window.showNotification({
+        //         message: `Successfully swapped "${getCardDisplayText(giveCard)}" for "${getCardDisplayText(receiveCard)}"`,
+        //         title: 'Cards Swapped!'
+        //     });
+        // }
         
         // Update UI displays
         if (window.updateActiveRulesDisplay) {
