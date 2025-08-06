@@ -222,44 +222,7 @@ Roles and responsibilities:
 [ ] 7.5.1 Notify all players when someone joins, leaves, or changes status (1 Point)
 [ ] 7.5.2 Provide clear feedback for all lobby actions (1 Point)
 
-[ ] 8. Real-Time Synchronization (14 Points)
-[ ] 8.1 State Sync Architecture (4 Points)
-[ ] 8.1.1 Design a system for broadcasting game state changes to all connected clients (2 Points)
-[ ] 8.1.2 Choose and document the technology for real-time state synchronization (Firebase Realtime Database is the preferred choice; if not finalized, mark as TBD and update all related plans for consistency) (2 Points)
-[ ] 8.2 Action Propagation (3 Points)
-[ ] 8.2.1 Ensure all player actions are propagated in real time (2 Points)
-[ ] 8.2.2 Handle out-of-order or conflicting actions gracefully, including:
-    - Simultaneous actions from multiple players
-    - Network latency causing delayed actions
-    - Conflicting state updates from different clients
-[ ] 8.3 Latency and Consistency Handling (3 Points)
-[ ] 8.3.1 Minimize latency for all real-time updates (2 Points)
-[ ] 8.3.2 Implement conflict resolution and state reconciliation as needed (1 Point)
-[ ] 8.4 Connection Management (2 Points)
-[ ] 8.4.1 Detect and handle dropped or lagging connections (1 Point)
-[ ] 8.4.2 Allow players to reconnect and resync their state (1 Point)
-[ ] 8.5 Testing and Debugging Tools (2 Points)
-[ ] 8.5.1 Provide tools for testing synchronization (1 Point)
-[ ] 8.5.2 Provide tools for debugging state issues (1 Point)
-
 ## Phase 4: UI/UX Enhancements and Card/Rule Expansion
-[ ] 9. User Interface and Animations (17 Points)
-[ ] 9.1 UI Layout and Navigation (4 Points)
-[ ] 9.1.1 Design the main game screens: lobby, game board, player status, card display, referee panel (2 Points)
-[ ] 9.1.2 Ensure clear navigation between screens and states (2 Points)
-[ ] 9.1.3 Display player's current rule cards at the bottom of each player's page (3 Points)
-[ ] 9.2 Visual Design and Theming (3 Points)
-[ ] 9.2.1 Develop a cohesive visual theme and color palette (2 Points)
-[ ] 9.2.2 Apply consistent styling to all UI components (1 Point)
-[ ] 9.3 Animations and Transitions (4 Points)
-[ ] 9.3.1 Animate key actions: wheel spin, card draw, point changes, card transfers (2 Points)
-[ ] 9.3.2 Use animations to provide feedback and enhance clarity (2 Points)
-[ ] 9.4 Responsive and Accessible Design (3 Points)
-[ ] 9.4.1 Ensure UI works well on various screen sizes and devices (2 Points)
-[ ] 9.4.2 Implement accessibility best practices (1 Point)
-[ ] 9.5 User Feedback and Notifications (Reference)
-[ ] 9.5.1 All requirements for user feedback and in-game notifications are consolidated in Plan 13.5: Unified Feedback and Notification System.
-
 [ ] 10. Card/Rule Expansion Packs (8 Points)
 [ ] 10.1 Expansion Pack Architecture (3 Points)
 [ ] 10.1.1 Design a system for loading and managing multiple card/rule packs (2 Points)
@@ -287,19 +250,6 @@ Roles and responsibilities:
 [ ] 11.4.1 Document accessibility features and mobile support (1 Point)
 
 ## Phase 5: Deployment and Community Feedback
-[ ] 12. Deployment Pipeline and Hosting (7 Points)
-[ ] 12.1 Deployment Pipeline Setup (3 Points)
-[ ] 12.1.1 Configure automated build and deployment scripts (2 Points)
-[ ] 12.1.2 Ensure builds are tested and validated before deployment (1 Point)
-[ ] 12.2 Hosting Configuration (2 Points)
-[ ] 12.2.1 Set up hosting on Firebase (preferred) or another suitable platform (if not finalized, mark as TBD and ensure all references are consistent) (1 Point)
-[ ] 12.2.2 Configure domains, SSL, and CDN as needed (1 Point)
-[ ] 12.3 Environment Management (1 Point)
-[ ] 12.3.1 Manage environment variables and secrets securely (1 Point)
-[ ] 12.3.2 Support staging and production environments (0 Points)
-[ ] 12.4 Documentation (1 Point)
-[ ] 12.4.1 Document deployment process and hosting configuration for maintainers (1 Point)
-
 [ ] 13. Analytics and Feedback Collection (6 Points)
 [ ] 13.1 Analytics Integration (2 Points)
 [ ] 13.1.1 Integrate analytics tools to track key metrics (1 Point)
