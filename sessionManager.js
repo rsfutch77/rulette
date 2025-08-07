@@ -75,6 +75,7 @@ export class SessionManager {
             console.log("DEBUG: Synchronizing with Firebase");
             // Synchronize with Firebase (include shareable code)
             await createFirestoreGameSession(newSession);
+            console.log("DEBUG: About to call initializeFirestorePlayer for host:", hostId, "with isHost: true");
             await initializeFirestorePlayer(hostId, {
                 sessionId: sessionInfo.sessionId,
                 displayName: hostDisplayName,
@@ -82,6 +83,7 @@ export class SessionManager {
                 status: 'active',
                 joinedAt: new Date().toISOString()
             });
+            console.log("DEBUG: initializeFirestorePlayer completed for host:", hostId);
 
             console.log(`Game session ${sessionInfo.sessionId} created by host ${hostDisplayName}.`);
             console.log(`Shareable code: ${sessionInfo.shareableCode}`);

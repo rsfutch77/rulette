@@ -50,8 +50,9 @@ async function initializeFirestorePlayer(playerId, playerData) {
       ...playerData,
       ruleCards: playerData.ruleCards || []
     };
+    console.log("[FIRESTORE] About to initialize player:", playerId, "with data:", playerDataWithRuleCards);
     await setDoc(playerRef, playerDataWithRuleCards);
-    console.log("[FIRESTORE] Player initialized:", playerId);
+    console.log("[FIRESTORE] Player initialized successfully:", playerId, "isHost:", playerDataWithRuleCards.isHost);
     return playerRef;
   } catch (error) {
     console.error("[FIRESTORE] Error initializing player:", error);

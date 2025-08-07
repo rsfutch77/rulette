@@ -162,15 +162,19 @@ export class PlayerManager {
         // Initialize player presence tracking
         this.initializePlayerPresence(sessionId, playerId);
 
-        // Synchronize with Firebase (false for isHost, as this is for joining players)
+        // Check if this player is the host by comparing with session's hostId
+        const session = this.gameManager.getSession(sessionId);
+        const isHost = session && session.hostId === playerId;
+
+        // Synchronize with Firebase with correct isHost value
         await initializeFirestorePlayer(playerId, {
             sessionId: sessionId,
             displayName: displayName,
-            isHost: false,
+            isHost: isHost,
             points: 20,
             status: 'active'
         });
-        console.log(`Player ${displayName} (${playerId}) initialized with 20 points and synced with Firebase.`);
+        console.log(`Player ${displayName} (${playerId}) initialized with 20 points and synced with Firebase. isHost: ${isHost}`);
         return newPlayer;
     }
 
