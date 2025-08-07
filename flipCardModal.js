@@ -282,7 +282,43 @@ async function executeFlipAction() {
                     window.updatePlayerCards(window.currentSessionId);
                 }
                 
-                // Hide the modal
+                console.log(`[FLIP] About to advance turn - sessionId: ${sessionId}, completeTurn available: ${!!window.completeTurn}`);
+                
+                // Advance turn after successful flip completion (before hiding modal)
+                try {
+                    if (window.completeTurn && sessionId) {
+                        console.log(`[FLIP] Advancing turn after successful flip`);
+                        const success = await window.completeTurn(sessionId);
+                        console.log(`[FLIP] completeTurn returned:`, success);
+                        
+                        if (success !== false) {
+                            console.log(`[FLIP] Turn successfully advanced after flip`);
+                            
+                            // Show turn advancement notification
+                            if (window.showNotification) {
+                                window.showNotification(
+                                    'Turn advanced to next player',
+                                    'Turn Advanced'
+                                );
+                            }
+                        } else {
+                            console.warn(`[FLIP] Turn advancement returned false`);
+                        }
+                    } else {
+                        console.warn(`[FLIP] Cannot advance turn - completeTurn available: ${!!window.completeTurn}, sessionId: ${sessionId}`);
+                    }
+                } catch (turnError) {
+                    console.error(`[FLIP] Error advancing turn after flip:`, turnError);
+                    // Don't fail the flip operation if turn advancement fails
+                    if (window.showNotification) {
+                        window.showNotification(
+                            'Card flipped successfully, but turn advancement failed',
+                            'Warning'
+                        );
+                    }
+                }
+                
+                // Hide the modal after turn advancement
                 hideFlipCardModal();
                 
                 console.log(`[FLIP] Successfully flipped card:`, result);
