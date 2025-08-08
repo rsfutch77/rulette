@@ -507,8 +507,8 @@ function updatePlayerScores(sessionId) {
     if (player.isHost) {
       console.log(`[HOST DEBUG] Applying host styling to ${player.name}`);
       borderStyle = '3px solid #dc3545';
-      backgroundStyle = 'linear-gradient(135deg, #4a2d2d, #5a3a3a)';
-      boxShadowStyle = '0 0 10px rgba(220, 53, 69, 0.3)';
+      backgroundStyle = 'linear-gradient(135deg, #ffffffff, #ffffffff)';
+      boxShadowStyle = '0 0 10px rgba(255, 255, 255, 0.3)';
       scoreItem.classList.add('host');
     }
     // Current player gets green border (unless host)
