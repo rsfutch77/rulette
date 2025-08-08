@@ -457,6 +457,14 @@ function updatePlayerScores(sessionId) {
   const currentTurnInfo = gameManager.currentTurn[sessionId];
   const currentPlayerId = currentTurnInfo?.currentPlayer;
   const refereeId = session.referee;
+  const hostId = session.hostId;
+  
+  console.log(`[HOST DEBUG] Session info:`, {
+    hostId: hostId,
+    currentPlayerId: currentPlayerId,
+    refereeId: refereeId,
+    sessionPlayers: session.players
+  });
   
   // Get all players in the session and sort by points (descending)
   const sessionPlayers = session.players || [];
@@ -467,7 +475,8 @@ function updatePlayerScores(sessionId) {
         id: playerId,
         name: player.displayName,
         points: player.points || 0,
-        status: player.status || 'active'
+        status: player.status || 'active',
+        isHost: playerId === hostId
       } : null;
     })
     .filter(player => player !== null)
@@ -481,35 +490,60 @@ function updatePlayerScores(sessionId) {
     scoreItem.className = 'player-score-item';
     scoreItem.id = `player-score-${player.id}`;
     
-    // Add inline styles as fallback to ensure styling is applied
+    // Debug logging for host identification
+    console.log(`[HOST DEBUG] Player ${player.name} (${player.id}):`, {
+      isHost: player.isHost,
+      isCurrentPlayer: player.id === currentPlayerId,
+      isReferee: player.id === refereeId,
+      playerData: gameManager.players[player.id]
+    });
+    
+    // Determine styling based on player roles
+    let borderStyle = '2px solid #e9ecef';
+    let backgroundStyle = '#fff';
+    let boxShadowStyle = '0 2px 4px rgba(0,0,0,0.1)';
+    
+    // Host gets red border and dark background (highest priority)
+    if (player.isHost) {
+      console.log(`[HOST DEBUG] Applying host styling to ${player.name}`);
+      borderStyle = '3px solid #dc3545';
+      backgroundStyle = 'linear-gradient(135deg, #4a2d2d, #5a3a3a)';
+      boxShadowStyle = '0 0 10px rgba(220, 53, 69, 0.3)';
+      scoreItem.classList.add('host');
+    }
+    // Current player gets green border (unless host)
+    else if (player.id === currentPlayerId) {
+      borderStyle = '2px solid #28a745';
+      backgroundStyle = 'linear-gradient(135deg, #f8fff9, #e8f5e8)';
+      scoreItem.classList.add('current-player');
+    }
+    // Referee gets yellow border (unless host)
+    else if (player.id === refereeId) {
+      borderStyle = '2px solid #ffc107';
+      backgroundStyle = 'linear-gradient(135deg, #fffdf0, #fff3cd)';
+      scoreItem.classList.add('referee');
+    }
+    
+    // Apply the determined styles
     scoreItem.style.cssText = `
-      background: #fff;
-      border: 2px solid #e9ecef;
+      background: ${backgroundStyle};
+      border: ${borderStyle};
       border-radius: 8px;
       padding: 0.75rem 1rem;
       min-width: 120px;
       text-align: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: ${boxShadowStyle};
       transition: all 0.3s ease;
       position: relative;
       margin: 0.25rem;
       display: inline-block;
     `;
     
-    // Add special styling for current player and referee
-    if (player.id === currentPlayerId) {
-      scoreItem.classList.add('current-player');
-      scoreItem.style.borderColor = '#28a745';
-      scoreItem.style.background = 'linear-gradient(135deg, #f8fff9, #e8f5e8)';
-    }
-    if (player.id === refereeId) {
-      scoreItem.classList.add('referee');
-      scoreItem.style.borderColor = '#ffc107';
-      scoreItem.style.background = 'linear-gradient(135deg, #fffdf0, #fff3cd)';
-    }
-    
     // Create badges
     const badges = [];
+    if (player.isHost) {
+      badges.push('<span class="player-badge host" style="background: #dc3545; color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; margin: 0 2px;">Host</span>');
+    }
     if (player.id === currentPlayerId) {
       badges.push('<span class="player-badge current" style="background: #28a745; color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 10px; margin: 0 2px;">Turn</span>');
     }
