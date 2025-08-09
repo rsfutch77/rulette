@@ -26,10 +26,7 @@ function showPromptNotificationModal(promptCard, playerName) {
     // Show the modal
     modal.style.display = 'flex';
     
-    // Auto-hide after 8 seconds
-    setTimeout(() => {
-        hidePromptNotificationModal();
-    }, 8000);
+    // Modal will remain visible until explicitly closed via close button
 }
 
 /**
@@ -75,41 +72,10 @@ function populatePromptNotificationContent(promptCard, playerName) {
         refereeNotesContainer.style.display = 'none';
     }
     
-    // Update timer display
-    const timerElement = document.getElementById('prompt-notification-timer');
-    if (timerElement) {
-        // Start countdown from 60 seconds (default prompt time)
-        startPromptNotificationTimer(60);
-    }
+    // Timer functionality removed - modal persists until explicitly closed
 }
 
-/**
- * Starts the countdown timer for the prompt notification
- * @param {number} seconds - Number of seconds to count down from
- */
-function startPromptNotificationTimer(seconds) {
-    const timerElement = document.getElementById('prompt-notification-timer');
-    if (!timerElement) return;
-    
-    let timeRemaining = seconds;
-    
-    const updateTimer = () => {
-        const minutes = Math.floor(timeRemaining / 60);
-        const secs = timeRemaining % 60;
-        timerElement.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
-        
-        if (timeRemaining <= 0) {
-            timerElement.textContent = "Time's Up!";
-            timerElement.style.color = '#dc3545';
-            return;
-        }
-        
-        timeRemaining--;
-        setTimeout(updateTimer, 1000);
-    };
-    
-    updateTimer();
-}
+// Timer functionality removed - modal persists until explicitly closed
 
 /**
  * Gets the display name for a player
@@ -137,15 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         okBtn.addEventListener('click', hidePromptNotificationModal);
     }
     
-    // Close modal when clicking outside
-    const modal = document.getElementById('prompt-notification-modal');
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                hidePromptNotificationModal();
-            }
-        });
-    }
+    // Modal can only be closed via explicit button clicks - no outside click closing
 });
 
 // Make functions globally accessible
