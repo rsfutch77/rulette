@@ -1289,14 +1289,21 @@ async function setupFirebaseSessionListener() {
                                 playerName = window.gameManager.players[promptNotification.playerId].displayName || 'Unknown Player';
                             }
                             
-                            // Show the prompt notification modal to all players
+                            // Show the prompt notification modal to all players EXCEPT the one who drew the card
+                            const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+                            const isDrawingPlayer = currentUser && currentUser.uid === promptNotification.playerId;
+                            
                             if (typeof window.showPromptNotificationModal === 'function') {
-                                console.log('[FIREBASE_LISTENER] Showing prompt notification modal to all players');
-                                window.showPromptNotificationModal(promptNotification.promptCard, playerName);
+                                if (isDrawingPlayer) {
+                                    console.log('[FIREBASE_LISTENER] Skipping prompt notification modal for drawing player:', promptNotification.playerId);
+                                } else {
+                                    console.log('[FIREBASE_LISTENER] Showing prompt notification modal to other players');
+                                    window.showPromptNotificationModal(promptNotification.promptCard, playerName);
+                                }
                             } else {
                                 console.warn('[FIREBASE_LISTENER] showPromptNotificationModal function not available');
-                                // Fallback to regular notification
-                                if (typeof window.showNotification === 'function') {
+                                // Fallback to regular notification (also exclude drawing player)
+                                if (typeof window.showNotification === 'function' && !isDrawingPlayer) {
                                     window.showNotification(`${playerName} drew a prompt card: ${promptNotification.promptCard.description}`, 'Prompt Challenge');
                                 }
                             }
