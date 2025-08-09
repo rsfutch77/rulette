@@ -124,7 +124,6 @@ Roles and responsibilities:
 [x] 3.3.2 Handle special actions (swap, clone, flip, etc.) and their interactions (2 Points)
 [x] 3.4 Rule Display and Tracking (3 Points)
 [x] 3.4.1 Display all active rules and their owners in the UI (2 Points)
-[x] 3.4.2 Indicate which rules are persistent, temporary, or transferable (1 Point)
 
 [ ] 4. Referee and Callout Mechanic (15 Points)
 [x] 4.1 Callout Mechanism (4 Points)
