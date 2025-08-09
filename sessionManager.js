@@ -14,6 +14,7 @@ import {
     getFirestorePlayersInSession,
     getFirestoreSessionByShareableCode,
     broadcastRuleCardUpdate,
+    broadcastPromptNotification,
     getDevUID,
 } from './firebaseOperations.js';
 import {
@@ -459,6 +460,22 @@ export class SessionManager {
             console.log(`[SESSION] Rule card update broadcast completed`);
         } catch (error) {
             console.error('[SESSION] Error broadcasting rule card update:', error);
+        }
+    }
+
+    /**
+     * Broadcast a prompt notification to all players in a session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who drew the prompt card
+     * @param {object} promptCard - The prompt card that was drawn
+     */
+    async broadcastPromptNotification(sessionId, playerId, promptCard) {
+        try {
+            console.log(`[SESSION] Broadcasting prompt notification for player ${playerId} in session ${sessionId}`);
+            await broadcastPromptNotification(sessionId, playerId, promptCard);
+            console.log(`[SESSION] Prompt notification broadcast completed`);
+        } catch (error) {
+            console.error('[SESSION] Error broadcasting prompt notification:', error);
         }
     }
 

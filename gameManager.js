@@ -786,6 +786,17 @@ export class GameManager {
         return await this.sessionManager.broadcastRuleCardUpdate(sessionId, playerId, ruleCard);
     }
 
+    /**
+     * Broadcast a prompt notification to all players in a session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who drew the prompt card
+     * @param {object} promptCard - The prompt card that was drawn
+     * @returns {Promise<void>}
+     */
+    async broadcastPromptNotification(sessionId, playerId, promptCard) {
+        return await this.sessionManager.broadcastPromptNotification(sessionId, playerId, promptCard);
+    }
+
     triggerSessionStateChangeEvent(sessionId, stateChangeEvent) {
         return this.sessionManager.triggerSessionStateChangeEvent(sessionId, stateChangeEvent);
     }

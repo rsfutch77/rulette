@@ -216,6 +216,34 @@ function displayDrawnCard(card, cardType) {
         
         // Set card content with enhanced visual distinction for Prompt Cards
         if (card.type === 'prompt') {
+            // Broadcast prompt notification to all players
+            const currentUser = getCurrentUser();
+            if (currentUser && window.gameManager && window.currentSessionId) {
+                console.log('[CARD_DRAW] Broadcasting prompt notification to all players');
+                
+                // Use the broadcast system to notify all players
+                if (window.gameManager.broadcastPromptNotification) {
+                    window.gameManager.broadcastPromptNotification(window.currentSessionId, currentUser.uid, card)
+                        .then(() => {
+                            console.log('[CARD_DRAW] Prompt notification broadcast successful');
+                        })
+                        .catch((error) => {
+                            console.error('[CARD_DRAW] Error broadcasting prompt notification:', error);
+                            // Fallback to local notification
+                            if (window.showNotification) {
+                                window.showNotification('Failed to notify other players about prompt card', 'Broadcast Error');
+                            }
+                        });
+                } else {
+                    console.warn('[CARD_DRAW] broadcastPromptNotification function not available');
+                    // Fallback to local modal
+                    if (window.showPromptNotificationModal && window.gameManager.players && window.gameManager.players[currentUser.uid]) {
+                        const playerName = window.gameManager.players[currentUser.uid].displayName || 'Unknown Player';
+                        window.showPromptNotificationModal(card, playerName);
+                    }
+                }
+            }
+            
             // Enhanced styling for Prompt Cards
             title.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center;">

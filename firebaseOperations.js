@@ -372,6 +372,47 @@ async function broadcastRuleCardUpdate(sessionId, playerId, ruleCard) {
   }
 }
 
+/**
+ * Broadcast a prompt notification to all players in a session
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player who drew the prompt card
+ * @param {Object} promptCard - The prompt card object
+ */
+async function broadcastPromptNotification(sessionId, playerId, promptCard) {
+  try {
+    // Ensure all required fields have valid values (no undefined)
+    const safePromptCard = {
+      id: promptCard.id || 'unknown-id',
+      name: promptCard.name || promptCard.cardName || 'Unknown Prompt Card',
+      type: promptCard.type || 'prompt',
+      description: promptCard.description || promptCard.getCurrentText() || promptCard.frontRule || 'No prompt text available',
+      rules_for_referee: promptCard.rules_for_referee || null
+    };
+
+    const promptNotificationEvent = {
+      type: 'prompt_notification',
+      sessionId,
+      playerId,
+      promptCard: safePromptCard,
+      timestamp: Date.now()
+    };
+
+    console.log("[FIRESTORE] Broadcasting prompt notification with safe data:", promptNotificationEvent);
+
+    // Update session document with the prompt notification event
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, {
+      lastPromptNotification: promptNotificationEvent,
+      lastUpdated: new Date().toISOString()
+    });
+
+    console.log("[FIRESTORE] Prompt notification broadcasted successfully:", promptNotificationEvent);
+  } catch (error) {
+    console.error("[FIRESTORE] Error broadcasting prompt notification:", error);
+    throw error;
+  }
+}
+
 // Export all Firebase functions
 export {
   createFirestoreGameSession,
@@ -388,6 +429,7 @@ export {
   getFirestorePlayersInSession,
   getFirestoreSessionByShareableCode,
   broadcastRuleCardUpdate,
+  broadcastPromptNotification,
   getDevUID,
   setupPlayerListeners,
   cleanupPlayerListeners

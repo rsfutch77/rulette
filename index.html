@@ -1185,6 +1185,63 @@
   <script type="module" src="./cloneCardModal.js"></script>
   <script type="module" src="./swapCardModal.js"></script>
   <script src="./flipCardModal.js"></script>
+  <script src="./promptNotificationModal.js"></script>
+  
+  <!-- Prompt Notification Modal -->
+  <div id="prompt-notification-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:1001; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:2rem; border-radius:1rem; max-width:500px; width:90%; margin:auto; box-shadow:0 4px 20px rgba(0,0,0,0.4); position:relative;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; border-bottom:2px solid #4ECDC4; padding-bottom:1rem;">
+        <h2 style="margin:0; color:#4ECDC4; font-size:1.5rem; display:flex; align-items:center; gap:0.5rem;">
+          <div style="width:32px; height:32px; background:#4ECDC4; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+            <span style="color:white; font-weight:bold; font-size:16px;">P</span>
+          </div>
+          Prompt Challenge Started!
+        </h2>
+        <button id="prompt-notification-close" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#999; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" title="Close">
+          ✕
+        </button>
+      </div>
+      
+      <div style="margin-bottom:1.5rem;">
+        <p style="margin:0 0 1rem 0; font-size:1.1rem; color:#333;">
+          <strong id="prompt-notification-player">Player Name</strong> is attempting a prompt challenge:
+        </p>
+        
+        <div style="background:#f8f9fa; padding:1.5rem; border-radius:8px; border-left:4px solid #4ECDC4; margin-bottom:1rem;">
+          <p id="prompt-notification-text" style="margin:0; font-size:1.1rem; font-weight:500; color:#333; line-height:1.4;">
+            Prompt text will appear here...
+          </p>
+        </div>
+        
+        <div id="prompt-notification-referee-container" style="background:#fff3cd; padding:1rem; border-radius:6px; border:1px solid #ffeaa7; margin-bottom:1rem; display:none;">
+          <strong style="color:#856404; font-size:0.9rem;">Referee Notes:</strong>
+          <p id="prompt-notification-referee-notes" style="margin:0.5rem 0 0 0; font-size:0.9rem; color:#856404; font-style:italic;">
+            Referee guidance will appear here...
+          </p>
+        </div>
+        
+        <div style="text-align:center; margin-bottom:1rem;">
+          <div style="font-size:0.9rem; color:#666; margin-bottom:0.5rem;">Time Remaining:</div>
+          <div id="prompt-notification-timer" style="font-size:2rem; font-weight:bold; color:#e74c3c; font-family:monospace;">
+            1:00
+          </div>
+        </div>
+        
+        <div style="background:#e3f2fd; padding:1rem; border-radius:6px; text-align:center;">
+          <p style="margin:0; font-size:0.9rem; color:#1976d2; font-style:italic;">
+            🎯 All players can see this prompt. Watch and wait for the outcome!
+          </p>
+        </div>
+      </div>
+      
+      <div style="text-align:center;">
+        <button id="prompt-notification-ok-btn" style="background:#4ECDC4; color:#fff; border:none; border-radius:6px; padding:0.8rem 2rem; font-size:1rem; cursor:pointer; font-weight:bold; transition:background 0.2s;">
+          Got It!
+        </button>
+      </div>
+    </div>
+  </div>
+  
   <!-- Game Card Popup Modal -->
   <div id="game-card-modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
     <div style="background:#fff; padding:2rem; border-radius:1rem; max-width:400px; margin:auto; box-shadow:0 2px 16px rgba(0,0,0,0.3); position:relative;">

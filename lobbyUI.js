@@ -1270,6 +1270,43 @@ async function setupFirebaseSessionListener() {
                         console.log('[FIREBASE_LISTENER] No card update in session data');
                     }
                     
+                    // Check for prompt notifications
+                    if (sessionData.lastPromptNotification) {
+                        const promptNotification = sessionData.lastPromptNotification;
+                        console.log('[FIREBASE_LISTENER] Prompt notification detected:', promptNotification);
+                        
+                        // Check if this is a new prompt notification
+                        const lastProcessedPrompt = window.lastProcessedPromptNotification || 0;
+                        console.log('[FIREBASE_LISTENER] Comparing prompt timestamps - new:', promptNotification.timestamp, 'last processed:', lastProcessedPrompt);
+                        
+                        if (promptNotification.timestamp > lastProcessedPrompt) {
+                            console.log('[FIREBASE_LISTENER] Processing new prompt notification for player:', promptNotification.playerId);
+                            window.lastProcessedPromptNotification = promptNotification.timestamp;
+                            
+                            // Get player name for the notification
+                            let playerName = 'A player';
+                            if (window.gameManager && window.gameManager.players && window.gameManager.players[promptNotification.playerId]) {
+                                playerName = window.gameManager.players[promptNotification.playerId].displayName || 'Unknown Player';
+                            }
+                            
+                            // Show the prompt notification modal to all players
+                            if (typeof window.showPromptNotificationModal === 'function') {
+                                console.log('[FIREBASE_LISTENER] Showing prompt notification modal to all players');
+                                window.showPromptNotificationModal(promptNotification.promptCard, playerName);
+                            } else {
+                                console.warn('[FIREBASE_LISTENER] showPromptNotificationModal function not available');
+                                // Fallback to regular notification
+                                if (typeof window.showNotification === 'function') {
+                                    window.showNotification(`${playerName} drew a prompt card: ${promptNotification.promptCard.description}`, 'Prompt Challenge');
+                                }
+                            }
+                        } else {
+                            console.log('[FIREBASE_LISTENER] Skipping prompt notification (already processed or older)');
+                        }
+                    } else {
+                        console.log('[FIREBASE_LISTENER] No prompt notification in session data');
+                    }
+                    
                     // Trigger UI changes if state changed OR if player list changed
                     if (previousState !== newState || playersChanged) {
                         console.log('[FIREBASE_LISTENER] Triggering UI update - State changed:', previousState !== newState, 'Players changed:', playersChanged);
