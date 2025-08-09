@@ -115,7 +115,6 @@ Roles and responsibilities:
 [x] 3.c.4 UI/UX for Prompt Cards (3 Points)
 [x] 3.c.4.1 Visually distinguish Prompt Cards from other card types in the UI (e.g., different color, icon). (1 Point)
 [x] 3.c.4.2 During active prompt, clearly indicate which player is attempting the prompt and what the prompt is. (1 Point)
-[x] 3.c.4.3 Provide real-time feedback on prompt completion status (e.g., "Referee is Judging...", "Prompt Completed!"). (1 Point)
 [x] 3.2 Rule Engine Architecture (5 Points)
 [x] 3.2.1 Implement a rule engine to manage active rules, their triggers, and durations (3 Points)
 [x] 3.2.2 Support stacking and persistence of rules across turns (2 Points)
