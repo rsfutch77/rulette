@@ -426,6 +426,19 @@ class WheelComponent {
             if (window.gameManager && playerId && window.gameManager.players[playerId]) {
                 const player = window.gameManager.players[playerId];
                 
+                // Check if player is host - hosts cannot receive prompt cards
+                const sessionId = window.currentSessionId;
+                if (sessionId && window.gameManager.gameSessions[sessionId]) {
+                    const session = window.gameManager.gameSessions[sessionId];
+                    const isHost = session.hostId === playerId;
+                    
+                    if (isHost) {
+                        // Filter out prompt cards (deckType2) for host players
+                        availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType2');
+                        console.log('[WHEEL] Host player detected, excluding prompt cards. Available types:', availableTypes.map(t => t.name));
+                    }
+                }
+                
                 // Check if player has rule or modifier cards in both hand and ruleCards arrays
                 const hasRulesOrModifiers = this.playerHasRulesOrModifiers(player);
                 
