@@ -439,7 +439,7 @@ class WheelComponent {
                     }
                 }
                 
-                // Check if player has rule or modifier cards in both hand and ruleCards arrays
+                // Check if player has rule or modifier cards in both ruleCards arrays
                 const hasRulesOrModifiers = this.playerHasRulesOrModifiers(player);
                 
                 if (!hasRulesOrModifiers) {
@@ -502,17 +502,16 @@ class WheelComponent {
             const session = window.gameManager.gameSessions[sessionId];
             const currentPlayer = window.gameManager.players[playerId];
 
-            // Check if current player has any cards (check both hand and ruleCards)
-            const hasHandCards = currentPlayer.hand && currentPlayer.hand.length > 0;
+            // Check if current player has any cards (checkruleCards)
             const hasRuleCards = currentPlayer.ruleCards && currentPlayer.ruleCards.length > 0;
-            const currentPlayerHasCards = hasHandCards || hasRuleCards;
+            const currentPlayerHasCards = hasRuleCards;
             
             if (!currentPlayer || !currentPlayerHasCards) {
-                console.log(`[WHEEL] Current player has no cards (hand: ${hasHandCards ? currentPlayer.hand.length : 0}, ruleCards: ${hasRuleCards ? currentPlayer.ruleCards.length : 0}), swap not available`);
+                console.log(`[WHEEL] Current player has no cards (ruleCards: ${hasRuleCards ? currentPlayer.ruleCards.length : 0}), swap not available`);
                 return false;
             }
 
-            // Check if at least one other player has cards (check both hand and ruleCards)
+            // Check if at least one other player has cards (check ruleCards)
             let otherPlayersWithCards = 0;
             
             // Debug logging for session.players
@@ -528,20 +527,17 @@ class WheelComponent {
                     console.log(`[WHEEL DEBUG] Other player lookup result:`, otherPlayer);
                     
                     if (otherPlayer) {
-                        const otherHasHandCards = otherPlayer.hand && otherPlayer.hand.length > 0;
                         const otherHasRuleCards = otherPlayer.ruleCards && otherPlayer.ruleCards.length > 0;
-                        const otherPlayerHasCards = otherHasHandCards || otherHasRuleCards;
+                        const otherPlayerHasCards = otherHasRuleCards;
                         
-                        console.log(`[WHEEL DEBUG] Other player hand:`, otherPlayer.hand);
                         console.log(`[WHEEL DEBUG] Other player ruleCards:`, otherPlayer.ruleCards);
-                        console.log(`[WHEEL DEBUG] Other player hand length:`, otherPlayer.hand ? otherPlayer.hand.length : 'hand is null/undefined');
                         console.log(`[WHEEL DEBUG] Other player ruleCards length:`, otherPlayer.ruleCards ? otherPlayer.ruleCards.length : 'ruleCards is null/undefined');
                         
                         if (otherPlayerHasCards) {
                             otherPlayersWithCards++;
-                            console.log(`[WHEEL DEBUG] Player ${otherPlayerId} has cards (hand: ${otherHasHandCards ? otherPlayer.hand.length : 0}, ruleCards: ${otherHasRuleCards ? otherPlayer.ruleCards.length : 0}) - incrementing count to ${otherPlayersWithCards}`);
+                            console.log(`[WHEEL DEBUG] Player ${otherPlayerId} has cards (ruleCards: ${otherHasRuleCards ? otherPlayer.ruleCards.length : 0}) - incrementing count to ${otherPlayersWithCards}`);
                         } else {
-                            console.log(`[WHEEL DEBUG] Player ${otherPlayerId} has no cards in either hand or ruleCards`);
+                            console.log(`[WHEEL DEBUG] Player ${otherPlayerId} has no cards in ruleCards`);
                         }
                     } else {
                         console.log(`[WHEEL DEBUG] Player ${otherPlayerId} not found in gameManager.players`);
@@ -550,9 +546,8 @@ class WheelComponent {
             }
 
             const canUseSwap = otherPlayersWithCards > 0;
-            const currentHandCount = currentPlayer.hand ? currentPlayer.hand.length : 0;
             const currentRuleCount = currentPlayer.ruleCards ? currentPlayer.ruleCards.length : 0;
-            console.log(`[WHEEL] Swap card availability check: current player has ${currentHandCount + currentRuleCount} total cards (hand: ${currentHandCount}, ruleCards: ${currentRuleCount}), ${otherPlayersWithCards} other players have cards, can use swap: ${canUseSwap}`);
+            console.log(`[WHEEL] Swap card availability check: current player has ${currentRuleCount} total cards (ruleCards: ${currentRuleCount}), ${otherPlayersWithCards} other players have cards, can use swap: ${canUseSwap}`);
             
             return canUseSwap;
         } catch (error) {
@@ -602,7 +597,7 @@ class WheelComponent {
     }
 
     /**
-     * Check if a player has cloneable cards (rule or modifier cards in hand or active rules)
+     * Check if a player has cloneable cards (rule or modifier cards in active rules)
      * @param {Object} player - The player object to check
      * @returns {boolean} - True if the player has cloneable cards, false otherwise
      */
@@ -617,16 +612,6 @@ class WheelComponent {
                 card && (card.type === 'rule' || card.type === 'modifier')
             );
             if (hasCloneableRuleCards) {
-                return true;
-            }
-        }
-
-        // Check hand for rule or modifier cards
-        if (player.hand && Array.isArray(player.hand)) {
-            const hasCloneableHandCards = player.hand.some(card =>
-                card && (card.type === 'rule' || card.type === 'modifier')
-            );
-            if (hasCloneableHandCards) {
                 return true;
             }
         }

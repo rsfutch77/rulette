@@ -105,7 +105,7 @@ function populateCurrentPlayerCards(currentPlayer) {
     
     container.innerHTML = '';
     
-    // Get swappable cards (hand and rule cards)
+    // Get swappable cards (rule cards)
     const swappableCards = getSwappableCards(currentPlayer);
     
     if (swappableCards.length === 0) {
@@ -215,17 +215,12 @@ function createOtherPlayerSection(player) {
 }
 
 /**
- * Gets swappable cards from a player (hand and rule cards)
+ * Gets swappable cards from a player (rule cards)
  * @param {Object} player - The player object
  * @returns {Array} - Array of swappable cards
  */
 function getSwappableCards(player) {
     const cards = [];
-    
-    // Add cards from hand
-    if (player.hand && Array.isArray(player.hand)) {
-        cards.push(...player.hand);
-    }
     
     // Add rule cards
     if (player.ruleCards && Array.isArray(player.ruleCards)) {
@@ -651,15 +646,7 @@ async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePl
  * @returns {string|null} - Location where card was found ('hand' or 'ruleCards') or null if not found
  */
 function removeCardFromPlayer(player, cardId) {
-    // Check hand first
-    if (player.hand && Array.isArray(player.hand)) {
-        const handIndex = player.hand.findIndex(card => card.id === cardId);
-        if (handIndex !== -1) {
-            player.hand.splice(handIndex, 1);
-            return 'hand';
-        }
-    }
-    
+        
     // Check rule cards
     if (player.ruleCards && Array.isArray(player.ruleCards)) {
         const ruleIndex = player.ruleCards.findIndex(card => card.id === cardId);
@@ -682,10 +669,7 @@ function addCardToPlayer(player, card, location) {
     // Update card ownership
     card.owner = player.playerId || player.id;
     
-    if (location === 'hand') {
-        if (!player.hand) player.hand = [];
-        player.hand.push(card);
-    } else if (location === 'ruleCards') {
+    if (location === 'ruleCards') {
         if (!player.ruleCards) player.ruleCards = [];
         player.ruleCards.push(card);
     }
@@ -698,19 +682,14 @@ function addCardToPlayer(player, card, location) {
  */
 async function updateFirebaseAfterSwap(player1, player2) {
     try {
-        // Update player 1's hand and rule cards
-        if (player1.hand) {
-            await updateFirestorePlayerHand(player1.playerId || player1.id, player1.hand);
-        }
+        // Update player 1's rule cards
+
         if (player1.ruleCards) {
             const serializedRuleCards = player1.ruleCards.map(card => serializeCard(card));
             await updateFirestorePlayerRuleCards(player1.playerId || player1.id, serializedRuleCards);
         }
         
-        // Update player 2's hand and rule cards
-        if (player2.hand) {
-            await updateFirestorePlayerHand(player2.playerId || player2.id, player2.hand);
-        }
+
         if (player2.ruleCards) {
             const serializedRuleCards = player2.ruleCards.map(card => serializeCard(card));
             await updateFirestorePlayerRuleCards(player2.playerId || player2.id, serializedRuleCards);
