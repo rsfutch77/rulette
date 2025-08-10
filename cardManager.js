@@ -17,12 +17,39 @@ export class CardManager {
         // Track recently drawn replacement cards to prevent consecutive duplicates
         this.recentReplacementCards = new Map(); // playerId -> {cardId, timestamp}
         
+        // DEBUG: Track initialization count
+        this.initializationCount = (this.initializationCount || 0) + 1;
+        console.log(`[CARD_MANAGER] CONSTRUCTOR_CALLED count=${this.initializationCount} timestamp=${new Date().toISOString()}`);
+        
+        // DEBUG: Log stack trace to see what's calling the constructor
+        console.trace('[CARD_MANAGER] CardManager constructor called from:');
+        
         // Initialize decks and discard piles
         for (const [deckType, cards] of Object.entries(deckDefinitions)) {
+            console.log(`[CARD_MANAGER] DECK_INIT deck=${deckType} input_cards=${cards.length}`);
+            
+            // DEBUG: Check for duplicate cards in source data
+            const cardRules = new Map();
+            cards.forEach((card, index) => {
+                const frontRule = card.frontRule || card.sideA || 'unknown';
+                const backRule = card.backRule || card.sideB || 'none';
+                const ruleKey = `${frontRule}|${backRule}`;
+                
+                if (cardRules.has(ruleKey)) {
+                    console.warn(`[CARD_MANAGER] DUPLICATE_CARD_DETECTED deck=${deckType} index=${index} front_rule="${frontRule}" back_rule="${backRule}" previous_index=${cardRules.get(ruleKey)}`);
+                } else {
+                    cardRules.set(ruleKey, index);
+                }
+                
+                console.log(`[CARD_MANAGER] DECK_INIT_CARD deck=${deckType} index=${index} front_rule="${frontRule}" back_rule="${backRule}" card_type=${card.type || 'unknown'}`);
+            });
+            
             this.decks[deckType] = this._shuffle(cards.map(card => {
                 return card instanceof GameCard ? card : new GameCard(card);
             }));
             this.discardPiles[deckType] = [];
+            
+            console.log(`[CARD_MANAGER] DECK_INIT_COMPLETE deck=${deckType} final_cards=${this.decks[deckType].length}`);
         }
     }
 
@@ -66,10 +93,31 @@ export class CardManager {
             throw error;
         }
         
+        // DEBUG: Log deck contents before draw
+        console.log(`[CARD_MANAGER] ${timestamp} DECK_BEFORE_DRAW ${logContext} deck=${deckType} total_cards=${this.decks[deckType].length}`);
+        this.decks[deckType].forEach((card, index) => {
+            console.log(`[CARD_MANAGER] ${timestamp} DECK_CARD ${logContext} deck=${deckType} index=${index} card_id=${card.id || 'unknown'} front_rule="${card.frontRule || card.sideA || 'unknown'}" back_rule="${card.backRule || card.sideB || 'none'}"`);
+        });
+        
         const card = this.decks[deckType].pop();
         const remainingCards = this.decks[deckType].length;
         
-        console.log(`[CARD_MANAGER] ${timestamp} CARD_DRAWN ${logContext} deck=${deckType} card_id=${card.id || 'unknown'} card_name="${card.name || 'unnamed'}" card_type=${card.type || 'unknown'} remaining_cards=${remainingCards}`);
+        // DEBUG: Log the specific card being drawn
+        console.log(`[CARD_MANAGER] ${timestamp} CARD_DRAWN ${logContext} deck=${deckType} card_id=${card.id || 'unknown'} card_name="${card.name || 'unnamed'}" card_type=${card.type || 'unknown'} front_rule="${card.frontRule || card.sideA || 'unknown'}" back_rule="${card.backRule || card.sideB || 'none'}" remaining_cards=${remainingCards}`);
+        
+        // DEBUG: Log deck contents after draw to verify removal
+        console.log(`[CARD_MANAGER] ${timestamp} DECK_AFTER_DRAW ${logContext} deck=${deckType} total_cards=${this.decks[deckType].length}`);
+        this.decks[deckType].forEach((card, index) => {
+            console.log(`[CARD_MANAGER] ${timestamp} REMAINING_CARD ${logContext} deck=${deckType} index=${index} card_id=${card.id || 'unknown'} front_rule="${card.frontRule || card.sideA || 'unknown'}" back_rule="${card.backRule || card.sideB || 'none'}"`);
+        });
+        
+        // DEBUG: Verify the drawn card is no longer in the deck
+        const stillInDeck = this.decks[deckType].find(c => c.id === card.id);
+        if (stillInDeck) {
+            console.error(`[CARD_MANAGER] ${timestamp} CARD_REMOVAL_FAILED ${logContext} deck=${deckType} card_id=${card.id} - Card still found in deck after pop()!`);
+        } else {
+            console.log(`[CARD_MANAGER] ${timestamp} CARD_REMOVAL_VERIFIED ${logContext} deck=${deckType} card_id=${card.id} - Card successfully removed from deck`);
+        }
         
         return card;
     }

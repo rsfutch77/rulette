@@ -163,9 +163,27 @@ function drawCardFromDeck(deckKey) {
     try {
         console.log('[CARD_DRAW] Drawing card from deck:', deckKey);
         
+        // DEBUG: Log deck state before draw
+        if (cardManager && cardManager.decks && cardManager.decks[deckKey]) {
+            const deckSize = cardManager.decks[deckKey].length;
+            console.log(`[CARD_DRAW] DECK_STATE_BEFORE deck=${deckKey} total_cards=${deckSize}`);
+            
+            // Log first few cards in deck for debugging
+            cardManager.decks[deckKey].slice(-3).forEach((card, index) => {
+                const actualIndex = deckSize - 3 + index;
+                console.log(`[CARD_DRAW] TOP_DECK_CARD deck=${deckKey} position=${actualIndex} front_rule="${card.frontRule || card.sideA || 'unknown'}" back_rule="${card.backRule || card.sideB || 'none'}" card_id=${card.id || 'unknown'}`);
+            });
+        }
+        
         // Draw the card
         const card = cardManager.draw(deckKey);
         console.log('[CARD_DRAW] Successfully drew card from', deckKey);
+        
+        // DEBUG: Log deck state after draw
+        if (cardManager && cardManager.decks && cardManager.decks[deckKey]) {
+            const deckSizeAfter = cardManager.decks[deckKey].length;
+            console.log(`[CARD_DRAW] DECK_STATE_AFTER deck=${deckKey} total_cards=${deckSizeAfter}`);
+        }
         
         return card;
         
