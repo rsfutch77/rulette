@@ -687,50 +687,6 @@ function updateActiveRulesDisplay() {
     });
 }
 
-// Expose card draw functions for testing and game integration
-window.initializeCardDrawMechanism = initializeCardDrawMechanism;
-window.handleCardDraw = handleCardDraw;
-window.drawCardFromDeck = drawCardFromDeck;
-window.displayDrawnCard = displayDrawnCard;
-window.closeCardModal = closeCardModal;
-
-window.showSwapCardModal = showSwapCardModal;
-window.hideSwapCardModal = hideSwapCardModal;
-
-// Expose card flipping functions for game integration
-window.flipCardInUI = flipCardInUI;
-window.flipCardById = flipCardById;
-window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
-window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
-window.updateActiveRulesDisplay = updateActiveRulesDisplay;
-
-// Export functions for use in main.js
-export {
-    initializeCardDrawMechanism,
-    handleCardDraw,
-    drawCardFromDeck,
-    drawCardFromDeckWithDuplicateCheck,
-    displayDrawnCard,
-    closeCardModal,
-    flipCardInUI,
-    flipCardById,
-    updateCardDisplayAfterFlip,
-    updateCardDisplaysAfterFlip,
-    updateActiveRulesDisplay
-};
-
-// Also expose functions globally for backward compatibility
-window.initializeCardDrawMechanism = initializeCardDrawMechanism;
-window.handleCardDraw = handleCardDraw;
-window.drawCardFromDeck = drawCardFromDeck;
-window.displayDrawnCard = displayDrawnCard;
-window.closeCardModal = closeCardModal;
-window.flipCardInUI = flipCardInUI;
-window.flipCardById = flipCardById;
-window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
-window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
-window.updateActiveRulesDisplay = updateActiveRulesDisplay;
-
 /**
  * Show the swap card modal - delegates to swapCardModal.js implementation
  */
@@ -864,3 +820,66 @@ function checkIfCardIsDuplicate(drawnCard, existingRuleCards) {
 
     return false;
 }
+
+
+/**
+ * Check if a deck has cards available
+ * @param {string} deckKey - The deck key to check
+ * @returns {boolean} - True if deck has cards available, false otherwise
+ */
+function isDeckAvailable(deckKey) {
+    try {
+        // Check if cardManager is initialized
+        if (!window.cardManager) {
+            console.warn('[CARD_DRAW] Card manager not initialized, assuming deck unavailable');
+            return false;
+        }
+
+        // Check if deck exists
+        if (!window.cardManager.decks || !window.cardManager.decks[deckKey]) {
+            console.warn(`[CARD_DRAW] Deck ${deckKey} does not exist`);
+            return false;
+        }
+
+        // Check if deck has cards
+        const deckSize = window.cardManager.decks[deckKey].length;
+        console.log(`[CARD_DRAW] Checking deck availability: ${deckKey} has ${deckSize} cards`);
+        
+        return deckSize > 0;
+    } catch (error) {
+        console.error(`[CARD_DRAW] Error checking deck availability for ${deckKey}:`, error);
+        return false;
+    }
+}
+
+// Expose card draw functions for testing and game integration
+window.showSwapCardModal = showSwapCardModal;
+window.hideSwapCardModal = hideSwapCardModal;
+window.flipCardInUI = flipCardInUI;
+window.flipCardById = flipCardById;
+window.initializeCardDrawMechanism = initializeCardDrawMechanism;
+window.handleCardDraw = handleCardDraw;
+window.drawCardFromDeck = drawCardFromDeck;
+window.displayDrawnCard = displayDrawnCard;
+window.closeCardModal = closeCardModal;
+window.flipCardInUI = flipCardInUI;
+window.flipCardById = flipCardById;
+window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
+window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
+window.updateActiveRulesDisplay = updateActiveRulesDisplay;
+
+// Export functions for use in main.js
+export {
+    initializeCardDrawMechanism,
+    handleCardDraw,
+    drawCardFromDeck,
+    drawCardFromDeckWithDuplicateCheck,
+    displayDrawnCard,
+    closeCardModal,
+    flipCardInUI,
+    flipCardById,
+    updateCardDisplayAfterFlip,
+    updateCardDisplaysAfterFlip,
+    updateActiveRulesDisplay,
+    isDeckAvailable
+};

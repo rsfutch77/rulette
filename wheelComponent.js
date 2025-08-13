@@ -3,6 +3,8 @@
  * Handles wheel UI, animation, and card type selection
  */
 
+import { isDeckAvailable } from './cardDraw.js';
+
 class WheelComponent {
     constructor() {
         this.cardTypes = [
@@ -439,6 +441,15 @@ class WheelComponent {
                     }
                 }
                 
+                // Filter out any decks that are empty for basic card types
+                availableTypes = availableTypes.filter(cardType => {
+                    const deckAvailable = isDeckAvailable(cardType.deckKey);
+                    if (!deckAvailable) {
+                        console.log(`[WHEEL] ${cardType.name} deck (${cardType.deckKey}) is empty, excluding from wheel`);
+                    }
+                    return deckAvailable;
+                });
+                
                 // Check if player has rule or modifier cards in both ruleCards arrays
                 const hasRulesOrModifiers = this.playerHasRulesOrModifiers(player);
                 
@@ -447,29 +458,46 @@ class WheelComponent {
                     availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType5');
                     console.log('[WHEEL] Player has no rules/modifiers, excluding flip cards. Available types:', availableTypes.map(t => t.name));
                 } else {
-                    console.log('[WHEEL] Player has rules/modifiers, all card types available');
+                    // Check if flip deck is available even if player has rules/modifiers
+                    const flipDeckAvailable = isDeckAvailable('deckType5');
+                    if (!flipDeckAvailable) {
+                        availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType5');
+                        console.log('[WHEEL] Flip deck is empty, excluding flip cards. Available types:', availableTypes.map(t => t.name));
+                    } else {
+                        console.log('[WHEEL] Player has rules/modifiers and flip deck available, flip cards available');
+                    }
                 }
                 
                 // Check if swap cards should be available
                 const canUseSwapCard = this.canPlayerUseSwapCard(playerId);
+                const swapDeckAvailable = isDeckAvailable('deckType6');
                 
-                if (!canUseSwapCard) {
+                if (!canUseSwapCard || !swapDeckAvailable) {
                     // Filter out swap cards (deckType6)
                     availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType6');
-                    console.log('[WHEEL] Swap card conditions not met, excluding swap cards. Available types:', availableTypes.map(t => t.name));
+                    if (!canUseSwapCard) {
+                        console.log('[WHEEL] Swap card conditions not met, excluding swap cards. Available types:', availableTypes.map(t => t.name));
+                    } else if (!swapDeckAvailable) {
+                        console.log('[WHEEL] Swap deck is empty, excluding swap cards. Available types:', availableTypes.map(t => t.name));
+                    }
                 } else {
-                    console.log('[WHEEL] Swap card conditions met, swap cards available');
+                    console.log('[WHEEL] Swap card conditions met and deck available, swap cards available');
                 }
                 
                 // Check if clone cards should be available
                 const canUseCloneCard = this.canPlayerUseCloneCard(playerId);
+                const cloneDeckAvailable = isDeckAvailable('deckType4');
                 
-                if (!canUseCloneCard) {
+                if (!canUseCloneCard || !cloneDeckAvailable) {
                     // Filter out clone cards (deckType4)
                     availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType4');
-                    console.log('[WHEEL] Clone card conditions not met, excluding clone cards. Available types:', availableTypes.map(t => t.name));
+                    if (!canUseCloneCard) {
+                        console.log('[WHEEL] Clone card conditions not met, excluding clone cards. Available types:', availableTypes.map(t => t.name));
+                    } else if (!cloneDeckAvailable) {
+                        console.log('[WHEEL] Clone deck is empty, excluding clone cards. Available types:', availableTypes.map(t => t.name));
+                    }
                 } else {
-                    console.log('[WHEEL] Clone card conditions met, clone cards available');
+                    console.log('[WHEEL] Clone card conditions met and deck available, clone cards available');
                 }
             } else {
                 console.log('[WHEEL] No game manager or player data available, using all card types');

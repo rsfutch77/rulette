@@ -316,7 +316,7 @@ export class CardManager {
             if (gameState.gameManager && gameState.sessionId) {
                 console.log(`[CARD_MANAGER] ${timestamp} CARD_ACTIVATION_START player=${playerId} card_id=${card.id} session=${gameState.sessionId}`);
                 
-                const activationResult = await this.handleCardDrawn(
+                const activationResult = await this.handleCardDraw(
                     gameState.sessionId,
                     playerId,
                     card,
@@ -425,99 +425,6 @@ export class CardManager {
 
         console.log(`Referee card assigned to player ${refereePlayer.displayName} (${refereePlayerId}) in session ${sessionId} and synced with Firebase.`);
         return refereePlayerId;
-    }
-
-    /**
-     * Handle card drawing and rule activation
-     * @param {string} sessionId - The session ID
-     * @param {string} playerId - The player drawing the card
-     * @param {Object} card - The drawn card
-     * @param {Object} gameContext - Additional game context including gameManager reference
-     * @returns {object} - {success: boolean, activeRule?: object, error?: string}
-     */
-    async handleCardDrawn(sessionId, playerId, card, gameContext = {}) {
-        const timestamp = new Date().toISOString();
-        console.log(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_START player=${playerId} session=${sessionId} card_id=${card.id || 'unknown'} card_name="${card.name || 'unnamed'}" card_type=${card.type || 'unknown'}`);
-        
-        const { gameManager } = gameContext;
-        if (!gameManager) {
-            console.error(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_ERROR player=${playerId} session=${sessionId} error="GameManager reference required"`);
-            return { success: false, error: 'GameManager reference required' };
-        }
-
-        let actualCard = card;
-        let displayType = card.type;
-        let replacementOccurred = false;
-        
-        // If it's a flip card and player has no rule/modifier, replace it
-        if (card.type === 'Flip' && !this.playerHasRuleOrModifier(playerId, gameManager)) {
-            const replacementTypes = ['Rule', 'Modifier'];
-            const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
-            
-            console.log(`[CARD_MANAGER] ${timestamp} FLIP_CARD_REPLACEMENT_START player=${playerId} original_card=${card.id} target_type=${newType} reason="player_has_no_rule_or_modifier"`);
-            
-            // Get replacement card with anti-duplicate logic
-            try {
-                // Map the card type to the deckKey used in the wheel
-                // Rule -> deckType1, Modifier -> deckType3
-                const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
-                actualCard = this.drawReplacementCard(deckKey, playerId);
-                displayType = newType;
-                replacementOccurred = true;
-                console.log(`[CARD_MANAGER] ${timestamp} FLIP_CARD_REPLACEMENT_SUCCESS player=${playerId} original_card=${card.id} replacement_card=${actualCard.id} replacement_type=${newType}`);
-            } catch (error) {
-                console.error(`[CARD_MANAGER] ${timestamp} FLIP_CARD_REPLACEMENT_ERROR player=${playerId} original_card=${card.id} target_type=${newType} error="${error.message}" error_code=${error.code || 'unknown'}`);
-                // If replacement fails, proceed with the original flip card
-            }
-        }
-        
-        // Check for clone card replacement logic with anti-duplicate protection
-        if (card.type === 'Clone' && !this.anyPlayerHasRuleOrModifier(sessionId, gameManager)) {
-            const replacementTypes = ['Rule', 'Modifier'];
-            const newType = replacementTypes[Math.floor(Math.random() * replacementTypes.length)];
-            
-            console.log(`[CARD_MANAGER] ${timestamp} CLONE_CARD_REPLACEMENT_START player=${playerId} original_card=${card.id} target_type=${newType} reason="no_players_have_rule_or_modifier"`);
-            
-            try {
-                const deckKey = newType === 'Rule' ? 'deckType1' : 'deckType3';
-                actualCard = this.drawReplacementCard(deckKey, playerId);
-                displayType = newType;
-                replacementOccurred = true;
-                console.log(`[CARD_MANAGER] ${timestamp} CLONE_CARD_REPLACEMENT_SUCCESS player=${playerId} original_card=${card.id} replacement_card=${actualCard.id} replacement_type=${newType}`);
-            } catch (error) {
-                console.error(`[CARD_MANAGER] ${timestamp} CLONE_CARD_REPLACEMENT_ERROR player=${playerId} original_card=${card.id} target_type=${newType} error="${error.message}" error_code=${error.code || 'unknown'}`);
-            }
-        }
-        
-        // Update wheel display to show actual card type
-        if (window.wheelComponent) {
-            const cardType = window.wheelComponent.getCardTypeByName(displayType);
-            if (cardType) {
-                window.wheelComponent.updateWheelDisplay(cardType);
-                console.log(`[CARD_MANAGER] ${timestamp} WHEEL_DISPLAY_UPDATED player=${playerId} display_type=${displayType}`);
-            }
-        }
-        
-        try {
-            // Handle special card types
-            if (card.type === 'prompt') {
-                console.log(`[CARD_MANAGER] ${timestamp} PROMPT_CARD_ACTIVATION player=${playerId} card_id=${card.id}`);
-                return this.activatePromptCard(sessionId, playerId, card, gameManager);
-            }
-
-            console.log(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_SUCCESS player=${playerId} session=${sessionId} final_card=${actualCard.id} replacement_occurred=${replacementOccurred}`);
-            return {
-                success: true,
-                message: 'Card drawn successfully (no rule to activate)'
-            };
-        } catch (error) {
-            console.error(`[CARD_MANAGER] ${timestamp} HANDLE_CARD_DRAWN_ERROR player=${playerId} session=${sessionId} error="${error.message}" error_code=${error.code || 'CARD_PROCESSING_ERROR'}`);
-            return {
-                success: false,
-                error: 'Failed to process card draw',
-                errorCode: 'CARD_PROCESSING_ERROR'
-            };
-        }
     }
 
     /**
