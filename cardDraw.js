@@ -4,6 +4,7 @@ import { CardManager } from './cardManager.js';
 import { loadCardData } from './cardModels.js';
 import { gameManager } from './gameManager.js';
 import { getCurrentUser } from './playerSystem.js';
+import { getFirestorePlayersInSession } from './firebaseOperations.js';
 
 // Functions from main.js will be available as window globals when main.js loads
 
@@ -66,7 +67,7 @@ async function initializeCardDrawMechanism() {
  * Handle card draw based on wheel result
  * @param {Object} selectedCardType - The card type selected by the wheel
  */
-function handleCardDraw(selectedCardType) {
+async function handleCardDraw(selectedCardType) {
     console.log('[CARD_DRAW] Handling card draw for type:', selectedCardType.name);
     
     try {
@@ -123,8 +124,8 @@ function handleCardDraw(selectedCardType) {
             return; // Exit as no card is drawn to display
         }
 
-        // Draw card from appropriate deck
-        const drawnCard = drawCardFromDeck(deckKey);
+        // Draw card from appropriate deck, checking for duplicates
+        const drawnCard = await drawCardFromDeckWithDuplicateCheck(deckKey);
         
         if (drawnCard) {
             // Store the drawn card globally for turn management logic
@@ -652,15 +653,6 @@ function updateActiveRulesDisplay() {
     // Collect all rule/modifier cards from both hand and ruleCards arrays
     const allRuleCards = [];
     
-    // Add cards from hand that are rules or modifiers
-    if (player.hand && Array.isArray(player.hand)) {
-        player.hand.forEach(card => {
-            if (card.type === 'Rule' || card.type === 'Modifier' || card.type === 'rule' || card.type === 'modifier') {
-                allRuleCards.push({ card, source: 'hand' });
-            }
-        });
-    }
-    
     // Add cards from ruleCards array
     if (player.ruleCards && Array.isArray(player.ruleCards)) {
         player.ruleCards.forEach(card => {
@@ -717,6 +709,7 @@ export {
     initializeCardDrawMechanism,
     handleCardDraw,
     drawCardFromDeck,
+    drawCardFromDeckWithDuplicateCheck,
     displayDrawnCard,
     closeCardModal,
     flipCardInUI,
@@ -754,4 +747,120 @@ function hideSwapCardModal() {
     console.log('[CARD_DRAW] Delegating to swapCardModal.js');
     // The actual implementation is now in swapCardModal.js
     // This function exists for backward compatibility
+}
+
+/**
+ * Draw a card from the specified deck, checking for duplicates in player rulecards
+ * @param {string} deckKey - The deck key to draw from
+ * @returns {Object|null} - The drawn card or null if failed
+ */
+async function drawCardFromDeckWithDuplicateCheck(deckKey) {
+    try {
+        console.log('[CARD_DRAW] Drawing card with duplicate check from deck:', deckKey);
+        
+        // Get current session ID
+        const sessionId = window.currentSessionId;
+        if (!sessionId) {
+            console.log('[CARD_DRAW] No current session ID available, falling back to regular draw');
+            return drawCardFromDeck(deckKey);
+        }
+
+        // Get all players in the session
+        const playersInSession = await getFirestorePlayersInSession(sessionId);
+        if (!playersInSession || playersInSession.length === 0) {
+            console.log('[CARD_DRAW] No players found, falling back to regular draw');
+            return drawCardFromDeck(deckKey);
+        }
+
+        // Collect all existing rule cards from all players
+        const existingRuleCards = [];
+        playersInSession.forEach(player => {
+            if (player.ruleCards && Array.isArray(player.ruleCards)) {
+                existingRuleCards.push(...player.ruleCards);
+            }
+        });
+
+        console.log(`[CARD_DRAW] Found ${existingRuleCards.length} existing rule cards across ${playersInSession.length} players`);
+
+        // Try to draw a card that doesn't already exist in any player's rulecards
+        let attempts = 0;
+        const maxAttempts = 10; // Prevent infinite loops
+        
+        while (attempts < maxAttempts) {
+            const drawnCard = drawCardFromDeck(deckKey);
+            
+            if (!drawnCard) {
+                console.log('[CARD_DRAW] No card drawn, deck may be empty');
+                return null;
+            }
+
+            // Check if this card already exists in any player's rulecards
+            const isDuplicate = checkIfCardIsDuplicate(drawnCard, existingRuleCards);
+            
+            if (!isDuplicate) {
+                console.log(`[CARD_DRAW] Successfully drew unique card: ${drawnCard.name || drawnCard.id}`);
+                return drawnCard;
+            }
+
+            console.log(`[CARD_DRAW] Card "${drawnCard.name || drawnCard.id}" already exists in player rulecards, attempting redraw (attempt ${attempts + 1})`);
+            
+            attempts++;
+        }
+
+        console.warn(`[CARD_DRAW] Could not find unique card after ${maxAttempts} attempts, drawing anyway`);
+        return drawCardFromDeck(deckKey);
+        
+    } catch (error) {
+        console.error('[CARD_DRAW] Error in duplicate check, falling back to regular draw:', error);
+        return drawCardFromDeck(deckKey);
+    }
+}
+
+/**
+ * Check if a drawn card is a duplicate of any existing rule cards
+ * @param {Object} drawnCard - The card that was drawn
+ * @param {Array} existingRuleCards - Array of existing rule cards from all players
+ * @returns {boolean} - True if the card is a duplicate
+ */
+function checkIfCardIsDuplicate(drawnCard, existingRuleCards) {
+    if (!drawnCard || !existingRuleCards || existingRuleCards.length === 0) {
+        return false;
+    }
+
+    // Get text from both sides of the drawn card
+    const drawnCardTexts = [];
+    if (drawnCard.frontRule) drawnCardTexts.push(drawnCard.frontRule);
+    if (drawnCard.backRule) drawnCardTexts.push(drawnCard.backRule);
+    if (drawnCard.sideA) drawnCardTexts.push(drawnCard.sideA);
+    if (drawnCard.sideB) drawnCardTexts.push(drawnCard.sideB);
+
+    // Check against all existing rule cards
+    for (const existingCard of existingRuleCards) {
+        if (!existingCard) continue;
+
+        // First check by ID if available
+        if (drawnCard.id && existingCard.id && drawnCard.id === existingCard.id) {
+            console.log(`[CARD_DRAW] Duplicate found by ID: ${drawnCard.id}`);
+            return true;
+        }
+
+        // Get text from both sides of the existing card
+        const existingCardTexts = [];
+        if (existingCard.frontRule) existingCardTexts.push(existingCard.frontRule);
+        if (existingCard.backRule) existingCardTexts.push(existingCard.backRule);
+        if (existingCard.sideA) existingCardTexts.push(existingCard.sideA);
+        if (existingCard.sideB) existingCardTexts.push(existingCard.sideB);
+
+        // Check for text matches between any sides
+        for (const drawnText of drawnCardTexts) {
+            for (const existingText of existingCardTexts) {
+                if (drawnText && existingText && drawnText.trim().toLowerCase() === existingText.trim().toLowerCase()) {
+                    console.log(`[CARD_DRAW] Duplicate found by text match: "${drawnText}"`);
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
 }
