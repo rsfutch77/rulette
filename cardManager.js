@@ -401,8 +401,17 @@ export class CardManager {
 
         // Clear previous referee if any (both locally and in Firebase)
         if (session.referee) {
-            gameManager.players[session.referee].hasRefereeCard = false;
-            // No need to update Firestore for old referee, as new assignment will overwrite game.referee
+            const previousReferee = gameManager.players[session.referee];
+            if (previousReferee && previousReferee.ruleCards) {
+                // Remove referee card from previous referee's ruleCards
+                const refereeCardIndex = previousReferee.ruleCards.findIndex(card =>
+                    card.type === 'referee' || card.name === 'Referee Card'
+                );
+                if (refereeCardIndex !== -1) {
+                    previousReferee.ruleCards.splice(refereeCardIndex, 1);
+                    console.log(`Removed referee card from previous referee ${session.referee}`);
+                }
+            }
         }
 
         // Use Math.random() to select a player index
@@ -414,14 +423,38 @@ export class CardManager {
         
         console.log(`Random value: ${randomValue}, index: ${randomIndex}, selected player: ${refereePlayerId}`);
 
-        gameManager.players[refereePlayerId].hasRefereeCard = true;
+        // Assign referee card to player's ruleCards array using standard card assignment
+        const player = gameManager.players[refereePlayerId];
+        if (!player.ruleCards) {
+            player.ruleCards = [];
+        }
+        
+        // Ensure referee card has proper GameCard structure
+        if (!(refereeCard instanceof GameCard)) {
+            refereeCard = new GameCard(refereeCard);
+        }
+        
+        // Use standard card ownership assignment
+        this.assignCardOwnership(refereePlayerId, [refereeCard]);
+        
+        // Add to player's ruleCards array if not already there
+        if (!player.ruleCards.find(c => c.id === refereeCard.id)) {
+            player.ruleCards.push(refereeCard);
+            console.log(`Added referee card to player ${refereePlayerId} ruleCards array`);
+        }
+        
         session.referee = refereePlayerId;
-        session.initialRefereeCard = refereeCard; // Store the actual referee card object
 
-        // Synchronize with Firebase
+        // Synchronize with Firebase using standard rule cards persistence
         await updateFirestoreRefereeCard(sessionId, refereePlayerId);
-        // #TODO logic to assign the refereeCard object to the player's hand in Firebase, considering it as a "rule card"
-        // This will likely involve getting the player's current hand, adding the refereeCard to it, and calling updateFirestorePlayerHand.
+        
+        // Persist referee card as part of player's ruleCards to Firebase
+        try {
+            await updateFirestorePlayerRuleCards(refereePlayerId, player.ruleCards);
+            console.log(`Successfully persisted referee card to Firebase for player ${refereePlayerId}`);
+        } catch (error) {
+            console.error(`Error persisting referee card to Firebase for player ${refereePlayerId}:`, error);
+        }
 
         console.log(`Referee card assigned to player ${refereePlayer.displayName} (${refereePlayerId}) in session ${sessionId} and synced with Firebase.`);
         return refereePlayerId;
@@ -1323,19 +1356,4 @@ export class CardManager {
         }
     }
 
-    // swapCards method removed - card swapping is now handled by swapCardModal.js
-    // which includes proper Firebase synchronization
-
-    swapRefereeRole(sessionId, currentRefereeId, newRefereeId, gameManager) {
-        // TODO: Move implementation from gameManager.js
-        console.log(`[CARD_MANAGER] swapRefereeRole placeholder called`);
-        return { success: false, error: 'Not yet implemented' };
-    }
-
-    updateCloneMapForSwap(card1Id, card2Id, player1Id, player2Id, gameManager) {
-        // TODO: Move implementation from gameManager.js
-        console.log(`[CARD_MANAGER] updateCloneMapForSwap placeholder called`);
-    }
-
-    // Determines which deck to draw from based on game context (e.g., player row)
 }

@@ -65,7 +65,6 @@ export class GameManager {
             displayName: displayName,
             points: 0, // Will be set by initializePlayerPoints
             status: 'active', // active, disconnected, left
-            hasRefereeCard: false,
             hand: [], // Player's hand of cards
             ruleCards: [], // Player's accepted rule cards
             connectionInfo: {
@@ -1004,7 +1003,7 @@ export class GameManager {
                 await this.handlePlayerLeave(sessionId, playerId);
             }
             
-            // TODO: Sync with Firebase
+            // TODO: Player connection status: Sync with Firebase
             // await updateFirestorePlayerStatus(sessionId, playerId, newStatus);
             
             return {
@@ -1102,7 +1101,6 @@ export class GameManager {
             // Handle special role restoration
             if (player.gameState.savedRole === 'referee') {
                 session.referee = playerId;
-                player.hasRefereeCard = true;
                 console.log(`[RECONNECT] Restored referee role to ${player.displayName}`);
             }
             
@@ -1275,7 +1273,6 @@ export class GameManager {
                 // Assign random active player as new referee
                 const newRefereeId = activePlayers[Math.floor(Math.random() * activePlayers.length)];
                 session.referee = newRefereeId;
-                this.players[newRefereeId].hasRefereeCard = true;
                 
                 console.log(`[REFEREE_REASSIGN] New referee assigned: ${this.players[newRefereeId].displayName}`);
                 
@@ -1479,7 +1476,6 @@ export class GameManager {
             
             console.log(`[NOTIFY] Disconnect notification: ${notification.message}`);
             
-            // TODO: Send notification to all active players in session
             // this.broadcastToSession(sessionId, notification);
             
         } catch (error) {
@@ -1506,7 +1502,6 @@ export class GameManager {
             
             console.log(`[NOTIFY] Reconnection notification: ${notification.message}`);
             
-            // TODO: Send notification to all active players in session
             // this.broadcastToSession(sessionId, notification);
             
         } catch (error) {
@@ -1537,7 +1532,6 @@ export class GameManager {
             
             console.log(`[NOTIFY] Host change notification: ${notification.message}`);
             
-            // TODO: Send notification to all active players in session
             // this.broadcastToSession(sessionId, notification);
             
         } catch (error) {
@@ -1568,7 +1562,7 @@ export class GameManager {
             
             console.log(`[NOTIFY] Referee change notification: ${notification.message}`);
             
-            // TODO: Send notification to all active players in session
+            // TODO: Referee:Send notification to all active players in session
             // this.broadcastToSession(sessionId, notification);
             
         } catch (error) {
@@ -1650,7 +1644,7 @@ export class GameManager {
             console.log(`[GAME_END] Game ended due to: ${endConditionResult.reason}`);
         }
 
-        // TODO: Sync with Firebase
+        // TODO: Points Sync with Firebase
         // await updateFirestorePlayerPoints(sessionId, playerId, newPoints);
 
         return {
@@ -2189,7 +2183,7 @@ export class GameManager {
         // Trigger end game UI event
         this.triggerEndGameEvent(sessionId, endGameEvent);
 
-        // TODO: Sync with Firebase
+        // TODO: Game end: Sync with Firebase
         // await updateFirestoreGameSession(sessionId, { status: 'completed', endReason: reason, winner: winnerId });
 
         console.log(`[GAME_END] Game ended for session ${sessionId}. Winner: ${winnerId ? this.players[winnerId]?.displayName : 'None'}`);

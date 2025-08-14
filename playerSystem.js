@@ -136,7 +136,6 @@ export class PlayerManager {
             displayName: displayName,
             points: 0, // Will be set by initializePlayerPoints
             status: 'active', // active, disconnected, left
-            hasRefereeCard: false,
             hand: [], // Player's hand of cards
             ruleCards: [], // Player's accepted rule cards
             connectionInfo: {
@@ -215,7 +214,6 @@ export class PlayerManager {
                         displayName: playerData.displayName || 'Unknown Player',
                         points: playerData.points || 20,
                         status: playerData.status || 'active',
-                        hasRefereeCard: false,
                         hand: [],
                         ruleCards: playerData.ruleCards || [], // Load rule cards from Firebase
                         connectionInfo: {
@@ -295,7 +293,7 @@ export class PlayerManager {
                 await this.gameManager.handlePlayerLeave(sessionId, playerId);
             }
             
-            // TODO: Sync with Firebase
+            // TODO: Player connection status: Sync with Firebase
             // await updateFirestorePlayerStatus(sessionId, playerId, newStatus);
             
             return {
@@ -544,7 +542,6 @@ export class PlayerManager {
             // Handle special role restoration
             if (player.gameState.savedRole === 'referee') {
                 session.referee = playerId;
-                player.hasRefereeCard = true;
                 console.log(`[RECONNECT] Restored referee role to ${player.displayName}`);
             }
             
@@ -957,7 +954,6 @@ export class PlayerManager {
             // Restore saved state
             if (player.gameState.savedRole === 'referee') {
                 session.referee = playerId;
-                player.hasRefereeCard = true;
             }
             
             if (player.gameState.savedCards.length > 0) {
@@ -1052,7 +1048,7 @@ export class PlayerManager {
             };
             
             console.log(`[NOTIFICATION] Player disconnected:`, notification);
-            // TODO: Implement actual notification system
+            // TODO: Player connection status: Implement actual notification system
         } catch (error) {
             console.error(`[NOTIFICATION] Error notifying disconnect:`, error);
         }
@@ -1077,7 +1073,7 @@ export class PlayerManager {
             };
             
             console.log(`[NOTIFICATION] Player reconnected:`, notification);
-            // TODO: Implement actual notification system
+            // TODO: Player connection status: Implement actual notification system
         } catch (error) {
             console.error(`[NOTIFICATION] Error notifying reconnection:`, error);
         }

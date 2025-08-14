@@ -62,7 +62,6 @@ export class SessionManager {
                 players: [hostId], // Host is automatically added to players list
                 status: this.SESSION_STATES.LOBBY, // Use session state constants
                 referee: null, // Player ID who has the referee card
-                initialRefereeCard: null, // Store the referee card object if applicable
                 createdAt: new Date().toISOString(),
                 maxPlayers: 6, // Default maximum players
                 lastStateChange: Date.now(),
@@ -156,8 +155,7 @@ export class SessionManager {
                     status: sessionData.status || 'lobby',
                     maxPlayers: sessionData.maxPlayers || 8,
                     createdAt: sessionData.createdAt,
-                    referee: sessionData.referee || null,
-                    initialRefereeCard: sessionData.initialRefereeCard || null
+                    referee: sessionData.referee || null
                 };
                 
                 console.log(`[DIAGNOSTIC] ISSUE IDENTIFIED: Session restored with ${restoredSession.players.length} players but gameManager.players is empty`);
