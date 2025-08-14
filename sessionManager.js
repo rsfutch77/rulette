@@ -613,6 +613,25 @@ export class SessionManager {
                 // Initialize game-specific data
                 await this.gameManager.initializeTurnOrder(sessionId, session.players);
                 
+                // Create and assign referee card
+                try {
+                    const refereeCard = this.gameManager.cardManager.createRefereeCard();
+                    const assignedPlayerId = await this.gameManager.cardManager.assignRefereeCard(
+                        sessionId,
+                        refereeCard,
+                        this.gameManager
+                    );
+                    
+                    if (assignedPlayerId) {
+                        console.log(`[SESSION] Referee card assigned to player ${assignedPlayerId} in session ${sessionId}`);
+                    } else {
+                        console.warn(`[SESSION] Failed to assign referee card in session ${sessionId} - no active players`);
+                    }
+                } catch (error) {
+                    console.error(`[SESSION] Error assigning referee card in session ${sessionId}:`, error);
+                    // Don't fail the game start if referee card assignment fails
+                }
+                
                 console.log(`[SESSION] Game started for session ${sessionId} by host ${hostId}`);
             }
 

@@ -1528,7 +1528,7 @@ function handlePlayerDisconnection(sessionId, playerId) {
     // Check if session should be cleaned up
     if (gameManager.cleanupEmptySession(sessionId)) {
       showNotification("All players have left. The game session has ended.", "Session Ended");
-      // TODO: Redirect to lobby or main menu
+      // TODO: Player connection status: Redirect to lobby or main menu
     }
   }
 }

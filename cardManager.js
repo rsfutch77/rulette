@@ -352,6 +352,26 @@ export class CardManager {
     createCloneCard(card, ownerId) {
         return GameCard.createClone(card, ownerId);
     }
+    /**
+     * Create a referee card instance
+     * @returns {GameCard} - A new referee card
+     */
+    createRefereeCard() {
+        return new GameCard({
+            type: 'referee',
+            name: 'Referee Card',
+            sideA: 'You are the Referee',
+            sideB: 'You are the Referee',
+            frontRule: 'You are the Referee - You can call out rule violations and award points',
+            backRule: 'You are the Referee - You can call out rule violations and award points',
+            description: 'The referee card grants the holder the ability to call out rule violations and award points to other players.',
+            rules_for_referee: 'As the referee, you can observe other players and call out when they violate active rules. You can award points for good rule following.',
+            point_value: 0,
+            currentSide: 'front',
+            isFlipped: false
+        });
+    }
+
 
     /**
      * Assigns a hand of cards to a player and synchronizes with Firebase.
@@ -384,6 +404,8 @@ export class CardManager {
      * @returns {Promise<string|null>} - The playerId who was assigned the referee card, or null if no active players.
      */
     async assignRefereeCard(sessionId, refereeCard, gameManager) {
+        
+        console.log(`Starting referee card assignment for session ${sessionId} with card:`, refereeCard);
         const session = gameManager.gameSessions[sessionId];
         if (!session) {
             console.warn(`No session found for ${sessionId}.`);
@@ -419,12 +441,27 @@ export class CardManager {
         const randomValue = Math.random();
         const randomIndex = Math.floor(randomValue * activePlayersInSession.length);
         const refereePlayer = activePlayersInSession[randomIndex];
-        const refereePlayerId = refereePlayer.uid;
+        
+        // Debug: Log the player object structure
+        console.log(`Selected referee player object:`, refereePlayer);
+        
+        // Try different possible ID properties
+        const refereePlayerId = refereePlayer.uid || refereePlayer.id || refereePlayer.playerId || refereePlayer.userId;
         
         console.log(`Random value: ${randomValue}, index: ${randomIndex}, selected player: ${refereePlayerId}`);
+        
+        if (!refereePlayerId) {
+            console.error(`Could not determine player ID from referee player object:`, refereePlayer);
+            return null;
+        }
 
         // Assign referee card to player's ruleCards array using standard card assignment
         const player = gameManager.players[refereePlayerId];
+        if (!player) {
+            console.error(`Player ${refereePlayerId} not found in gameManager.players`);
+            return null;
+        }
+        
         if (!player.ruleCards) {
             player.ruleCards = [];
         }

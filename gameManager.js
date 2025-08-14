@@ -2369,22 +2369,6 @@ export class GameManager {
     }
 
     /**
-     * Randomly assigns the referee card to one of the active players in a given session,
-     * and synchronizes with Firebase. This card can be swapped later as a rule card.
-     * @param {string} sessionId - The ID of the game session.
-     * @param {object} refereeCard - The referee card object.
-     * @returns {Promise<string|null>} - The playerId who was assigned the referee card, or null if no active players.
-     */
-    async assignRefereeCard(sessionId, refereeCard) {
-        if (this.cardManager) {
-            return await this.cardManager.assignRefereeCard(sessionId, refereeCard, this);
-        } else {
-            console.error('[GAME_MANAGER] CardManager not initialized');
-            return null;
-        }
-    }
-
-    /**
      * Initialize turn management for a session
      * @param {string} sessionId - The session ID
      * @param {Array<string>} playerIds - Array of player IDs in turn order
