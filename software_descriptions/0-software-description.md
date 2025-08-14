@@ -12,7 +12,7 @@ This document lists all current feature and implementation plans for the Rulette
 2. Authenticate with Firebase: `firebase login`
 3. Initialize your project for Firebase: `firebase init` (Select Hosting and follow the prompts)
 4. Build your project (if necessary, e.g., `npm run build`).
-5. Deploy to Firebase Hosting: `firebase deploy --only hosting`
+5. Deploy to Firebase Hosting: `npx firebase deploy --only hosting`
 
 ## ConOps
 
