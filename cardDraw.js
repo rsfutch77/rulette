@@ -202,6 +202,76 @@ function drawCardFromDeck(deckKey) {
         return null;
     }
 }
+/**
+ * Get alternative deck types when the primary deck is empty
+ * @param {string} primaryDeckKey - The primary deck that is empty
+ * @returns {Array<string>} - Array of alternative deck keys to try
+ */
+function getAlternativeDeckTypes(primaryDeckKey) {
+    // Define deck priority order - similar card types should be grouped together
+    const deckPriorities = {
+        'deckType1': ['deckType3', 'deckType2', 'deckType4', 'deckType5', 'deckType6'], // Rule -> Modifier, Prompt, Clone, Flip, Swap
+        'deckType2': ['deckType1', 'deckType3', 'deckType4', 'deckType5', 'deckType6'], // Prompt -> Rule, Modifier, Clone, Flip, Swap
+        'deckType3': ['deckType1', 'deckType2', 'deckType4', 'deckType5', 'deckType6'], // Modifier -> Rule, Prompt, Clone, Flip, Swap
+        'deckType4': ['deckType1', 'deckType3', 'deckType2', 'deckType5', 'deckType6'], // Clone -> Rule, Modifier, Prompt, Flip, Swap
+        'deckType5': ['deckType1', 'deckType3', 'deckType2', 'deckType4', 'deckType6'], // Flip -> Rule, Modifier, Prompt, Clone, Swap
+        'deckType6': ['deckType1', 'deckType3', 'deckType2', 'deckType4', 'deckType5']  // Swap -> Rule, Modifier, Prompt, Clone, Flip
+    };
+    
+    const alternatives = deckPriorities[primaryDeckKey] || [];
+    console.log(`[CARD_DRAW] Alternative decks for ${primaryDeckKey}:`, alternatives);
+    return alternatives;
+}
+
+
+/**
+ * Draw a card from deck with fallback to alternative decks when primary is empty
+ * @param {string} primaryDeckKey - The primary deck to try first
+ * @returns {Object|null} - The drawn card or null if all decks are empty
+ */
+function drawCardFromDeckWithFallback(primaryDeckKey) {
+    console.log(`[CARD_DRAW] Attempting to draw from primary deck: ${primaryDeckKey}`);
+    
+    // Try primary deck first
+    if (isDeckAvailable(primaryDeckKey)) {
+        try {
+            return drawCardFromDeck(primaryDeckKey);
+        } catch (error) {
+            console.warn(`[CARD_DRAW] Failed to draw from primary deck ${primaryDeckKey}:`, error);
+        }
+    }
+    
+    // Primary deck is empty or failed, try alternatives
+    console.log(`[CARD_DRAW] Primary deck ${primaryDeckKey} is empty or failed, trying alternatives`);
+    const alternatives = getAlternativeDeckTypes(primaryDeckKey);
+    
+    for (const altDeckKey of alternatives) {
+        if (isDeckAvailable(altDeckKey)) {
+            try {
+                console.log(`[CARD_DRAW] Trying alternative deck: ${altDeckKey}`);
+                const card = drawCardFromDeck(altDeckKey);
+                if (card) {
+                    const altCardTypeName = getCardTypeNameFromDeckKey(altDeckKey);
+                    const primaryCardTypeName = getCardTypeNameFromDeckKey(primaryDeckKey);
+                    console.log(`[CARD_DRAW] Successfully drew from alternative deck ${altDeckKey} (${altCardTypeName}) instead of ${primaryDeckKey} (${primaryCardTypeName})`);
+                    
+                    // Show notification to user about the fallback
+                    // if (window.showNotification) {
+                    //     window.showNotification(`${primaryCardTypeName} deck is empty. Drew ${altCardTypeName} instead.`, 'Deck Fallback');
+                    // }
+                    
+                    return card;
+                }
+            } catch (error) {
+                console.warn(`[CARD_DRAW] Failed to draw from alternative deck ${altDeckKey}:`, error);
+            }
+        }
+    }
+    
+    console.error(`[CARD_DRAW] All decks are empty! Primary: ${primaryDeckKey}, Alternatives: ${alternatives.join(', ')}`);
+    return null;
+}
+
 
 /**
  * Display the drawn card to the player using the game card modal
@@ -743,10 +813,10 @@ async function drawCardFromDeckWithDuplicateCheck(deckKey) {
         const maxAttempts = 10; // Prevent infinite loops
         
         while (attempts < maxAttempts) {
-            const drawnCard = drawCardFromDeck(deckKey);
+            const drawnCard = drawCardFromDeckWithFallback(deckKey);
             
             if (!drawnCard) {
-                console.log('[CARD_DRAW] No card drawn, deck may be empty');
+                console.log('[CARD_DRAW] No card drawn, all decks may be empty');
                 return null;
             }
 
@@ -764,7 +834,7 @@ async function drawCardFromDeckWithDuplicateCheck(deckKey) {
         }
 
         console.warn(`[CARD_DRAW] Could not find unique card after ${maxAttempts} attempts, drawing anyway`);
-        return drawCardFromDeck(deckKey);
+        return drawCardFromDeckWithFallback(deckKey);
         
     } catch (error) {
         console.error('[CARD_DRAW] Error in duplicate check, falling back to regular draw:', error);
@@ -867,6 +937,10 @@ window.flipCardById = flipCardById;
 window.updateCardDisplayAfterFlip = updateCardDisplayAfterFlip;
 window.updateCardDisplaysAfterFlip = updateCardDisplaysAfterFlip;
 window.updateActiveRulesDisplay = updateActiveRulesDisplay;
+window.getAlternativeDeckTypes = getAlternativeDeckTypes;
+window.isDeckAvailable = isDeckAvailable;
+window.drawCardFromDeckWithFallback = drawCardFromDeckWithFallback;
+window.drawCardFromDeckWithDuplicateCheck = drawCardFromDeckWithDuplicateCheck;
 
 // Export functions for use in main.js
 export {
