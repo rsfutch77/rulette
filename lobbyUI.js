@@ -301,11 +301,6 @@ function hideGameBoard() {
         turnManagement.style.display = 'none';
     }
     
-    const calloutPanel = document.getElementById('callout-panel');
-    if (calloutPanel) {
-        calloutPanel.style.display = 'none';
-    }
-    
     // Hide wheel component
     if (window.wheelComponent) {
         window.wheelComponent.hide();

@@ -372,79 +372,6 @@
       margin-right: 4px;
     }
     
-    /* Callout System Styles */
-    #callout-panel {
-      transition: all 0.3s ease;
-    }
-    
-    #callout-player-select:disabled,
-    #initiate-callout-btn:disabled {
-      background: #6c757d;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-    
-    #initiate-callout-btn:hover:not(:disabled) {
-      background: #c82333;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    
-    #callout-valid-btn:hover {
-      background: #218838;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    
-    #callout-invalid-btn:hover {
-      background: #5a6268;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    
-    .callout-history-item {
-      padding: 0.5rem;
-      border-bottom: 1px solid #eee;
-      font-size: 0.9rem;
-    }
-    
-    .callout-history-item:last-child {
-      border-bottom: none;
-    }
-    
-    .callout-history-item.valid {
-      background: #d4edda;
-      border-left: 4px solid #28a745;
-    }
-    
-    .callout-history-item.invalid {
-      background: #f8d7da;
-      border-left: 4px solid #dc3545;
-    }
-    
-    .callout-history-item.pending {
-      background: #fff3cd;
-      border-left: 4px solid #ffc107;
-    }
-    
-    #callout-cooldown-message {
-      animation: fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    
-    #active-callout {
-      animation: pulseCallout 2s infinite;
-    }
-    
-    @keyframes pulseCallout {
-      0%, 100% { border-color: #ffd700; }
-      50% { border-color: #ffed4e; }
-    }
-    
     /* Player Scores Display Styles */
     #player-scores-container {
       background: linear-gradient(135deg, #f8f9fa, #e9ecef);
@@ -1045,73 +972,6 @@
       </div>
     </div>
     
-    <!-- Callout Mechanism UI -->
-    <div id="callout-panel" style="display:none; margin-top:1.5rem; padding:1rem; background:#fff8dc; border:2px solid #ffd700; border-radius:8px;">
-      <h3 style="margin-top:0; margin-bottom:1rem; color:#b8860b; display:flex; align-items:center;">
-        <span style="margin-right:0.5rem;">⚖️</span>
-        Callout System
-      </h3>
-      
-      <!-- Callout Initiation (for players) -->
-      <div id="callout-initiation" style="margin-bottom:1rem;">
-        <div style="margin-bottom:0.5rem; font-weight:bold; color:#b8860b;">Call out a player for rule violation:</div>
-        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-          <select id="callout-player-select" style="padding:0.5rem; border:1px solid #ddd; border-radius:4px; background:#fff;">
-            <option value="">Select player to call out...</option>
-          </select>
-          <input type="text" id="callout-reason" placeholder="Rule violated (optional)" style="padding:0.5rem; border:1px solid #ddd; border-radius:4px; flex:1; min-width:200px;">
-          <button id="initiate-callout-btn" style="background:#dc3545; color:#fff; border:none; border-radius:5px; padding:0.5rem 1rem; cursor:pointer; font-weight:bold;">Call Out</button>
-        </div>
-        <div id="callout-cooldown-message" style="display:none; margin-top:0.5rem; color:#dc3545; font-size:0.9rem; font-style:italic;"></div>
-      </div>
-      
-      <!-- Active Callout Display -->
-      <div id="active-callout" style="display:none; margin-bottom:1rem; padding:1rem; background:#fff; border:2px solid #ffd700; border-radius:6px;">
-        <div style="font-weight:bold; color:#b8860b; margin-bottom:0.5rem;">🚨 Active Callout</div>
-        <div id="callout-details" style="margin-bottom:0.5rem;"></div>
-        <div id="callout-status" style="font-style:italic; color:#666;"></div>
-      </div>
-      
-      <!-- Referee Adjudication (only visible to referee) -->
-      <div id="referee-adjudication" style="display:none; padding:1rem; background:#e8f5e8; border:2px solid #28a745; border-radius:6px;">
-        <div style="font-weight:bold; color:#155724; margin-bottom:1rem;">👨‍⚖️ Referee Decision Required</div>
-        <div id="referee-callout-details" style="margin-bottom:1rem; padding:0.5rem; background:#fff; border-radius:4px;"></div>
-        <div style="display:flex; gap:1rem; justify-content:center;">
-          <button id="callout-valid-btn" style="background:#28a745; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; cursor:pointer; font-weight:bold;">Valid Callout</button>
-          <button id="callout-invalid-btn" style="background:#6c757d; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; cursor:pointer; font-weight:bold;">Invalid Callout</button>
-        </div>
-      </div>
-      
-      <!-- Card Transfer UI (only visible to caller after valid callout) -->
-      <div id="card-transfer-panel" style="display:none; margin-bottom:1rem; padding:1rem; background:#e8f4fd; border:2px solid #007bff; border-radius:6px;">
-        <div style="font-weight:bold; color:#004085; margin-bottom:1rem;">🎴 Card Transfer Available</div>
-        <div style="margin-bottom:0.5rem; color:#004085;">You may transfer one of your cards to the accused player:</div>
-        <div id="card-transfer-details" style="margin-bottom:1rem; padding:0.5rem; background:#fff; border-radius:4px; font-size:0.9rem;"></div>
-        
-        <div style="margin-bottom:1rem;">
-          <label for="card-transfer-select" style="display:block; margin-bottom:0.5rem; font-weight:bold; color:#004085;">Select a card to transfer:</label>
-          <select id="card-transfer-select" style="padding:0.5rem; border:1px solid #007bff; border-radius:4px; background:#fff; width:100%; max-width:400px;">
-            <option value="">Choose a card...</option>
-          </select>
-        </div>
-        
-        <div style="display:flex; gap:1rem; justify-content:center;">
-          <button id="confirm-card-transfer-btn" style="background:#007bff; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; cursor:pointer; font-weight:bold;" disabled>Transfer Card</button>
-          <button id="skip-card-transfer-btn" style="background:#6c757d; color:#fff; border:none; border-radius:5px; padding:0.7rem 1.5rem; cursor:pointer; font-weight:bold;">Skip Transfer</button>
-        </div>
-      </div>
-      
-      <!-- Callout History -->
-      <div id="callout-history" style="margin-top:1rem;">
-        <div style="font-weight:bold; color:#b8860b; margin-bottom:0.5rem; cursor:pointer;" onclick="toggleCalloutHistory()">
-          📜 Callout History <span id="history-toggle">▼</span>
-        </div>
-        <div id="callout-history-list" style="display:none; max-height:150px; overflow-y:auto; background:#fff; border:1px solid #ddd; border-radius:4px; padding:0.5rem;">
-          <div id="no-callout-history" style="text-align:center; color:#666; font-style:italic;">No callouts yet</div>
-        </div>
-      </div>
-    </div>
-    
     <!-- DEV ONLY: Card Type Override Dropdown -->
     <div id="dev-card-override" style="display:none; margin:1rem auto 2rem; text-align:center; padding:1rem; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; max-width:400px;">
       <div style="margin-bottom:0.5rem; font-weight:bold; color:#856404;">
@@ -1163,22 +1023,6 @@
     
     <!-- Test buttons for card draw mechanism -->
   </div>
-  
-  <script>
-    // Toggle callout history visibility
-    function toggleCalloutHistory() {
-      const historyList = document.getElementById('callout-history-list');
-      const toggle = document.getElementById('history-toggle');
-      
-      if (historyList.style.display === 'none') {
-        historyList.style.display = 'block';
-        toggle.textContent = '▲';
-      } else {
-        historyList.style.display = 'none';
-        toggle.textContent = '▼';
-      }
-    }
-  </script>
   
   <script type="module" src="./firebase-init.js"></script>
   <script type="module" src="./main.js"></script>
@@ -1396,26 +1240,7 @@
           <!-- Standings will be populated by JavaScript -->
         </div>
       </div>
-      
-      <!-- Game Statistics -->
-      <div id="game-stats" style="margin-bottom:2rem; display:none;">
-        <h4 style="margin:0 0 0.5rem 0; color:#666;">Game Statistics</h4>
-        <div style="display:flex; justify-content:space-around; text-align:center; font-size:0.9rem; color:#666;">
-          <div>
-            <div style="font-weight:bold;" id="game-duration">--</div>
-            <div>Duration</div>
-          </div>
-          <div>
-            <div style="font-weight:bold;" id="total-callouts">--</div>
-            <div>Callouts</div>
-          </div>
-          <div>
-            <div style="font-weight:bold;" id="cards-played">--</div>
-            <div>Cards Played</div>
-          </div>
-        </div>
-      </div>
-      
+  
       <!-- Action Buttons -->
       <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
         <button id="restart-game-btn" style="background:#28a745; color:#fff; border:none; border-radius:8px; padding:0.8rem 1.5rem; font-size:1.1rem; cursor:pointer; font-weight:bold; transition:background 0.2s;">

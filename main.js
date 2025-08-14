@@ -26,12 +26,6 @@ import {
 import { loadCardData } from './cardModels.js';
 import { WheelComponent } from './wheelComponent.js';
 
-// Import callout functionality
-import {
-    initCalloutEventHandlers,
-    initCardTransferEventHandlers
-} from './callout.js';
-
 // Import RuleDisplayManager
 import { RuleDisplayManager } from './ruleDisplayManager.js';
 
@@ -308,7 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initNotificationElements();
   initializePlayerSetup();
   initRuleDisplayManager();
-  initCalloutEventHandlers();
   initCardTransferEventHandlers();
   initScoreEventHandlers();
   initializeLobbyUI();
@@ -405,13 +398,6 @@ async function handleCardTransfer() {
     if (confirmBtn) confirmBtn.disabled = false;
     if (skipBtn) skipBtn.disabled = false;
   }
-}
-
-// Update player hands display (placeholder - implement based on existing UI)
-function updatePlayerHands(sessionId) {
-  console.log("DEBUG: Updating player hands display");
-  // TODO: Implement based on existing player hand UI
-  // This would update any UI elements that show player card counts or hands
 }
 
 // Helper function to get current session ID (implement based on your session management)
@@ -1477,7 +1463,6 @@ function drawCardWithErrorHandling(deckType, playerId, sessionId) {
   const gameState = {
     sessionId,
     playerId,
-    // TODO: Add actual game state when rule system is implemented
     restrictedDecks: [] // Placeholder for rule-based restrictions
   };
 

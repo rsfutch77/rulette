@@ -196,7 +196,6 @@ function drawCardFromDeck(deckKey) {
             console.error('[CARD_DRAW] Deck type mapping error - check wheel cardTypes deckKey values');
         } else if (error.code === 'DECK_EMPTY' || error.message.includes('deck is empty') || error.message.includes('No cards left')) {
             console.warn('[CARD_DRAW] Deck is empty - no more cards available');
-            // TODO: Consider implementing deck reshuffling from discard pile or showing user-friendly message
         }
         
         return null;
@@ -698,7 +697,6 @@ function updateCardDisplaysAfterFlip(card) {
         }
     }
     
-    // TODO: Update player hand displays, active rules displays, etc.
     console.log('[CARD_FLIP] UI displays updated for card:', card.id);
 }
 

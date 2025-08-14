@@ -107,11 +107,10 @@ Roles and responsibilities:
 [x] 3.c.2.3 The player is given a defined (e.g., a timer or a verbal cue from the referee) amount of time to complete the prompt. (1 Point)
 [x] 3.c.2.4 Upon completion (or time running out), the referee is prompted to make a judgment. (2 Points)
 [x] 3.c.3 Referee Judgment Interface & Logic (6 Points)
-[x] 3.c.3.1 Develop a specific UI for the referee to review the prompt and the player's attempt. (2 Points)
+[ ] 3.c.3.1 Develop a specific UI for the referee to review the prompt and the player's attempt. (2 Points)
 [x] 3.c.3.2 The referee UI should display the prompt text and the `rules_for_referee` for assessment. (1 Point)
-[x] 3.c.3.3 Options for the referee to declare the prompt "Successful" or "Unsuccessful". (1 Point)
-[x] 3.c.3.4 If "Successful": Award the `point_value` to the player. (1 Point)
-[x] 3.c.3.5 If "Successful" and `discard_rule_on_success` is true, prompt the player to choose one of their rule/modifier cards to discard. (1 Point)
+[ ] 3.c.3.3 Options for the referee to declare the prompt "Successful" or "Unsuccessful". (1 Point)
+[ ] 3.c.3.4 If "Successful": Award the `point_value` to the player. (1 Point)
 [x] 3.c.4 UI/UX for Prompt Cards (3 Points)
 [x] 3.c.4.1 Visually distinguish Prompt Cards from other card types in the UI (e.g., different color, icon). (1 Point)
 [x] 3.c.4.2 During active prompt, clearly indicate which player is attempting the prompt and what the prompt is. (1 Point)
@@ -125,27 +124,27 @@ Roles and responsibilities:
 [x] 3.4.1 Display all active rules and their owners in the UI (2 Points)
 
 [ ] 4. Referee and Callout Mechanic (15 Points)
-[x] 4.1 Callout Mechanism (4 Points)
-[x] 4.1.1 Allow players to call out others for failing to follow a rule (2 Points)
-[x] 4.1.2 Provide UI for initiating a callout and selecting the accused player (2 Points)
-[x] 4.2 Referee Adjudication (4 Points)
-[x] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
-[x] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
-[x] 4.3 Point and Card Transfer Logic (3 Points)
-[x] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller (2 Points)
-[x] 4.3.2 Allow the caller to transfer one of their cards to the failed player (1 Point)
-[x] 4.3.3 Card transfer scenarios include:
+[ ] 4.1 Callout Mechanism (4 Points)
+[ ] 4.1.1 Allow players to call out others for failing to follow a rule (2 Points)
+[ ] 4.1.2 Provide UI for initiating a callout and selecting the accused player (2 Points)
+[ ] 4.2 Referee Adjudication (4 Points)
+[ ] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
+[ ] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
+[ ] 4.3 Point and Card Transfer Logic (3 Points)
+[ ] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller (2 Points)
+[ ] 4.3.2 Allow the caller to transfer one of their cards to the failed player (1 Point)
+[ ] 4.3.3 Card transfer scenarios include:
     - Referee awards card transfer after a callout ✓
     - Swap card is played (roles or cards exchanged)
     - Clone or flip card is played (card duplicated or reversed)
     - Prompt card requires a transfer as part of its effect
     - Rule modifier triggers a transfer
-[x] 4.4 Referee Card Swapping (2 Points)
-[x] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
-[x] 4.4.2 Update referee status and notify all players (1 Point)
-[x] 4.5 Edge Cases and Abuse Prevention (2 Points)
-[x] 4.5.1 Prevent spamming of callouts or referee decisions (1 Point)
-[x] 4.5.2 Handle the following scenarios:
+[ ] 4.4 Referee Card Swapping (2 Points)
+[ ] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
+[ ] 4.4.2 Update referee status and notify all players (1 Point)
+[ ] 4.5 Edge Cases and Abuse Prevention (2 Points)
+[ ] 4.5.1 Prevent spamming of callouts or referee decisions (1 Point)
+[ ] 4.5.2 Handle the following scenarios:
     - Referee is the accused or caller
     - Multiple callouts in rapid succession
     - Players attempting to bypass referee decisions
@@ -219,33 +218,6 @@ Roles and responsibilities:
 [ ] 7.5 Notifications and Feedback (2 Points)
 [ ] 7.5.1 Notify all players when someone joins, leaves, or changes status (1 Point)
 [ ] 7.5.2 Provide clear feedback for all lobby actions (1 Point)
-
-## Phase 4: UI/UX Enhancements and Card/Rule Expansion
-[ ] 10. Card/Rule Expansion Packs (8 Points)
-[ ] 10.1 Expansion Pack Architecture (3 Points)
-[ ] 10.1.1 Design a system for loading and managing multiple card/rule packs (2 Points)
-[ ] 10.1.2 Support both official and user-generated expansion packs (1 Point)
-[ ] 10.2 Pack Selection and Management UI (2 Points)
-[ ] 10.2.1 Allow hosts to select which packs are active for a session (1 Point)
-[ ] 10.2.2 Display available packs and their contents in the UI (1 Point)
-[ ] 10.3 Card/Rule Integration (2 Points)
-[ ] 10.3.1 Integrate expansion pack cards/rules into the main game logic and rule engine (1 Point)
-[ ] 10.3.2 Ensure compatibility and balance with core cards/rules (1 Point)
-[ ] 10.4 Documentation and Guidelines (1 Point)
-[ ] 10.4.1 Provide documentation for creating custom expansion packs (1 Point)
-
-[ ] 11. Accessibility and Mobile Support (9 Points)
-[ ] 11.1 Accessibility Audit and Improvements (3 Points)
-[ ] 11.1.1 Audit all UI components for accessibility (1 Point)
-[ ] 11.1.2 Address any accessibility issues found (2 Points)
-[ ] 11.2 Responsive Design Implementation (3 Points)
-[ ] 11.2.1 Ensure all screens and components adapt to various device sizes and orientations (2 Points)
-[ ] 11.2.2 Test on a range of devices and browsers (1 Point)
-[ ] 11.3 Mobile-Specific Enhancements (2 Points)
-[ ] 11.3.1 Optimize touch interactions and gestures for mobile users (1 Point)
-[ ] 11.3.2 Adjust layouts and controls for smaller screens (1 Point)
-[ ] 11.4 Documentation and Testing (1 Point)
-[ ] 11.4.1 Document accessibility features and mobile support (1 Point)
 
 ## Phase 5: Deployment and Community Feedback
 [ ] 13. Analytics and Feedback Collection (6 Points)

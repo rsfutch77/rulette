@@ -448,11 +448,6 @@ function refreshGameUI() {
             updateTurnUI();
         }
         
-        // Clear any active callouts
-        if (window.calloutManager && typeof window.calloutManager.clearPendingCallouts === 'function') {
-            window.calloutManager.clearPendingCallouts();
-        }
-        
         // Update referee status
         if (typeof initializeRefereeStatusDisplay === 'function' && window.currentSessionId) {
             initializeRefereeStatusDisplay(window.currentSessionId);

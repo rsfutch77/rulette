@@ -63,8 +63,6 @@ export class SessionManager {
                 status: this.SESSION_STATES.LOBBY, // Use session state constants
                 referee: null, // Player ID who has the referee card
                 initialRefereeCard: null, // Store the referee card object if applicable
-                currentCallout: null, // Current active callout object
-                calloutHistory: [], // History of all callouts in this session
                 createdAt: new Date().toISOString(),
                 maxPlayers: 6, // Default maximum players
                 lastStateChange: Date.now(),

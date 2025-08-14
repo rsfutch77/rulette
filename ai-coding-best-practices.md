@@ -1,6 +1,5 @@
 # AI Coding Best Practices for Rulette Project
 
-#TODO
 - playwright for ui, jest for functions
 - systems engineering
 	conops
@@ -427,14 +426,14 @@ class CardManager {
 
 Before submitting any code changes, verify:
 
-- [ ] File is under 500 lines
-- [ ] Functions are under 50 lines
-- [ ] All inputs are validated
-- [ ] Error handling is implemented
-- [ ] Tests are written and passing
-- [ ] Documentation is updated
-- [ ] No existing functionality is broken
-- [ ] Firebase operations have proper error handling
-- [ ] Performance impact is considered
+File is under 500 lines
+Functions are under 50 lines
+All inputs are validated
+Error handling is implemented
+Tests are written and passing
+Documentation is updated
+No existing functionality is broken
+Firebase operations have proper error handling
+Performance impact is considered
 
 This plan provides a comprehensive framework for AI developers to contribute effectively to the Rulette project while maintaining code quality and preventing common pitfalls.

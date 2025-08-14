@@ -150,7 +150,6 @@ export class RuleDisplayManager {
 
         try {
             // Get all active rules for the session
-            //TODO
 
             // Update rules count badge
             this.updateRulesCount(activeRules.length);
@@ -509,20 +508,6 @@ export class RuleDisplayManager {
         
         // Fallback to player ID
         return playerId;
-    }
-
-    /**
-     * Get rules for a specific player
-     */
-    async getRulesForPlayer(playerId) {
-//TODO
-    }
-
-    /**
-     * Get effective rules that apply to a specific player
-     */
-    async getEffectiveRulesForPlayer(playerId) {
-        //TODO
     }
 
     /**

@@ -582,7 +582,6 @@ export class CardManager {
                 };
             }
 
-            // TODO: Skip rule engine activation for now and just handle card storage
             const player = gameManager.players[playerId];
             if (player) {
                 console.log(`[DEBUG] Player ${playerId} current ruleCards before adding:`, player.ruleCards);
@@ -629,8 +628,6 @@ export class CardManager {
                 }
             }
 
-            // For now, return success without rule engine activation
-            // TODO: Fix rule engine session tracking later
             return {
                 success: true,
                 effects: [{
@@ -717,9 +714,7 @@ export class CardManager {
                     console.warn(`[CARD_MANAGER] Error updating rule displays:`, displayError);
                 }
             }
-
-            // For now, return success without rule engine activation
-            // TODO: Fix rule engine session tracking later
+            
             return {
                 success: true,
                 effects: [{
@@ -1007,11 +1002,7 @@ export class CardManager {
             console.log(`[CARD_MANAGER] New rule text: ${card.getCurrentRule()}`);
 
             // Update game state and sync to Firebase
-            if (cardLocation === 'hand') {
-                // The card object is already updated by reference, but we could
-                // trigger a Firebase sync here if needed
-                // TODO: Sync updated card state to Firebase
-            } else if (cardLocation === 'ruleCards') {
+            if (cardLocation === 'ruleCards') {
                 // Sync updated rule cards to Firebase
                 try {
                     await updateFirestorePlayerRuleCards(playerId, gameManager.players[playerId].ruleCards);

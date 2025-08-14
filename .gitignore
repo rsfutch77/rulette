@@ -12,3 +12,4 @@ __tests__/all-test-results.txt
 __tests__/console-integration-test-results.txt
 __tests__/console-rule-engine-test-results.txt
 __tests__/jest-test-results.json
+.vscode/settings.json
