@@ -259,6 +259,12 @@ async function setupPlayerListeners(sessionId, gameManager) {
               window.updatePlayerRuleCards(window.currentSessionId);
             }
             
+            // Update player scores display when points change
+            if (window.updatePlayerScores && window.currentSessionId) {
+              console.log('[FIREBASE_LISTENERS] Triggering player scores update');
+              window.updatePlayerScores(window.currentSessionId);
+            }
+            
             // Also update active rules display
             if (window.updateActiveRulesDisplay) {
               console.log('[FIREBASE_LISTENERS] Triggering active rules display update');

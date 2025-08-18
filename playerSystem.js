@@ -2,6 +2,7 @@
 import {
     initializeFirestorePlayer,
     updateFirestorePlayerStatus,
+    updateFirestorePlayerPoints,
     getFirestorePlayersInSession,
 } from './firebaseOperations.js';
 
@@ -774,6 +775,15 @@ export class PlayerManager {
         };
         
         console.log(`[POINTS] ${player.displayName}: ${oldPoints} -> ${newPoints} (${reason})`);
+        
+        // Sync points with Firebase
+        try {
+            await updateFirestorePlayerPoints(playerId, newPoints);
+            console.log(`[FIREBASE] Player points synced: ${playerId} -> ${newPoints}`);
+        } catch (error) {
+            console.error(`[FIREBASE] Failed to sync player points: ${playerId}`, error);
+            // Don't fail the operation if Firebase sync fails, just log the error
+        }
         
         // Trigger point change event
         this.gameManager.triggerPointChangeEvent(sessionId, pointChange);
