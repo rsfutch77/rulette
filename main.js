@@ -302,7 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initNotificationElements();
   initializePlayerSetup();
   initRuleDisplayManager();
-  initCardTransferEventHandlers();
   initScoreEventHandlers();
   initializeLobbyUI();
   initializeQuitGameUI();

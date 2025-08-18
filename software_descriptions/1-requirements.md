@@ -148,6 +148,7 @@ Roles and responsibilities:
     - Referee is the accused or caller
     - Multiple callouts in rapid succession
     - Players attempting to bypass referee decisions
+[ ] 4.6 Silly opposite side of referee card and handling multiple referees if the card gets cloned. (2 Points)
 
 [x] 5. Points and Card Transfer System (10 Points)
 [x] 5.1 Points Tracking (3 Points)
