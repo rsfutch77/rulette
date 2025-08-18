@@ -154,7 +154,37 @@ function createFlippableCardElement(card) {
         border-radius: 4px;
         border-left: 3px solid #007bff;
     `;
-    currentRule.textContent = card.getCurrentRule ? card.getCurrentRule() : (card.frontRule || 'No rule text');
+    // Get current side's text using the same logic as cloneCardModal
+    let displayText = '';
+    
+    // Priority 1: Use getCurrentText() method if available (GameCard instance)
+    if (card.getCurrentText && typeof card.getCurrentText === 'function') {
+        const currentText = card.getCurrentText();
+        if (currentText && currentText !== 'undefined' && currentText !== null) {
+            displayText = currentText;
+        }
+    }
+    
+    // Priority 2: Explicitly check currentSide and use side-specific properties
+    if (!displayText && card.currentSide) {
+        if (card.currentSide === 'front') {
+            displayText = card.frontRule || card.sideA;
+        } else if (card.currentSide === 'back') {
+            displayText = card.backRule || card.sideB;
+        }
+    }
+    
+    // Priority 3: Fallback to legacy properties
+    if (!displayText) {
+        displayText = card.name || card.frontRule || card.sideA || 'No rule text';
+    }
+    
+    // Final fallback to prevent undefined display
+    if (!displayText || displayText === 'undefined') {
+        displayText = 'No rule text';
+    }
+    
+    currentRule.textContent = displayText;
     
     cardElement.appendChild(cardType);
     cardElement.appendChild(currentSide);
