@@ -856,6 +856,7 @@ function notifyRefereeOfCallout(calloutData) {
  * @param {Object} calloutData - The callout data object
  */
 function showCalloutUI(calloutData) {
+  console.log('DEBUG: showCalloutUI called with data:', calloutData);
   console.log('DEBUG: Showing callout UI to referee');
   
   // Remove any existing callout container

@@ -126,8 +126,8 @@ Roles and responsibilities:
 [ ] 4. Referee and Callout Mechanic (15 Points)
 [ ] 4.1 Callout Mechanism (4 Points)
 [x] 4.1.1 Allow players to call out others for failing to follow a rule (2 Points)
-[ ] 4.2 Referee Adjudication (4 Points)
-[ ] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
+[x] 4.2 Referee Adjudication (4 Points)
+[x] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
 [x] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
 [ ] 4.3 Point and Card Transfer Logic (3 Points)
 [ ] 4.3.1 If the callout is valid, deduct a point from the failed player (2 Points)
@@ -135,11 +135,10 @@ Roles and responsibilities:
 [ ] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
 [ ] 4.4.2 Update referee status and notify all players (1 Point)
 [ ] 4.5 Edge Cases and Abuse Prevention (2 Points)
-[ ] 4.5.1 Prevent spamming of callouts or referee decisions (1 Point)
-[ ] 4.5.2 Handle the following scenarios:
+[ ] 4.5.1 Prevent spamming of callouts or referee decisions including preventing 
+    - Multiple callouts in rapid succession from multiple players (1 Point)
+[x] 4.5.2 Handle the following scenarios:
     - Referee is the accused or caller
-    - Multiple callouts in rapid succession
-    - Players attempting to bypass referee decisions
 [ ] 4.6 Silly opposite side of referee card (2 Points)
 [ ] 4.7 Handling multiple referees if the card gets cloned. (2 Points)
 

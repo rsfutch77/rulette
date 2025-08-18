@@ -1343,17 +1343,47 @@ async function setupFirebaseSessionListener() {
                                 const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
                                 const session = window.gameManager?.gameSessions?.[sessionId];
                                 
-                                if (currentUser && session && session.referee === currentUser.uid) {
+                                // Fallback: If no referee assigned but current user has referee card, assign them
+                                let isReferee = currentUser && session && session.referee === currentUser.uid;
+                                if (!isReferee && currentUser && session && !session.referee) {
+                                    console.log('[FIREBASE_LISTENER] No referee assigned, checking for referee card...');
+                                    for (const playerId of session.players || []) {
+                                        const player = window.gameManager?.players?.[playerId];
+                                        if (player && player.ruleCards) {
+                                            const hasRefereeCard = player.ruleCards.some(card =>
+                                                card.type === 'referee' || card.name === 'Referee Card'
+                                            );
+                                            if (hasRefereeCard && playerId === currentUser.uid) {
+                                                console.log('[FIREBASE_LISTENER] Current user has referee card, assigning as referee');
+                                                session.referee = playerId;
+                                                isReferee = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                console.log('[FIREBASE_LISTENER] Referee check debug:', {
+                                    currentUser: currentUser?.uid,
+                                    sessionReferee: session?.referee,
+                                    isReferee: isReferee,
+                                    sessionExists: !!session,
+                                    currentUserExists: !!currentUser
+                                });
+                                
+                                if (isReferee) {
                                     console.log('[FIREBASE_LISTENER] Current user is referee, showing callout UI');
                                     
                                     // Show callout UI to referee
                                     if (typeof window.showCalloutUI === 'function') {
+                                        console.log('[FIREBASE_LISTENER] Calling showCalloutUI with callout:', callout);
                                         window.showCalloutUI(callout);
                                     } else {
                                         console.warn('[FIREBASE_LISTENER] showCalloutUI function not available');
                                     }
                                 } else {
                                     console.log('[FIREBASE_LISTENER] Current user is not referee, skipping callout UI');
+                                    console.log('[FIREBASE_LISTENER] Debug info - currentUser:', currentUser?.uid, 'session.referee:', session?.referee);
                                 }
                                 
                                 // Show notification to all players about the callout
