@@ -548,6 +548,31 @@ function updatePlayerScores(sessionId) {
         <div class="rule-cards-list">
           <!-- Rule cards will be dynamically inserted here -->
         </div>
+        ${player.id !== currentPlayerId ? `
+        <button
+          id="callout-btn-${player.id}"
+          class="callout-button"
+          onclick="initiateCallout('${player.id}')"
+          style="
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            width: 100%;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+          "
+          onmouseover="this.style.backgroundColor='#c82333'; this.style.boxShadow='0 4px 8px rgba(220, 53, 69, 0.3)'; this.style.transform='translateY(-1px)'"
+          onmouseout="this.style.backgroundColor='#dc3545'; this.style.boxShadow='0 2px 4px rgba(220, 53, 69, 0.2)'; this.style.transform='translateY(0)'"
+        >
+          🚨 Call Out
+        </button>
+        ` : ''}
       </div>
     `;
     
@@ -702,6 +727,80 @@ function createRuleCardElement(card) {
 
 // Expose updatePlayerRuleCards globally for other modules if needed
 window.updatePlayerRuleCards = updatePlayerRuleCards;
+
+// Callout functionality - implements requirement 4.1.1 and 4.1.2
+function initiateCallout(accusedPlayerId) {
+  console.log(`DEBUG: Initiating callout against player ${accusedPlayerId}`);
+  
+  // Get current user and session info
+  const currentUserId = getCurrentUserId();
+  const sessionId = window.currentSessionId;
+  
+  if (!currentUserId || !sessionId) {
+    showNotification('You must be logged in and in a game session to call out players.', 'error');
+    return;
+  }
+  
+  if (currentUserId === accusedPlayerId) {
+    showNotification('You cannot call out yourself!', 'error');
+    return;
+  }
+  
+  const session = gameManager.gameSessions[sessionId];
+  if (!session) {
+    showNotification('Game session not found.', 'error');
+    return;
+  }
+  
+  const callerPlayer = gameManager.players[currentUserId];
+  const accusedPlayer = gameManager.players[accusedPlayerId];
+  
+  if (!callerPlayer || !accusedPlayer) {
+    showNotification('Player information not found.', 'error');
+    return;
+  }
+  
+  // Check if there's a referee in the session
+  const refereeId = session.refereeId;
+  if (!refereeId) {
+    showNotification('No referee assigned to handle callouts.', 'error');
+    return;
+  }
+  
+  // Create callout data
+  const calloutData = {
+    id: `callout_${Date.now()}`,
+    sessionId: sessionId,
+    callerId: currentUserId,
+    callerName: callerPlayer.displayName || callerPlayer.name,
+    accusedId: accusedPlayerId,
+    accusedName: accusedPlayer.displayName || accusedPlayer.name,
+    refereeId: refereeId,
+    timestamp: new Date().toISOString(),
+    status: 'pending', // pending, approved, rejected
+    reason: '' // TODO: Add UI to specify reason
+  };
+  
+  // Store callout in session data
+  if (!session.callouts) {
+    session.callouts = [];
+  }
+  session.callouts.push(calloutData);
+  
+  // Show confirmation to caller
+  showNotification(`Callout initiated against ${accusedPlayer.displayName || accusedPlayer.name}. Waiting for referee decision.`, 'info');
+  
+  // TODO: Notify referee (implement requirement 4.2.1)
+  console.log('DEBUG: Callout data created:', calloutData);
+  
+  // TODO: Update Firebase with callout data
+  // TODO: Send notification to referee
+  
+  return calloutData;
+}
+
+// Expose callout function globally
+window.initiateCallout = initiateCallout;
 
 // Helper function to animate score changes
 function animateScoreChange(playerId, oldPoints, newPoints) {
