@@ -1694,7 +1694,7 @@ export class GameManager {
     }
 
     /**
-     * Deduct points from a player
+     * Deduct points from a player (delegates to playerManager)
      * @param {string} sessionId - The session ID
      * @param {string} playerId - The player ID
      * @param {number} pointsToDeduct - Points to deduct (positive number)
@@ -1702,26 +1702,7 @@ export class GameManager {
      * @returns {object} - Result object with success status and details
      */
     async deductPlayerPoints(sessionId, playerId, pointsToDeduct, reason = 'Points deducted') {
-        if (typeof pointsToDeduct !== 'number' || pointsToDeduct <= 0) {
-            return {
-                success: false,
-                error: 'Points to deduct must be a positive number',
-                errorCode: 'INVALID_POINTS'
-            };
-        }
-
-        const player = this.players[playerId];
-        if (!player) {
-            return {
-                success: false,
-                error: 'Player not found',
-                errorCode: 'PLAYER_NOT_FOUND'
-            };
-        }
-
-        // Ensure points don't go below 0
-        const newPoints = Math.max(0, player.points - pointsToDeduct);
-        return await this.playerManager.setPlayerPoints(sessionId, playerId, newPoints, reason);
+        return await this.playerManager.deductPlayerPoints(sessionId, playerId, pointsToDeduct, reason);
     }
 
     /**
