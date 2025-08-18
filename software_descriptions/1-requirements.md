@@ -1,3 +1,4 @@
+
 # Requirements
 
 ## Glossary
@@ -136,7 +137,7 @@ Roles and responsibilities:
 [ ] 4.4.2 Update referee status and notify all players (1 Point)
 [ ] 4.5 Edge Cases and Abuse Prevention (2 Points)
 [ ] 4.5.1 Prevent spamming of callouts or referee decisions including preventing 
-    - Multiple callouts in rapid succession from multiple players (1 Point)
+    - Multiple callouts in rapid succession from multiple players currently replaces who is being judged with whoever hit the button last. It should not add any callouts to the history in firestore until the active callout is resolved. Watch out for race conditions.  (1 Point)
 [x] 4.5.2 Handle the following scenarios:
     - Referee is the accused or caller
 [ ] 4.6 Silly opposite side of referee card (2 Points)
@@ -185,15 +186,13 @@ Roles and responsibilities:
 [x] 6.4.1 Allow sessions to be ended by the host or automatically when all players leave (2 Points)
 [x] 6.4.2 Clean up session data to prevent orphaned sessions (1 Point)
 [ ] 6.5 Security and Access Control (2 Points)
-[ ] 6.5.1 Prevent unauthorized access to sessions (1 Point)
-[ ] 6.5.2 Handle edge cases such as:
-    - Duplicate player names
-    - Session hijacking attempts
-    - Players attempting to join a full session
-    - Host disconnects and session persistence
+[x] 6.5.1 Prevent unauthorized access to sessions (1 Point)
+[x] 6.5.3 Limit players to only edit their existing session (1 Point)
+[x] 6.5.4 Limit session creation globally to a rate of no more than 1000 players per day or that equivalent per minute if we assume games last 15 minutes each(1 Point)
+[x] 6.5.4 Global Database killswitch, if there are more than 10,000 read/writes in a day, disable all read/write. You can create a new collection that only the server has access to which will keep track of the quantity of transactions and the date(1 Point)
 
-[ ] 7. Lobby and Player Join/Leave (12 Points)
-[ ] 7.1 Lobby UI and Player List (3 Points)
+[x] 7. Lobby and Player Join/Leave (12 Points)
+[x] 7.1 Lobby UI and Player List (3 Points)
 [x] 7.1.1 Display all players currently in the lobby, including their names and statuses (2 Points)
 [x] 7.1.2 Update the player list in real time as players join or leave (1 Point)
 [x] 7.2 Join/Leave Logic (3 Points)
@@ -208,9 +207,6 @@ Roles and responsibilities:
 [x] 7.4 Host Controls (2 Points)
 [x] 7.4.1 Allow the host to start the game when all players are ready (1 Point)
 [x] 7.4.2 Optionally, allow the host to kick disruptive players (1 Point)
-[ ] 7.5 Notifications and Feedback (2 Points)
-[ ] 7.5.1 Notify all players when someone joins, leaves, or changes status (1 Point)
-[ ] 7.5.2 Provide clear feedback for all lobby actions (1 Point)
 
 ## Phase 5: Deployment and Community Feedback
 [ ] 13. Analytics and Feedback Collection (6 Points)
