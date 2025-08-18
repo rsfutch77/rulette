@@ -150,7 +150,7 @@ function isDevEnvironment() {
         } else {
           console.log("[WHEEL] Prompt or clone card drawn, skipping automatic turn advancement");
         }
-      }, 2000); // Give time for card draw to complete
+      }, 1000); // Give time for card draw to complete
     }
   });
   

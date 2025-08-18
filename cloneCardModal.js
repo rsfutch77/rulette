@@ -442,7 +442,7 @@ async function executeCloneAction() {
                     console.log(`[CLONE] Advancing turn after successful clone action`);
                     setTimeout(async () => {
                         await window.completeTurn(sessionId);
-                    }, 1000); // Brief delay to allow UI updates
+                    }, 100); // Brief delay to allow UI updates
                 } else {
                     console.warn(`[CLONE] completeTurn function not available`);
                 }
