@@ -801,7 +801,7 @@ async function initiateCallout(accusedPlayerId) {
     refereeId: refereeId,
     timestamp: new Date().toISOString(),
     status: 'pending', // pending, approved, rejected
-    reason: '' // TODO: Add UI to specify reason
+    reason: '' // FEATURE: Add UI to specify reason
   };
   
   // Store callout in session data
@@ -1021,7 +1021,7 @@ async function judgeCallout(calloutId, sessionId, isValid) {
         updatePlayerScores(sessionId);
       }
       
-      // TODO: Implement card transfer option (requirement 4.3.2)
+      // FEATURE: Implement card transfer option (requirement 4.3.2)
     } else {
       showNotification(
         `🛡️ Referee has rejected the callout. ${callout.accusedName} was following the rules correctly.`,
@@ -1871,7 +1871,7 @@ function handlePlayerDisconnection(sessionId, playerId) {
     // Check if session should be cleaned up
     if (gameManager.cleanupEmptySession(sessionId)) {
       showNotification("All players have left. The game session has ended.", "Session Ended");
-      // TODO: Player connection status: Redirect to lobby or main menu
+      // FEATURE: Player connection status: Redirect to lobby or main menu
     }
   }
 }

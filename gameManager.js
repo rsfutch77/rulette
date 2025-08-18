@@ -1004,7 +1004,7 @@ export class GameManager {
                 await this.handlePlayerLeave(sessionId, playerId);
             }
             
-            // TODO: Player connection status: Sync with Firebase
+            // FEATURE: Player connection status: Sync with Firebase
             // await updateFirestorePlayerStatus(sessionId, playerId, newStatus);
             
             return {
@@ -1563,7 +1563,7 @@ export class GameManager {
             
             console.log(`[NOTIFY] Referee change notification: ${notification.message}`);
             
-            // TODO: Referee:Send notification to all active players in session
+            // FEATURE: Referee:Send notification to all active players in session
             // this.broadcastToSession(sessionId, notification);
             
         } catch (error) {

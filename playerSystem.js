@@ -294,7 +294,7 @@ export class PlayerManager {
                 await this.gameManager.handlePlayerLeave(sessionId, playerId);
             }
             
-            // TODO: Player connection status: Sync with Firebase
+            // FEATURE: Player connection status: Sync with Firebase
             // await updateFirestorePlayerStatus(sessionId, playerId, newStatus);
             
             return {
@@ -1058,7 +1058,7 @@ export class PlayerManager {
             };
             
             console.log(`[NOTIFICATION] Player disconnected:`, notification);
-            // TODO: Player connection status: Implement actual notification system
+            // FEATURE: Player connection status: Implement actual notification system
         } catch (error) {
             console.error(`[NOTIFICATION] Error notifying disconnect:`, error);
         }
@@ -1083,7 +1083,7 @@ export class PlayerManager {
             };
             
             console.log(`[NOTIFICATION] Player reconnected:`, notification);
-            // TODO: Player connection status: Implement actual notification system
+            // FEATURE: Player connection status: Implement actual notification system
         } catch (error) {
             console.error(`[NOTIFICATION] Error notifying reconnection:`, error);
         }
