@@ -1,6 +1,6 @@
 console.log("DEBUG: main.js loaded");
 import { db } from "./firebase-init.js";
-import { getFirestoreGameSession } from "./firebaseOperations.js";
+import { getFirestoreGameSession, updateFirestoreSessionCallouts } from "./firebaseOperations.js";
 
 // CardManager and sample decks (using dynamic import for CommonJS compatibility)
 import { CardManager } from './cardManager.js';
@@ -729,7 +729,7 @@ function createRuleCardElement(card) {
 window.updatePlayerRuleCards = updatePlayerRuleCards;
 
 // Callout functionality - implements requirement 4.1.1 and 4.1.2
-function initiateCallout(accusedPlayerId) {
+async function initiateCallout(accusedPlayerId) {
   console.log(`DEBUG: Initiating callout against player ${accusedPlayerId}`);
   
   // Get current user and session info
@@ -817,7 +817,14 @@ function initiateCallout(accusedPlayerId) {
   notifyRefereeOfCallout(calloutData);
   console.log('DEBUG: Callout data created:', calloutData);
   
-  // TODO: Update Firebase with callout data
+  // Update Firebase with callout data
+  try {
+    await updateFirestoreSessionCallouts(sessionId, session.callouts);
+    console.log('DEBUG: Callout data synced to Firebase');
+  } catch (error) {
+    console.error('ERROR: Failed to sync callout to Firebase:', error);
+    showNotification('Failed to sync callout to server. Other players may not see it.', 'warning');
+  }
   
   return calloutData;
 }
@@ -921,7 +928,7 @@ function showCalloutUI(calloutData) {
  * @param {string} sessionId - The session ID
  * @param {boolean} isValid - Whether the callout is valid
  */
-function judgeCallout(calloutId, sessionId, isValid) {
+async function judgeCallout(calloutId, sessionId, isValid) {
   console.log('DEBUG: Referee judging callout:', isValid ? 'valid' : 'invalid');
   
   const currentUser = getCurrentUser();
@@ -957,6 +964,14 @@ function judgeCallout(calloutId, sessionId, isValid) {
     statusElement.style.fontWeight = 'bold';
   }
   
+  // Sync callout judgment to Firebase immediately
+  try {
+    await updateFirestoreSessionCallouts(sessionId, session.callouts);
+    console.log('DEBUG: Callout judgment synced to Firebase');
+  } catch (error) {
+    console.error('ERROR: Failed to sync callout judgment to Firebase:', error);
+  }
+  
   // Brief delay to show completion status before hiding
   setTimeout(() => {
     // Hide callout UI
@@ -990,8 +1005,11 @@ function hideCalloutUI() {
   }
 }
 
-// Expose callout function globally
+// Expose callout functions globally
 window.initiateCallout = initiateCallout;
+window.showCalloutUI = showCalloutUI;
+window.judgeCallout = judgeCallout;
+window.hideCalloutUI = hideCalloutUI;
 
 // Helper function to animate score changes
 function animateScoreChange(playerId, oldPoints, newPoints) {

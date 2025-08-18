@@ -124,6 +124,18 @@ async function updateFirestoreRefereeCard(sessionId, refereeCard) {
   }
 }
 
+// Update session callouts in Firebase
+async function updateFirestoreSessionCallouts(sessionId, callouts) {
+  try {
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, { callouts });
+    console.log("[FIRESTORE] Session callouts updated:", sessionId);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating session callouts:", error);
+    throw error;
+  }
+}
+
 // Update session player list in Firebase
 async function updateFirestoreSessionPlayerList(sessionId, playerList) {
   try {
@@ -422,6 +434,7 @@ export {
   updateFirestorePlayerRuleCards,
   updateFirestoreRefereeCard,
   updateFirestoreSessionPlayerList,
+  updateFirestoreSessionCallouts,
   updateFirestoreTurnInfo,
   initializeFirestoreTurnManagement,
   getFirestoreGameSession,

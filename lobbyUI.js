@@ -1309,6 +1309,68 @@ async function setupFirebaseSessionListener() {
                         console.log('[FIREBASE_LISTENER] No prompt notification in session data');
                     }
                     
+                    // Check for new callouts
+                    if (sessionData.callouts && Array.isArray(sessionData.callouts)) {
+                        console.log('[FIREBASE_LISTENER] Callouts detected:', sessionData.callouts);
+                        
+                        // Check for new pending callouts that need referee attention
+                        const pendingCallouts = sessionData.callouts.filter(callout => callout.status === 'pending');
+                        const lastProcessedCallout = window.lastProcessedCalloutId || null;
+                        
+                        // Find new callouts that haven't been processed yet
+                        const newCallouts = pendingCallouts.filter(callout =>
+                            callout.id !== lastProcessedCallout &&
+                            (!window.processedCalloutIds || !window.processedCalloutIds.includes(callout.id))
+                        );
+                        
+                        if (newCallouts.length > 0) {
+                            console.log('[FIREBASE_LISTENER] New callouts detected:', newCallouts);
+                            
+                            // Initialize processed callouts tracking
+                            if (!window.processedCalloutIds) {
+                                window.processedCalloutIds = [];
+                            }
+                            
+                            // Process each new callout
+                            newCallouts.forEach(callout => {
+                                console.log('[FIREBASE_LISTENER] Processing new callout:', callout);
+                                
+                                // Mark as processed
+                                window.processedCalloutIds.push(callout.id);
+                                window.lastProcessedCalloutId = callout.id;
+                                
+                                // Check if current user is the referee
+                                const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+                                const session = window.gameManager?.gameSessions?.[sessionId];
+                                
+                                if (currentUser && session && session.referee === currentUser.uid) {
+                                    console.log('[FIREBASE_LISTENER] Current user is referee, showing callout UI');
+                                    
+                                    // Show callout UI to referee
+                                    if (typeof window.showCalloutUI === 'function') {
+                                        window.showCalloutUI(callout);
+                                    } else {
+                                        console.warn('[FIREBASE_LISTENER] showCalloutUI function not available');
+                                    }
+                                } else {
+                                    console.log('[FIREBASE_LISTENER] Current user is not referee, skipping callout UI');
+                                }
+                                
+                                // Show notification to all players about the callout
+                                if (typeof window.showNotification === 'function') {
+                                    window.showNotification(
+                                        `🚨 ${callout.callerName} has called out ${callout.accusedName} for failing to follow a rule. Waiting for referee decision.`,
+                                        'Callout Initiated'
+                                    );
+                                }
+                            });
+                        } else {
+                            console.log('[FIREBASE_LISTENER] No new callouts to process');
+                        }
+                    } else {
+                        console.log('[FIREBASE_LISTENER] No callouts in session data');
+                    }
+                    
                     // Trigger UI changes if state changed OR if player list changed
                     if (previousState !== newState || playersChanged) {
                         console.log('[FIREBASE_LISTENER] Triggering UI update - State changed:', previousState !== newState, 'Players changed:', playersChanged);
