@@ -761,7 +761,30 @@ function initiateCallout(accusedPlayerId) {
   }
   
   // Check if there's a referee in the session
-  const refereeId = session.refereeId;
+  let refereeId = session.referee;
+  console.log('DEBUG: Session referee check:', { sessionReferee: session.referee, sessionRefereeId: session.refereeId, sessionKeys: Object.keys(session) });
+  
+  // Fallback: If no referee assigned but referee card exists, find who has it
+  if (!refereeId) {
+    console.log('DEBUG: No referee assigned, searching for player with referee card...');
+    for (const playerId of session.players) {
+      const player = gameManager.players[playerId];
+      if (player && player.ruleCards) {
+        const hasRefereeCard = player.ruleCards.some(card =>
+          card.type === 'referee' || card.name === 'Referee Card'
+        );
+        if (hasRefereeCard) {
+          console.log(`DEBUG: Found referee card with player ${playerId} (${player.displayName})`);
+          // Assign this player as referee
+          session.referee = playerId;
+          refereeId = playerId;
+          showNotification(`${player.displayName} has been assigned as referee (had referee card).`, 'info');
+          break;
+        }
+      }
+    }
+  }
+  
   if (!refereeId) {
     showNotification('No referee assigned to handle callouts.', 'error');
     return;
@@ -790,13 +813,181 @@ function initiateCallout(accusedPlayerId) {
   // Show confirmation to caller
   showNotification(`Callout initiated against ${accusedPlayer.displayName || accusedPlayer.name}. Waiting for referee decision.`, 'info');
   
-  // TODO: Notify referee (implement requirement 4.2.1)
+  // Notify referee (implements requirement 4.2.1)
+  notifyRefereeOfCallout(calloutData);
   console.log('DEBUG: Callout data created:', calloutData);
   
   // TODO: Update Firebase with callout data
-  // TODO: Send notification to referee
   
   return calloutData;
+}
+
+/**
+ * Notify the referee of a callout and present context (implements requirement 4.2.1)
+ * @param {Object} calloutData - The callout data object
+ */
+function notifyRefereeOfCallout(calloutData) {
+  console.log('DEBUG: Notifying referee of callout:', calloutData);
+  
+  const currentUser = getCurrentUser();
+  const session = gameManager.gameSessions[calloutData.sessionId];
+  
+  // Only show UI to the referee
+  if (currentUser && session && session.referee === currentUser.uid) {
+    showCalloutUI(calloutData);
+  }
+  
+  // Show notification to all players about the callout
+  showNotification(
+    `🚨 ${calloutData.callerName} has called out ${calloutData.accusedName} for failing to follow a rule. Waiting for referee decision.`,
+    'Callout Initiated'
+  );
+}
+
+/**
+ * Show the callout UI to the referee (similar to prompt UI)
+ * @param {Object} calloutData - The callout data object
+ */
+function showCalloutUI(calloutData) {
+  console.log('DEBUG: Showing callout UI to referee');
+  
+  // Remove any existing callout container
+  const existingContainer = document.getElementById('callout-container');
+  if (existingContainer) {
+    existingContainer.remove();
+  }
+  
+  // Create callout container
+  const calloutContainer = document.createElement('div');
+  calloutContainer.id = 'callout-container';
+  calloutContainer.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border: 3px solid #dc3545;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    z-index: 1000;
+    max-width: 500px;
+    width: 90%;
+  `;
+  
+  calloutContainer.innerHTML = `
+    <div style="text-align: center;">
+      <h3 style="color: #dc3545; margin-top: 0;">🚨 Callout Adjudication</h3>
+      <div id="callout-status" style="font-size: 16px; margin-bottom: 15px; color: #666;">
+        <strong>Pending Referee Decision</strong>
+      </div>
+    </div>
+    
+    <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border: 2px solid #ffeaa7; border-radius: 8px; text-align: left;">
+      <h4 style="color: #856404; margin-top: 0; text-align: center;">🏛️ Referee Assessment</h4>
+      <div style="margin-bottom: 15px;">
+        <strong style="color: #856404;">Caller:</strong>
+        <p style="margin: 5px 0; padding: 10px; background: #fff; border-radius: 5px; border: 1px solid #ffeaa7;">${calloutData.callerName}</p>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <strong style="color: #856404;">Accused:</strong>
+        <p style="margin: 5px 0; padding: 10px; background: #fff; border-radius: 5px; border: 1px solid #ffeaa7;">${calloutData.accusedName}</p>
+      </div>
+      <div style="margin-bottom: 15px;">
+        <strong style="color: #856404;">Context:</strong>
+        <p style="margin: 5px 0; padding: 10px; background: #fff; border-radius: 5px; border: 1px solid #ffeaa7; font-style: italic;">
+          ${calloutData.callerName} believes ${calloutData.accusedName} has failed to follow one of their active rules.
+          Review the accused player's current rule cards and recent actions to determine if the callout is valid.
+        </p>
+      </div>
+      <div style="text-align: center; margin-top: 15px;">
+        <p style="font-weight: bold; color: #856404; margin-bottom: 10px;">Your Judgment:</p>
+        <button id="judge-callout-valid" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; font-weight: bold;">✓ Valid Callout</button>
+        <button id="judge-callout-invalid" style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; font-weight: bold;">✗ Invalid Callout</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(calloutContainer);
+  
+  // Add event listeners for referee buttons
+  document.getElementById('judge-callout-valid').addEventListener('click', () => judgeCallout(calloutData.id, calloutData.sessionId, true));
+  document.getElementById('judge-callout-invalid').addEventListener('click', () => judgeCallout(calloutData.id, calloutData.sessionId, false));
+}
+
+/**
+ * Judge a callout (referee only) - implements requirement 4.2.2
+ * @param {string} calloutId - The callout ID
+ * @param {string} sessionId - The session ID
+ * @param {boolean} isValid - Whether the callout is valid
+ */
+function judgeCallout(calloutId, sessionId, isValid) {
+  console.log('DEBUG: Referee judging callout:', isValid ? 'valid' : 'invalid');
+  
+  const currentUser = getCurrentUser();
+  const session = gameManager.gameSessions[sessionId];
+  
+  if (!currentUser || !session || session.referee !== currentUser.uid) {
+    showNotification('Only the referee can judge callouts.', 'error');
+    return;
+  }
+  
+  // Find the callout
+  const callout = session.callouts?.find(c => c.id === calloutId);
+  if (!callout) {
+    showNotification('Callout not found.', 'error');
+    return;
+  }
+  
+  // Update callout status
+  callout.status = isValid ? 'approved' : 'rejected';
+  callout.judgedAt = new Date().toISOString();
+  callout.judgedBy = currentUser.uid;
+  
+  // Update status before hiding UI to show completion
+  const statusElement = document.getElementById('callout-status');
+  if (statusElement) {
+    if (isValid) {
+      statusElement.innerHTML = '✅ <strong>Callout Approved!</strong>';
+      statusElement.style.color = '#28a745';
+    } else {
+      statusElement.innerHTML = '❌ <strong>Callout Rejected</strong>';
+      statusElement.style.color = '#dc3545';
+    }
+    statusElement.style.fontWeight = 'bold';
+  }
+  
+  // Brief delay to show completion status before hiding
+  setTimeout(() => {
+    // Hide callout UI
+    hideCalloutUI();
+    
+    // Show result notification to all players
+    if (isValid) {
+      showNotification(
+        `🎯 Referee has approved the callout! ${callout.accusedName} failed to follow a rule. ${callout.callerName} gains a point.`,
+        'Callout Approved'
+      );
+      
+      // TODO: Implement point transfer (requirement 4.3.1)
+      // TODO: Implement card transfer option (requirement 4.3.2)
+    } else {
+      showNotification(
+        `🛡️ Referee has rejected the callout. ${callout.accusedName} was following the rules correctly.`,
+        'Callout Rejected'
+      );
+    }
+  }, 1500);
+}
+
+/**
+ * Hide the callout UI
+ */
+function hideCalloutUI() {
+  const calloutContainer = document.getElementById('callout-container');
+  if (calloutContainer) {
+    calloutContainer.remove();
+  }
 }
 
 // Expose callout function globally

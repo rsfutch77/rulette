@@ -125,20 +125,12 @@ Roles and responsibilities:
 
 [ ] 4. Referee and Callout Mechanic (15 Points)
 [ ] 4.1 Callout Mechanism (4 Points)
-[ ] 4.1.1 Allow players to call out others for failing to follow a rule (2 Points)
-[ ] 4.1.2 Provide UI for initiating a callout and selecting the accused player (2 Points)
+[x] 4.1.1 Allow players to call out others for failing to follow a rule (2 Points)
 [ ] 4.2 Referee Adjudication (4 Points)
 [ ] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
-[ ] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
+[x] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
 [ ] 4.3 Point and Card Transfer Logic (3 Points)
-[ ] 4.3.1 If the callout is valid, deduct a point from the failed player and add a point to the caller (2 Points)
-[ ] 4.3.2 Allow the caller to transfer one of their cards to the failed player (1 Point)
-[ ] 4.3.3 Card transfer scenarios include:
-    - Referee awards card transfer after a callout ✓
-    - Swap card is played (roles or cards exchanged)
-    - Clone or flip card is played (card duplicated or reversed)
-    - Prompt card requires a transfer as part of its effect
-    - Rule modifier triggers a transfer
+[ ] 4.3.1 If the callout is valid, deduct a point from the failed player (2 Points)
 [ ] 4.4 Referee Card Swapping (2 Points)
 [ ] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
 [ ] 4.4.2 Update referee status and notify all players (1 Point)
@@ -148,7 +140,8 @@ Roles and responsibilities:
     - Referee is the accused or caller
     - Multiple callouts in rapid succession
     - Players attempting to bypass referee decisions
-[ ] 4.6 Silly opposite side of referee card and handling multiple referees if the card gets cloned. (2 Points)
+[ ] 4.6 Silly opposite side of referee card (2 Points)
+[ ] 4.7 Handling multiple referees if the card gets cloned. (2 Points)
 
 [x] 5. Points and Card Transfer System (10 Points)
 [x] 5.1 Points Tracking (3 Points)
