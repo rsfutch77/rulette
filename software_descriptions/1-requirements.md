@@ -130,7 +130,7 @@ Roles and responsibilities:
 [x] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
 [x] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
 [ ] 4.3 Point and Card Transfer Logic (3 Points)
-[ ] 4.3.1 If the callout is valid, deduct a point from the failed player (2 Points)
+[x] 4.3.1 If the callout is valid, deduct a point from the failed player (2 Points)
 [ ] 4.4 Referee Card Swapping (2 Points)
 [ ] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
 [ ] 4.4.2 Update referee status and notify all players (1 Point)

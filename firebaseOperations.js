@@ -425,6 +425,17 @@ async function broadcastPromptNotification(sessionId, playerId, promptCard) {
   }
 }
 
+async function updateFirestorePlayerPoints(playerId, points) {
+  try {
+    const playerRef = doc(db, 'players', playerId);
+    await updateDoc(playerRef, { points });
+    console.log("[FIRESTORE] Player points updated:", playerId, points);
+  } catch (error) {
+    console.error("[FIRESTORE] Error updating player points:", error);
+    throw error;
+  }
+}
+
 // Export all Firebase functions
 export {
   createFirestoreGameSession,
@@ -432,6 +443,7 @@ export {
   updateFirestorePlayerStatus,
   updateFirestorePlayerHand,
   updateFirestorePlayerRuleCards,
+  updateFirestorePlayerPoints,
   updateFirestoreRefereeCard,
   updateFirestoreSessionPlayerList,
   updateFirestoreSessionCallouts,

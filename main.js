@@ -965,6 +965,29 @@ async function judgeCallout(calloutId, sessionId, isValid) {
     statusElement.style.fontWeight = 'bold';
   }
   
+  // Implement point deduction for valid callouts (requirement 4.3.1)
+  let pointDeductionResult = null;
+  if (isValid) {
+    try {
+      const pointsToDeduct = 1; // Deduct 1 point for rule violation
+      pointDeductionResult = await gameManager.deductPlayerPoints(
+        sessionId,
+        callout.accusedId,
+        pointsToDeduct,
+        `Callout penalty: Failed to follow rule (called out by ${callout.callerName})`
+      );
+      
+      if (pointDeductionResult.success) {
+        console.log(`DEBUG: Successfully deducted ${pointsToDeduct} point from ${callout.accusedName} for valid callout`);
+      } else {
+        console.error('ERROR: Failed to deduct points:', pointDeductionResult.error);
+      }
+    } catch (error) {
+      console.error('ERROR: Exception during point deduction:', error);
+      pointDeductionResult = { success: false, error: error.message };
+    }
+  }
+  
   // Sync callout judgment to Firebase immediately
   try {
     await updateFirestoreSessionCallouts(sessionId, session.callouts);
@@ -980,12 +1003,24 @@ async function judgeCallout(calloutId, sessionId, isValid) {
     
     // Show result notification to all players
     if (isValid) {
-      showNotification(
-        `🎯 Referee has approved the callout! ${callout.accusedName} failed to follow a rule. ${callout.callerName} gains a point.`,
-        'Callout Approved'
-      );
+      if (pointDeductionResult && pointDeductionResult.success) {
+        showNotification(
+          `🎯 Referee has approved the callout! ${callout.accusedName} failed to follow a rule and lost 1 point.`,
+          'Callout Approved'
+        );
+      } else {
+        const errorMsg = pointDeductionResult ? pointDeductionResult.error : 'Unknown error';
+        showNotification(
+          `🎯 Referee approved the callout, but failed to deduct points: ${errorMsg}`,
+          'Callout Approved (Point Deduction Failed)'
+        );
+      }
       
-      // TODO: Implement point transfer (requirement 4.3.1)
+      // Update player scores display to reflect the point deduction
+      if (typeof updatePlayerScores === 'function') {
+        updatePlayerScores(sessionId);
+      }
+      
       // TODO: Implement card transfer option (requirement 4.3.2)
     } else {
       showNotification(

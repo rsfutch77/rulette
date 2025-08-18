@@ -5,6 +5,7 @@ import {
     updateFirestorePlayerStatus,
     updateFirestorePlayerHand,
     updateFirestorePlayerRuleCards, // Import the new function
+    updateFirestorePlayerPoints,
     updateFirestoreRefereeCard,
     updateFirestoreSessionPlayerList,
     updateFirestoreTurnInfo,
@@ -1644,8 +1645,14 @@ export class GameManager {
             console.log(`[GAME_END] Game ended due to: ${endConditionResult.reason}`);
         }
 
-        // TODO: Points Sync with Firebase
-        // await updateFirestorePlayerPoints(sessionId, playerId, newPoints);
+        // Sync points with Firebase
+        try {
+            await updateFirestorePlayerPoints(playerId, newPoints);
+            console.log(`[FIREBASE] Player points synced: ${playerId} -> ${newPoints}`);
+        } catch (error) {
+            console.error(`[FIREBASE] Failed to sync player points: ${playerId}`, error);
+            // Don't fail the operation if Firebase sync fails, just log the error
+        }
 
         return {
             success: true,
