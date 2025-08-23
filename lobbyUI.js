@@ -1308,6 +1308,60 @@ async function setupFirebaseSessionListener() {
                     } else {
                         console.log('[FIREBASE_LISTENER] No prompt notification in session data');
                     }
+
+                    // Check for prompt completion events
+                    if (sessionData.lastPromptCompletion) {
+                        const promptCompletion = sessionData.lastPromptCompletion;
+                        console.log('[FIREBASE_LISTENER] Prompt completion detected:', promptCompletion);
+                        
+                        // Check if this is a new prompt completion
+                        const lastProcessedCompletion = window.lastProcessedPromptCompletion || 0;
+                        console.log('[FIREBASE_LISTENER] Comparing completion timestamps - new:', promptCompletion.timestamp, 'last processed:', lastProcessedCompletion);
+                        
+                        if (promptCompletion.timestamp > lastProcessedCompletion) {
+                            console.log('[FIREBASE_LISTENER] Processing new prompt completion for player:', promptCompletion.playerId);
+                            window.lastProcessedPromptCompletion = promptCompletion.timestamp;
+                            
+                            // Show prompt UI to referee for judgment
+                            const currentUser = window.getCurrentUser ? window.getCurrentUser() : null;
+                            const session = window.gameManager?.gameSessions[sessionData.sessionId];
+                            
+                            if (currentUser && session && session.refereeCard === currentUser.uid) {
+                                console.log('[FIREBASE_LISTENER] Current user is referee, showing prompt UI for judgment');
+                                // Create a prompt state object similar to what activatePromptChallenge creates
+                                const promptState = {
+                                    sessionId: sessionData.sessionId,
+                                    playerId: promptCompletion.playerId,
+                                    promptCard: promptCompletion.promptCard,
+                                    status: 'completed',
+                                    timeLimit: 60000, // Default time limit
+                                    startTime: Date.now() - 60000, // Assume it started 60 seconds ago
+                                    completedAt: promptCompletion.timestamp
+                                };
+                                
+                                // Set up active prompt state for referee's browser so judgePrompt() works
+                                if (window.gameManager && !window.gameManager.activePrompts[sessionData.sessionId]) {
+                                    console.log('[FIREBASE_LISTENER] Setting up active prompt state for referee judgment');
+                                    if (!window.gameManager.activePrompts) {
+                                        window.gameManager.activePrompts = {};
+                                    }
+                                    window.gameManager.activePrompts[sessionData.sessionId] = promptState;
+                                }
+                                
+                                if (typeof window.showPromptUI === 'function') {
+                                    window.showPromptUI(promptState);
+                                } else {
+                                    console.warn('[FIREBASE_LISTENER] showPromptUI function not available');
+                                }
+                            } else {
+                                console.log('[FIREBASE_LISTENER] Current user is not referee, skipping prompt UI display');
+                            }
+                        } else {
+                            console.log('[FIREBASE_LISTENER] Skipping prompt completion (already processed or older)');
+                        }
+                    } else {
+                        console.log('[FIREBASE_LISTENER] No prompt completion in session data');
+                    }
                     
                     // Check for new callouts
                     if (sessionData.callouts && Array.isArray(sessionData.callouts)) {

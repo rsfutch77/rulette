@@ -36,6 +36,8 @@ function activatePromptChallenge(sessionId, playerId, promptCard) {
  */
 function showPromptUI(promptState) {
     console.log('[PROMPT] Showing prompt UI');
+    console.log('[REFEREE_DEBUG] showPromptUI called with promptState:', promptState);
+    console.log('[REFEREE_DEBUG] promptState.status:', promptState?.status);
     
     // Create or update prompt display
     let promptContainer = document.getElementById('prompt-container');
@@ -104,17 +106,24 @@ function showPromptUI(promptState) {
     console.log('[REFEREE_DEBUG] Checking referee status...');
     console.log('[REFEREE_DEBUG] currentUser:', currentUser);
     console.log('[REFEREE_DEBUG] session:', session);
-    console.log('[REFEREE_DEBUG] session.referee:', session?.referee);
+    console.log('[REFEREE_DEBUG] session.refereeCard:', session?.refereeCard);
     console.log('[REFEREE_DEBUG] currentUser.uid:', currentUser?.uid);
-    console.log('[REFEREE_DEBUG] Is referee?', currentUser && session && session.referee === currentUser.uid);
+    console.log('[REFEREE_DEBUG] Is referee?', currentUser && session && session.refereeCard === currentUser.uid);
     
-    if (currentUser && session && session.referee === currentUser.uid) {
+    if (currentUser && session && session.refereeCard === currentUser.uid) {
         console.log('[REFEREE_DEBUG] Creating referee controls div...');
+        console.log('[REFEREE_DEBUG] promptState.status:', promptState?.status);
+        
         // Enhanced referee controls with comprehensive prompt information
         const refereeDiv = document.createElement('div');
         refereeDiv.id = 'referee-controls';
-        refereeDiv.style.display = 'none';
+        
+        // Show immediately if prompt is already completed, otherwise hide until completion
+        const shouldShowImmediately = promptState?.status === 'completed';
+        refereeDiv.style.display = shouldShowImmediately ? 'block' : 'none';
+        
         console.log('[REFEREE_DEBUG] Referee controls div created with ID:', refereeDiv.id);
+        console.log('[REFEREE_DEBUG] shouldShowImmediately:', shouldShowImmediately);
         console.log('[REFEREE_DEBUG] Initial display style:', refereeDiv.style.display);
         refereeDiv.innerHTML = `
             <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border: 2px solid #ffeaa7; border-radius: 8px; text-align: left;">
@@ -175,7 +184,7 @@ function startPromptTimer(sessionId, timeLimit) {
  * @param {string} sessionId - The session ID
  * @param {string} playerId - The player ID
  */
-function completePromptChallenge(sessionId, playerId) {
+async function completePromptChallenge(sessionId, playerId) {
     console.log('[PROMPT] Player completed prompt challenge');
     
     const result = gameManager.completePrompt(sessionId, playerId);
@@ -184,6 +193,16 @@ function completePromptChallenge(sessionId, playerId) {
         console.error('[PROMPT] Failed to complete prompt:', result.error);
         showNotification(result.error, 'Prompt Error');
         return;
+    }
+
+    // Broadcast prompt completion to notify referee and other players
+    if (gameManager.broadcastPromptCompletion && result.result && result.result.promptState) {
+        try {
+            await gameManager.broadcastPromptCompletion(sessionId, playerId, result.result.promptState.promptCard);
+            console.log('[PROMPT] Prompt completion broadcasted successfully');
+        } catch (error) {
+            console.error('[PROMPT] Failed to broadcast prompt completion:', error);
+        }
     }
     
     // Clear timer
@@ -278,60 +297,65 @@ function handlePromptTimeout(sessionId) {
  * @param {string} refereeId - The referee ID
  * @param {boolean} successful - Whether the prompt was successful
  */
-function judgePrompt(sessionId, refereeId, successful) {
+async function judgePrompt(sessionId, refereeId, successful) {
     console.log('[PROMPT] Referee judging prompt:', successful ? 'successful' : 'unsuccessful');
     
-    const result = gameManager.judgePrompt(sessionId, refereeId, successful);
-    
-    if (!result.success) {
-        console.error('[PROMPT] Failed to judge prompt:', result.error);
-        showNotification(result.error, 'Judgment Error');
-        return;
-    }
-    
-    // Update status before hiding UI to show completion
-    const statusElement = document.getElementById('prompt-status');
-    if (statusElement) {
-        if (successful) {
-            statusElement.innerHTML = '🎉 <strong>Prompt Completed!</strong>';
-            statusElement.style.color = '#28a745';
-        } else {
-            statusElement.innerHTML = '❌ <strong>Prompt Failed</strong>';
-            statusElement.style.color = '#dc3545';
-        }
-        statusElement.style.fontWeight = 'bold';
-    }
-    
-    // Brief delay to show completion status before hiding
-    setTimeout(() => {
-        // Hide prompt UI
-        hidePromptUI();
+    try {
+        const result = await gameManager.judgePrompt(sessionId, refereeId, successful);
         
-        // Show result notification
-        const playerName = getPlayerDisplayName(result.result.playerId);
-        if (successful) {
-            showNotification(
-                `${playerName} successfully completed the prompt and earned ${result.result.pointsAwarded} points!`,
-                'Prompt Successful'
-            );
+        if (!result.success) {
+            console.error('[PROMPT] Failed to judge prompt:', result.error);
+            showNotification(result.error, 'Judgment Error');
+            return;
+        }
+    
+        // Update status before hiding UI to show completion
+        const statusElement = document.getElementById('prompt-status');
+        if (statusElement) {
+            if (successful) {
+                statusElement.innerHTML = '🎉 <strong>Prompt Completed!</strong>';
+                statusElement.style.color = '#28a745';
+            } else {
+                statusElement.innerHTML = '❌ <strong>Prompt Failed</strong>';
+                statusElement.style.color = '#dc3545';
+            }
+            statusElement.style.fontWeight = 'bold';
+        }
+        
+        // Brief delay to show completion status before hiding
+        setTimeout(() => {
+            // Hide prompt UI
+            hidePromptUI();
             
-            if (result.result.requiresCardDiscard) {
+            // Show result notification
+            const playerName = getPlayerDisplayName(result.result.playerId);
+            if (successful) {
                 showNotification(
-                    `${playerName} may now discard one of their rule cards.`,
-                    'Card Discard Available'
+                    `${playerName} successfully completed the prompt and earned ${result.result.pointsAwarded} points!`,
+                    'Prompt Successful'
+                );
+                
+                if (result.result.requiresCardDiscard) {
+                    showNotification(
+                        `${playerName} may now discard one of their rule cards.`,
+                        'Card Discard Available'
+                    );
+                }
+            } else {
+                showNotification(
+                    `${playerName} did not successfully complete the prompt.`,
+                    'Prompt Unsuccessful'
                 );
             }
-        } else {
-            showNotification(
-                `${playerName} did not successfully complete the prompt.`,
-                'Prompt Unsuccessful'
-            );
-        }
-        
-        // Update UI displays
-        updateTurnUI(sessionId);
-        updateActiveRulesDisplay();
-    }, 1500); // 1.5 second delay to show completion status
+            
+            // Update UI displays
+            updateTurnUI(sessionId);
+            updateActiveRulesDisplay();
+        }, 1500); // 1.5 second delay to show completion status
+    } catch (error) {
+        console.error('[PROMPT] Error during prompt judgment:', error);
+        showNotification('Failed to process judgment', 'Judgment Error');
+    }
 }
 
 /**

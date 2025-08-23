@@ -116,9 +116,8 @@ async function updateFirestorePlayerRuleCards(playerId, ruleCards) {
 async function updateFirestoreRefereeCard(sessionId, refereeCard) {
   try {
     const sessionRef = doc(db, 'gameSessions', sessionId);
-    // Store the referee UID under the canonical 'referee' field so UI logic can read it
-    await updateDoc(sessionRef, { referee: refereeCard });
-    console.log("[FIRESTORE] Referee updated:", sessionId, refereeCard);
+    await updateDoc(sessionRef, { refereeCard });
+    console.log("[FIRESTORE] Referee card updated:", sessionId);
   } catch (error) {
     console.error("[FIRESTORE] Error updating referee card:", error);
     throw error;
@@ -432,6 +431,47 @@ async function broadcastPromptNotification(sessionId, playerId, promptCard) {
   }
 }
 
+/**
+ * Broadcast prompt completion to all players in a session
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player who completed the prompt
+ * @param {Object} promptCard - The prompt card object
+ */
+async function broadcastPromptCompletion(sessionId, playerId, promptCard) {
+  try {
+    // Ensure all required fields have valid values (no undefined)
+    const safePromptCard = {
+      id: promptCard.id || 'unknown-id',
+      name: promptCard.name || promptCard.cardName || 'Unknown Prompt Card',
+      type: promptCard.type || 'prompt',
+      description: promptCard.description || promptCard.getCurrentText() || promptCard.frontRule || 'No prompt text available',
+      rules_for_referee: promptCard.rules_for_referee || null
+    };
+
+    const promptCompletionEvent = {
+      type: 'prompt_completion',
+      sessionId,
+      playerId,
+      promptCard: safePromptCard,
+      timestamp: Date.now()
+    };
+
+    console.log("[FIRESTORE] Broadcasting prompt completion with safe data:", promptCompletionEvent);
+
+    // Update session document with the prompt completion event
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, {
+      lastPromptCompletion: promptCompletionEvent,
+      lastUpdated: new Date().toISOString()
+    });
+
+    console.log("[FIRESTORE] Prompt completion broadcasted successfully:", promptCompletionEvent);
+  } catch (error) {
+    console.error("[FIRESTORE] Error broadcasting prompt completion:", error);
+    throw error;
+  }
+}
+
 async function updateFirestorePlayerPoints(playerId, points) {
   try {
     const playerRef = doc(db, 'players', playerId);
@@ -462,6 +502,7 @@ export {
   getFirestoreSessionByShareableCode,
   broadcastRuleCardUpdate,
   broadcastPromptNotification,
+  broadcastPromptCompletion,
   getDevUID,
   setupPlayerListeners,
   cleanupPlayerListeners

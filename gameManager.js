@@ -780,6 +780,16 @@ export class GameManager {
         return await this.sessionManager.broadcastPromptNotification(sessionId, playerId, promptCard);
     }
 
+    /**
+     * Broadcast prompt completion notification to all players in the session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who completed the prompt
+     * @param {Object} promptCard - The prompt card object
+     */
+    async broadcastPromptCompletion(sessionId, playerId, promptCard) {
+        return await this.sessionManager.broadcastPromptCompletion(sessionId, playerId, promptCard);
+    }
+
     triggerSessionStateChangeEvent(sessionId, stateChangeEvent) {
         return this.sessionManager.triggerSessionStateChangeEvent(sessionId, stateChangeEvent);
     }
@@ -2780,7 +2790,7 @@ export class GameManager {
      * @param {boolean} successful - Whether the prompt was successful
      * @returns {object} - {success: boolean, result?: object, error?: string}
      */
-    judgePrompt(sessionId, refereeId, successful) {
+    async judgePrompt(sessionId, refereeId, successful) {
         console.log(`[GAME_MANAGER] Referee ${refereeId} judging prompt in session ${sessionId} as ${successful ? 'successful' : 'unsuccessful'}`);
         
         // Validate session
@@ -2842,6 +2852,16 @@ export class GameManager {
 
         // Clean up the active prompt
         delete this.activePrompts[sessionId];
+
+        // Sync player points to Firebase (only if points were awarded)
+        if (pointsAwarded > 0) {
+            try {
+                await updateFirestorePlayerPoints(playerId, player.points);
+                console.log(`[GAME_MANAGER] Player points synced to Firebase: ${playerId} -> ${player.points}`);
+            } catch (error) {
+                console.error(`[GAME_MANAGER] Failed to sync player points to Firebase:`, error);
+            }
+        }
 
         console.log(`[GAME_MANAGER] Prompt judgment complete`);
 

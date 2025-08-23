@@ -15,6 +15,7 @@ import {
     getFirestoreSessionByShareableCode,
     broadcastRuleCardUpdate,
     broadcastPromptNotification,
+    broadcastPromptCompletion,
     getDevUID,
 } from './firebaseOperations.js';
 import {
@@ -472,6 +473,22 @@ export class SessionManager {
             console.log(`[SESSION] Prompt notification broadcast completed`);
         } catch (error) {
             console.error('[SESSION] Error broadcasting prompt notification:', error);
+        }
+    }
+
+    /**
+     * Broadcast prompt completion to all players in a session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who completed the prompt
+     * @param {object} promptCard - The prompt card that was completed
+     */
+    async broadcastPromptCompletion(sessionId, playerId, promptCard) {
+        try {
+            console.log(`[SESSION] Broadcasting prompt completion for player ${playerId} in session ${sessionId}`);
+            await broadcastPromptCompletion(sessionId, playerId, promptCard);
+            console.log(`[SESSION] Prompt completion broadcast completed`);
+        } catch (error) {
+            console.error('[SESSION] Error broadcasting prompt completion:', error);
         }
     }
 

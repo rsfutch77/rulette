@@ -61,7 +61,7 @@ Roles and responsibilities:
     - Invalid or duplicate player actions
 [x] 2.5.2 Provide user feedback for invalid actions (1 Point)
 
-[ ] 3. Card Types and Rule System (20 Points)
+[x] 3. Card Types and Rule System (20 Points)
 [x] 3.1 Card Type Definitions (4 Points)
 [x] 3.1.1 Define all card types: new rule, rule modifier, flip, swap, clone, prompt (2 Points)
 [x] 3.1.2 Specify data structure and properties for each card type (2 Points)
@@ -98,7 +98,7 @@ Roles and responsibilities:
 [x] 3.b.4.1 Implement a dedicated modal or UI element for players to select a target player and a specific card to clone from their hand/active rules. (2 Points)
 [x] 3.b.4.2 The UI should clearly display available players and their active cards, allowing for easy selection. (1 Point)
 
-[ ] 3.c. Prompt Card Mechanic (16 Points)
+[x] 3.c. Prompt Card Mechanic (16 Points)
 [x] 3.c.1 Prompt Card Data Structure (2 Points)
 [x] 3.c.1.1 Define a data structure for "Prompt" cards. This structure should include: `id`, `name`, `description`, `rules_for_referee`, `point_value`, `discard_rule_on_success`. (1 Point)
 [x] 3.c.1.2 Ensure the structure clearly defines the purpose of each field. (1 Point)
@@ -108,10 +108,10 @@ Roles and responsibilities:
 [x] 3.c.2.3 The player is given a defined (e.g., a timer or a verbal cue from the referee) amount of time to complete the prompt. (1 Point)
 [x] 3.c.2.4 Upon completion (or time running out), the referee is prompted to make a judgment. (2 Points)
 [x] 3.c.3 Referee Judgment Interface & Logic (6 Points)
-[ ] 3.c.3.1 Develop a specific UI for the referee to review the prompt and the player's attempt. (2 Points)
+[x] 3.c.3.1 Develop a specific UI for the referee to review the prompt and the player's attempt. (2 Points)
 [x] 3.c.3.2 The referee UI should display the prompt text and the `rules_for_referee` for assessment. (1 Point)
-[ ] 3.c.3.3 Options for the referee to declare the prompt "Successful" or "Unsuccessful". (1 Point)
-[ ] 3.c.3.4 If "Successful": Award the `point_value` to the player. (1 Point)
+[x] 3.c.3.3 Options for the referee to declare the prompt "Successful" or "Unsuccessful". (1 Point)
+[x] 3.c.3.4 If "Successful": Award the `point_value` to the player. (1 Point)
 [x] 3.c.4 UI/UX for Prompt Cards (3 Points)
 [x] 3.c.4.1 Visually distinguish Prompt Cards from other card types in the UI (e.g., different color, icon). (1 Point)
 [x] 3.c.4.2 During active prompt, clearly indicate which player is attempting the prompt and what the prompt is. (1 Point)
@@ -125,7 +125,7 @@ Roles and responsibilities:
 [x] 3.4.1 Display all active rules and their owners in the UI (2 Points)
 
 [ ] 4. Referee and Callout Mechanic (15 Points)
-[ ] 4.1 Callout Mechanism (4 Points)
+[x] 4.1 Callout Mechanism (4 Points)
 [x] 4.1.1 Allow players to call out others for failing to follow a rule (2 Points)
 [x] 4.2 Referee Adjudication (4 Points)
 [x] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
@@ -161,10 +161,7 @@ Roles and responsibilities:
 [x] 5.3.2 Provide clear feedback when points or cards change (1 Point)
 [ ] 5.4 End Condition Detection (2 Points)
 [ ] 5.4.1 Detect the following end conditions:
-    - A player reaches 0 points (primary)
-    - All but one player reaches 0 points (secondary)
-    - A custom rule or card triggers game end
-    - All players leave the session
+    - A player reaches 0 points
 [ ] 5.4.2 Trigger end-of-game flow and display results (1 Point)
 
 ## Phase 3: Multiplayer and Lobby System
