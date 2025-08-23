@@ -680,11 +680,23 @@ async function executeSwapAction() {
  */
 async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePlayer, sessionId) {
     try {
+        console.log('[SWAP_DEBUG] === STARTING SWAP OPERATION ===');
+        console.log('[SWAP_DEBUG] Give card:', giveCard.id, 'from player:', currentPlayer.playerId || currentPlayer.id);
+        console.log('[SWAP_DEBUG] Receive card:', receiveCard.id, 'from player:', receivePlayer.playerId || receivePlayer.id);
+        
+        // Log initial state
+        console.log('[SWAP_DEBUG] Current player ruleCards BEFORE:', currentPlayer.ruleCards?.map(c => c.id));
+        console.log('[SWAP_DEBUG] Receive player ruleCards BEFORE:', receivePlayer.ruleCards?.map(c => c.id));
+        
         // Remove give card from current player
         const giveCardLocation = removeCardFromPlayer(currentPlayer, giveCard.id);
+        console.log('[SWAP_DEBUG] Removed give card from location:', giveCardLocation);
+        console.log('[SWAP_DEBUG] Current player ruleCards AFTER REMOVE:', currentPlayer.ruleCards?.map(c => c.id));
         
         // Remove receive card from other player
         const receiveCardLocation = removeCardFromPlayer(receivePlayer, receiveCard.id);
+        console.log('[SWAP_DEBUG] Removed receive card from location:', receiveCardLocation);
+        console.log('[SWAP_DEBUG] Receive player ruleCards AFTER REMOVE:', receivePlayer.ruleCards?.map(c => c.id));
         
         if (!giveCardLocation || !receiveCardLocation) {
             throw new Error('Failed to locate cards for swap');
@@ -692,30 +704,34 @@ async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePl
         
         // Add receive card to current player (same location as give card was)
         addCardToPlayer(currentPlayer, receiveCard, giveCardLocation);
+        console.log('[SWAP_DEBUG] Added receive card to current player');
+        console.log('[SWAP_DEBUG] Current player ruleCards AFTER ADD:', currentPlayer.ruleCards?.map(c => c.id));
         
         // Add give card to other player (same location as receive card was)
         addCardToPlayer(receivePlayer, giveCard, receiveCardLocation);
+        console.log('[SWAP_DEBUG] Added give card to receive player');
+        console.log('[SWAP_DEBUG] Receive player ruleCards AFTER ADD:', receivePlayer.ruleCards?.map(c => c.id));
+        
+        console.log('[SWAP_DEBUG] === LOCAL SWAP COMPLETE, UPDATING FIREBASE ===');
         
         // Update Firebase for both players
         await updateFirebaseAfterSwap(currentPlayer, receivePlayer);
         
-        // Show success notification
-        // if (window.showNotification) {
-        //     window.showNotification({
-        //         message: `Successfully swapped "${getCardDisplayText(giveCard)}" for "${getCardDisplayText(receiveCard)}"`,
-        //         title: 'Cards Swapped!'
-        //     });
-        // }
+        console.log('[SWAP_DEBUG] === FIREBASE UPDATE COMPLETE, UPDATING UI ===');
         
-        // Update UI displays
-        if (window.updateActiveRulesDisplay) {
-            window.updateActiveRulesDisplay();
-        }
+        // Add a short delay to allow Firebase listeners to process updated data first
+        // This prevents race condition where local UI updates get overwritten by stale listener data
+        setTimeout(() => {
+            console.log('[SWAP_DEBUG] Calling updateActiveRulesDisplay() after Firebase listener delay');
+            if (window.updateActiveRulesDisplay) {
+                window.updateActiveRulesDisplay();
+            }
+        }, 250); // 250ms delay to allow Firebase real-time listeners to update local state
         
         // Hide the modal
         hideSwapCardModal();
         
-        console.log('[SWAP] Direct swap completed successfully');
+        console.log('[SWAP_DEBUG] === SWAP OPERATION COMPLETED SUCCESSFULLY ===');
         
         // Advance to next turn after successful swap
         if (window.completeTurn) {
@@ -726,6 +742,7 @@ async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePl
         }
         
     } catch (error) {
+        console.error('[SWAP_DEBUG] === SWAP OPERATION FAILED ===');
         console.error('[SWAP] Error in direct swap:', error);
         throw error;
     }
