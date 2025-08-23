@@ -372,7 +372,7 @@ function displayDrawnCard(card, cardType) {
         if (card.type === 'prompt') {
             // Prompt cards need to be activated with timer and referee judgment
             const startPromptButton = document.createElement('button');
-            startPromptButton.textContent = 'Click here when you have accomplished your prompt';
+            startPromptButton.textContent = 'Start Prompt Challenge';
             startPromptButton.style.cssText = `
                 display: block;
                 width: 100%;
@@ -400,26 +400,24 @@ function displayDrawnCard(card, cardType) {
             });
             
             startPromptButton.addEventListener('click', () => {
-                console.log('[CARD_DRAW] Player completed prompt challenge');
+                console.log('[CARD_DRAW] Starting prompt challenge');
                 
                 const currentUser = getCurrentUser();
                 if (currentUser && window.currentSessionId) {
                     // Close the modal
                     closeCardModal();
                     
-                    // Disable wheel for non-current players
-                    disableWheelForNonCurrentPlayer();
-
-                    // Advance to next turn
-                    if (window.gameManager && typeof window.gameManager.nextTurn === 'function') {
-                        window.gameManager.nextTurn(window.currentSessionId);
+                    // Start the prompt challenge - this will show the UI and referee controls
+                    if (window.activatePromptChallenge && typeof window.activatePromptChallenge === 'function') {
+                        console.log('[CARD_DRAW] Calling activatePromptChallenge');
+                        window.activatePromptChallenge(window.currentSessionId, currentUser.uid, card);
                     } else {
-                        console.error('[CARD_DRAW] gameManager.nextTurn not available');
-                        window.showNotification('Prompt completed, but unable to advance turn automatically', 'Warning');
+                        console.error('[CARD_DRAW] activatePromptChallenge not available');
+                        window.showNotification('Unable to start prompt challenge', 'Error');
                     }
                 } else {
                     console.error('[PROMPT] No current user or session');
-                    window.showNotification('Unable to complete prompt', 'Error');
+                    window.showNotification('Unable to start prompt challenge', 'Error');
                 }
             });
             

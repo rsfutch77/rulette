@@ -101,11 +101,21 @@ function showPromptUI(promptState) {
     
     // Check if current user is referee
     const session = gameManager.gameSessions[promptState.sessionId];
+    console.log('[REFEREE_DEBUG] Checking referee status...');
+    console.log('[REFEREE_DEBUG] currentUser:', currentUser);
+    console.log('[REFEREE_DEBUG] session:', session);
+    console.log('[REFEREE_DEBUG] session.referee:', session?.referee);
+    console.log('[REFEREE_DEBUG] currentUser.uid:', currentUser?.uid);
+    console.log('[REFEREE_DEBUG] Is referee?', currentUser && session && session.referee === currentUser.uid);
+    
     if (currentUser && session && session.referee === currentUser.uid) {
+        console.log('[REFEREE_DEBUG] Creating referee controls div...');
         // Enhanced referee controls with comprehensive prompt information
         const refereeDiv = document.createElement('div');
         refereeDiv.id = 'referee-controls';
         refereeDiv.style.display = 'none';
+        console.log('[REFEREE_DEBUG] Referee controls div created with ID:', refereeDiv.id);
+        console.log('[REFEREE_DEBUG] Initial display style:', refereeDiv.style.display);
         refereeDiv.innerHTML = `
             <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border: 2px solid #ffeaa7; border-radius: 8px; text-align: left;">
                 <h4 style="color: #856404; margin-top: 0; text-align: center;">🏛️ Referee Assessment</h4>
@@ -198,9 +208,16 @@ function completePromptChallenge(sessionId, playerId) {
     }
     
     // Show referee controls
+    console.log('[REFEREE_DEBUG] Attempting to show referee controls after prompt completion...');
     const refereeControls = document.getElementById('referee-controls');
+    console.log('[REFEREE_DEBUG] Found referee controls element:', refereeControls);
     if (refereeControls) {
+        console.log('[REFEREE_DEBUG] Setting referee controls display to block');
         refereeControls.style.display = 'block';
+        console.log('[REFEREE_DEBUG] Referee controls display style after setting:', refereeControls.style.display);
+        console.log('[REFEREE_DEBUG] Referee controls computed style:', window.getComputedStyle(refereeControls).display);
+    } else {
+        console.log('[REFEREE_DEBUG] ERROR: Referee controls element not found!');
     }
     
     // Hide player complete button
@@ -239,9 +256,16 @@ function handlePromptTimeout(sessionId) {
         }
         
         // Show referee controls
+        console.log('[REFEREE_DEBUG] Attempting to show referee controls after timeout...');
         const refereeControls = document.getElementById('referee-controls');
+        console.log('[REFEREE_DEBUG] Found referee controls element:', refereeControls);
         if (refereeControls) {
+            console.log('[REFEREE_DEBUG] Setting referee controls display to block');
             refereeControls.style.display = 'block';
+            console.log('[REFEREE_DEBUG] Referee controls display style after setting:', refereeControls.style.display);
+            console.log('[REFEREE_DEBUG] Referee controls computed style:', window.getComputedStyle(refereeControls).display);
+        } else {
+            console.log('[REFEREE_DEBUG] ERROR: Referee controls element not found!');
         }
         
         showNotification('Time\'s up! Waiting for referee judgment.', 'Prompt Timeout');

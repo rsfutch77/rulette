@@ -116,8 +116,9 @@ async function updateFirestorePlayerRuleCards(playerId, ruleCards) {
 async function updateFirestoreRefereeCard(sessionId, refereeCard) {
   try {
     const sessionRef = doc(db, 'gameSessions', sessionId);
-    await updateDoc(sessionRef, { refereeCard });
-    console.log("[FIRESTORE] Referee card updated:", sessionId);
+    // Store the referee UID under the canonical 'referee' field so UI logic can read it
+    await updateDoc(sessionRef, { referee: refereeCard });
+    console.log("[FIRESTORE] Referee updated:", sessionId, refereeCard);
   } catch (error) {
     console.error("[FIRESTORE] Error updating referee card:", error);
     throw error;
