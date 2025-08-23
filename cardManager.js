@@ -412,14 +412,32 @@ export class CardManager {
             return null;
         }
 
-        // Always query Firestore for players, even if local session shows no players
-        // This ensures we get the most up-to-date player information
-        const activePlayersInSession = (await getFirestorePlayersInSession(sessionId)).filter(player => player.status === 'active');
-
-        if (activePlayersInSession.length === 0) {
-            console.warn(`No active players in session ${sessionId} to assign referee card.`);
+        // DIAGNOSIS LOGGING: Check session structure and player ordering
+        console.log(`[REFEREE_ASSIGNMENT_DEBUG] Session players array:`, session.players);
+        console.log(`[REFEREE_ASSIGNMENT_DEBUG] Session players count:`, session.players ? session.players.length : 0);
+        
+        if (!session.players || session.players.length === 0) {
+            console.warn(`No players in session ${sessionId} to assign referee card.`);
             return null;
         }
+        
+        // Player 1 is always the first player in the session's players array (position 0)
+        const firstPlayerId = session.players[0];
+        console.log(`[REFEREE_ASSIGNMENT_DEBUG] First player ID (should be player 1): ${firstPlayerId}`);
+        
+        // Verify this player exists and is active
+        const firstPlayer = gameManager.players[firstPlayerId];
+        if (!firstPlayer) {
+            console.error(`Player 1 (${firstPlayerId}) not found in gameManager.players`);
+            return null;
+        }
+        
+        if (firstPlayer.status !== 'active') {
+            console.warn(`Player 1 (${firstPlayerId}) is not active, status: ${firstPlayer.status}`);
+            return null;
+        }
+        
+        console.log(`[REFEREE_ASSIGNMENT_DEBUG] Player 1 verified: ${firstPlayer.displayName} (${firstPlayerId}) - status: ${firstPlayer.status}`);
 
         // Clear previous referee if any (both locally and in Firebase)
         if (session.referee) {
@@ -436,31 +454,12 @@ export class CardManager {
             }
         }
 
-        // Use Math.random() to select a player index
-        // For testing, this can be mocked to return a specific value
-        const randomValue = Math.random();
-        const randomIndex = Math.floor(randomValue * activePlayersInSession.length);
-        const refereePlayer = activePlayersInSession[randomIndex];
-        
-        // Debug: Log the player object structure
-        console.log(`Selected referee player object:`, refereePlayer);
-        
-        // Try different possible ID properties
-        const refereePlayerId = refereePlayer.uid || refereePlayer.id || refereePlayer.playerId || refereePlayer.userId;
-        
-        console.log(`Random value: ${randomValue}, index: ${randomIndex}, selected player: ${refereePlayerId}`);
-        
-        if (!refereePlayerId) {
-            console.error(`Could not determine player ID from referee player object:`, refereePlayer);
-            return null;
-        }
+        // FIXED: Always assign referee card to player 1 (first player in session.players array)
+        const refereePlayerId = firstPlayerId;
+        console.log(`[REFEREE_ASSIGNMENT_DEBUG] FIXED - Assigning referee card to player 1: ${refereePlayerId}`);
 
         // Assign referee card to player's ruleCards array using standard card assignment
-        const player = gameManager.players[refereePlayerId];
-        if (!player) {
-            console.error(`Player ${refereePlayerId} not found in gameManager.players`);
-            return null;
-        }
+        const player = firstPlayer; // We already have the player object from above validation
         
         if (!player.ruleCards) {
             player.ruleCards = [];
@@ -493,7 +492,7 @@ export class CardManager {
             console.error(`Error persisting referee card to Firebase for player ${refereePlayerId}:`, error);
         }
 
-        console.log(`Referee card assigned to player ${refereePlayer.displayName} (${refereePlayerId}) in session ${sessionId} and synced with Firebase.`);
+        console.log(`[REFEREE_ASSIGNMENT_DEBUG] FIXED - Referee card assigned to player 1: ${player.displayName} (${refereePlayerId}) in session ${sessionId} and synced with Firebase.`);
         return refereePlayerId;
     }
 
