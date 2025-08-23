@@ -236,11 +236,17 @@ async function setupPlayerListeners(sessionId, gameManager) {
         if (docSnapshot.exists()) {
           const playerData = docSnapshot.data();
           console.log('[FIREBASE_LISTENERS] Player data changed:', playerId, playerData);
+          console.log('[FIREBASE_LISTENERS_DEBUG] === FIREBASE LISTENER TRIGGERED ===');
+          console.log('[FIREBASE_LISTENERS_DEBUG] Player ID:', playerId);
+          console.log('[FIREBASE_LISTENERS_DEBUG] Firebase ruleCards:', playerData.ruleCards?.map(c => c.id));
           
           // Update local player data
           if (gameManager.players[playerId]) {
-            // Preserve existing player data and merge with Firebase data
+            // Log existing state before merge
             const existingPlayer = gameManager.players[playerId];
+            console.log('[FIREBASE_LISTENERS_DEBUG] Existing local ruleCards BEFORE merge:', existingPlayer.ruleCards?.map(c => c.id));
+            
+            // Preserve existing player data and merge with Firebase data
             gameManager.players[playerId] = {
               ...existingPlayer,
               ...playerData,
@@ -251,6 +257,7 @@ async function setupPlayerListeners(sessionId, gameManager) {
               }) : []
             };
             
+            console.log('[FIREBASE_LISTENERS_DEBUG] Local ruleCards AFTER merge:', gameManager.players[playerId].ruleCards?.map(c => c.id));
             console.log('[FIREBASE_LISTENERS] Updated local player data for:', playerId);
             
             // Update UI for all players when any player's data changes
@@ -267,9 +274,11 @@ async function setupPlayerListeners(sessionId, gameManager) {
             
             // Also update active rules display
             if (window.updateActiveRulesDisplay) {
-              console.log('[FIREBASE_LISTENERS] Triggering active rules display update');
+              console.log('[FIREBASE_LISTENERS_DEBUG] Calling updateActiveRulesDisplay from Firebase listener');
               window.updateActiveRulesDisplay();
             }
+            
+            console.log('[FIREBASE_LISTENERS_DEBUG] === FIREBASE LISTENER PROCESSING COMPLETE ===');
           }
         }
       }, (error) => {

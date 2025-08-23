@@ -389,7 +389,8 @@ async function judgePrompt(sessionId, refereeId, successful) {
         setTimeout(() => {
             console.log('[PROMPT_DEBUG] FALLBACK: Hiding prompt UI after error');
             hidePromptUI();
-        }, 2000);
+        }, 1
+        000);
     }
 }
 

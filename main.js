@@ -1216,7 +1216,7 @@ function animateScoreChange(playerId, oldPoints, newPoints) {
         if (changeIndicator.parentNode) {
           changeIndicator.parentNode.removeChild(changeIndicator);
         }
-      }, 2000);
+      }, 1000);
     }
   }
   

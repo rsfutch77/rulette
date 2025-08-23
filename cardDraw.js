@@ -700,19 +700,32 @@ function updateCardDisplaysAfterFlip(card) {
 
 // Display player's current hand/active rules, including cloned cards
 function updateActiveRulesDisplay() {
+    console.log('[RULE_DISPLAY_DEBUG] === updateActiveRulesDisplay() CALLED ===');
+    console.log('[RULE_DISPLAY_DEBUG] Call stack:', new Error().stack);
+    
     const container = document.getElementById('active-rules-display');
-    if (!container || !gameManager) return;
+    if (!container || !gameManager) {
+        console.log('[RULE_DISPLAY_DEBUG] Early return: container or gameManager missing');
+        return;
+    }
     const currentUser = getCurrentUser();
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.log('[RULE_DISPLAY_DEBUG] Early return: no current user');
+        return;
+    }
     const player = gameManager.players[currentUser.uid];
-    if (!player) return;
+    if (!player) {
+        console.log('[RULE_DISPLAY_DEBUG] Early return: no player found for UID:', currentUser.uid);
+        return;
+    }
 
-    // Add diagnostic logging to understand the data structure
+    console.log('[RULE_DISPLAY_DEBUG] Player ID:', currentUser.uid);
     console.log('[RULE_DISPLAY_DEBUG] Player data structure:');
     console.log('  - player.hand:', player.hand);
     console.log('  - player.ruleCards:', player.ruleCards);
     console.log('  - player.hand.length:', player.hand ? player.hand.length : 'undefined');
     console.log('  - player.ruleCards.length:', player.ruleCards ? player.ruleCards.length : 'undefined');
+    console.log('  - player.ruleCards IDs:', player.ruleCards?.map(c => c.id));
 
     container.innerHTML = '';
     
@@ -726,11 +739,14 @@ function updateActiveRulesDisplay() {
             const isDuplicate = allRuleCards.some(existing => existing.card.id === card.id);
             if (!isDuplicate) {
                 allRuleCards.push({ card, source: 'ruleCards' });
+                console.log('[RULE_DISPLAY_DEBUG] Added card to display:', card.id, 'from ruleCards');
+            } else {
+                console.log('[RULE_DISPLAY_DEBUG] Skipped duplicate card:', card.id);
             }
         });
     }
     
-    console.log('[RULE_DISPLAY_DEBUG] Found rule cards:', allRuleCards.length);
+    console.log('[RULE_DISPLAY_DEBUG] Final rule cards for display:', allRuleCards.length);
     allRuleCards.forEach((item, index) => {
         console.log(`  ${index + 1}. ${item.card.name || item.card.id} (from ${item.source})`);
     });
@@ -751,6 +767,8 @@ function updateActiveRulesDisplay() {
         div.textContent = text;
         container.appendChild(div);
     });
+    
+    console.log('[RULE_DISPLAY_DEBUG] === updateActiveRulesDisplay() COMPLETE ===');
 }
 
 /**

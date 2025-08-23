@@ -1303,7 +1303,7 @@ async function handleJoinSession() {
             setTimeout(() => {
                 hideSessionModal();
                 if (window.updateLobbyDisplay) window.updateLobbyDisplay();
-            }, 2000);
+            }, 1000);
         } else {
             showJoinStatus('error', result.error);
             showNotification(result.error, 'error');
