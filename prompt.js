@@ -299,18 +299,28 @@ function handlePromptTimeout(sessionId) {
  */
 async function judgePrompt(sessionId, refereeId, successful) {
     console.log('[PROMPT] Referee judging prompt:', successful ? 'successful' : 'unsuccessful');
+    console.log('[PROMPT_DEBUG] Starting judgePrompt function - sessionId:', sessionId, 'refereeId:', refereeId, 'successful:', successful);
     
     try {
+        console.log('[PROMPT_DEBUG] About to call gameManager.judgePrompt()');
         const result = await gameManager.judgePrompt(sessionId, refereeId, successful);
+        console.log('[PROMPT_DEBUG] gameManager.judgePrompt() returned:', result);
         
         if (!result.success) {
             console.error('[PROMPT] Failed to judge prompt:', result.error);
+            console.log('[PROMPT_DEBUG] ERROR: judgePrompt failed, returning early');
             showNotification(result.error, 'Judgment Error');
             return;
         }
+        
+        console.log('[PROMPT_DEBUG] judgePrompt was successful, proceeding to update status');
+        
+        // Note: Prompt judgment completion will be automatically broadcasted by gameManager.judgePrompt()
+        // which will trigger Firebase listeners to hide the prompt UI for all players
     
         // Update status before hiding UI to show completion
         const statusElement = document.getElementById('prompt-status');
+        console.log('[PROMPT_DEBUG] Found status element:', statusElement);
         if (statusElement) {
             if (successful) {
                 statusElement.innerHTML = '🎉 <strong>Prompt Completed!</strong>';
@@ -320,12 +330,22 @@ async function judgePrompt(sessionId, refereeId, successful) {
                 statusElement.style.color = '#dc3545';
             }
             statusElement.style.fontWeight = 'bold';
+            console.log('[PROMPT_DEBUG] Updated status element innerHTML to:', statusElement.innerHTML);
         }
         
+        console.log('[PROMPT_DEBUG] About to set setTimeout for 1500ms to hide prompt UI');
         // Brief delay to show completion status before hiding
         setTimeout(() => {
+            console.log('[PROMPT_DEBUG] setTimeout callback executing - about to hide prompt UI');
+            
+            // Check if prompt container still exists before hiding
+            const promptContainer = document.getElementById('prompt-container');
+            console.log('[PROMPT_DEBUG] Prompt container exists before hidePromptUI():', !!promptContainer);
+            
             // Hide prompt UI
             hidePromptUI();
+            
+            console.log('[PROMPT_DEBUG] hidePromptUI() completed');
             
             // Show result notification
             const playerName = getPlayerDisplayName(result.result.playerId);
@@ -348,13 +368,28 @@ async function judgePrompt(sessionId, refereeId, successful) {
                 );
             }
             
+            console.log('[PROMPT_DEBUG] Notifications sent, about to update UI displays');
+            
             // Update UI displays
             updateTurnUI(sessionId);
             updateActiveRulesDisplay();
+            
+            console.log('[PROMPT_DEBUG] setTimeout callback completed successfully');
         }, 1500); // 1.5 second delay to show completion status
+        
+        console.log('[PROMPT_DEBUG] setTimeout scheduled successfully');
     } catch (error) {
         console.error('[PROMPT] Error during prompt judgment:', error);
+        console.log('[PROMPT_DEBUG] CRITICAL ERROR in judgePrompt():', error);
+        console.log('[PROMPT_DEBUG] Error stack:', error.stack);
         showNotification('Failed to process judgment', 'Judgment Error');
+        
+        // FALLBACK: Always try to hide the prompt UI even if there's an error
+        console.log('[PROMPT_DEBUG] ERROR FALLBACK: Attempting to hide prompt UI anyway');
+        setTimeout(() => {
+            console.log('[PROMPT_DEBUG] FALLBACK: Hiding prompt UI after error');
+            hidePromptUI();
+        }, 2000);
     }
 }
 
@@ -362,16 +397,45 @@ async function judgePrompt(sessionId, refereeId, successful) {
  * Hide the prompt UI
  */
 function hidePromptUI() {
+    console.log('[PROMPT_DEBUG] hidePromptUI() called');
+    
     const promptContainer = document.getElementById('prompt-container');
+    console.log('[PROMPT_DEBUG] Found prompt container:', !!promptContainer);
+    
     if (promptContainer) {
+        console.log('[PROMPT_DEBUG] Removing prompt container element');
         promptContainer.remove();
+        
+        // Verify removal
+        const containerAfterRemoval = document.getElementById('prompt-container');
+        console.log('[PROMPT_DEBUG] Prompt container after removal:', !!containerAfterRemoval);
+        
+        if (containerAfterRemoval) {
+            console.error('[PROMPT_DEBUG] ERROR: Prompt container still exists after removal attempt!');
+            // Force removal with different method
+            console.log('[PROMPT_DEBUG] Attempting force removal with parentNode.removeChild()');
+            if (containerAfterRemoval.parentNode) {
+                containerAfterRemoval.parentNode.removeChild(containerAfterRemoval);
+                console.log('[PROMPT_DEBUG] Force removal attempted');
+            }
+        } else {
+            console.log('[PROMPT_DEBUG] SUCCESS: Prompt container successfully removed');
+        }
+    } else {
+        console.log('[PROMPT_DEBUG] No prompt container found to remove');
     }
     
     // Clear timer
     if (window.currentPromptTimer) {
+        console.log('[PROMPT_DEBUG] Clearing current prompt timer');
         clearInterval(window.currentPromptTimer);
         window.currentPromptTimer = null;
+        console.log('[PROMPT_DEBUG] Prompt timer cleared');
+    } else {
+        console.log('[PROMPT_DEBUG] No prompt timer to clear');
     }
+    
+    console.log('[PROMPT_DEBUG] hidePromptUI() completed');
 }
 
 // Expose functions globally for use by other modules

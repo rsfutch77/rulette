@@ -1362,6 +1362,60 @@ async function setupFirebaseSessionListener() {
                     } else {
                         console.log('[FIREBASE_LISTENER] No prompt completion in session data');
                     }
+
+                    // Check for prompt judgment completion events
+                    if (sessionData.lastPromptJudgment) {
+                        const promptJudgment = sessionData.lastPromptJudgment;
+                        console.log('[FIREBASE_LISTENER] Prompt judgment detected:', promptJudgment);
+                        
+                        // Check if this is a new prompt judgment
+                        const lastProcessedJudgment = window.lastProcessedPromptJudgment || 0;
+                        console.log('[FIREBASE_LISTENER] Comparing judgment timestamps - new:', promptJudgment.timestamp, 'last processed:', lastProcessedJudgment);
+                        
+                        if (promptJudgment.timestamp > lastProcessedJudgment) {
+                            console.log('[FIREBASE_LISTENER] Processing new prompt judgment for player:', promptJudgment.playerId, 'successful:', promptJudgment.successful);
+                            window.lastProcessedPromptJudgment = promptJudgment.timestamp;
+                            
+                            // Hide prompt UI for all players since judgment is complete
+                            console.log('[FIREBASE_LISTENER] Hiding prompt UI for all players due to judgment completion');
+                            if (typeof window.hidePromptUI === 'function') {
+                                window.hidePromptUI();
+                                console.log('[FIREBASE_LISTENER] Prompt UI hidden successfully');
+                            } else {
+                                console.warn('[FIREBASE_LISTENER] hidePromptUI function not available');
+                            }
+                            
+                            // Show judgment result notification to all players
+                            const playerName = window.getPlayerDisplayName ? window.getPlayerDisplayName(promptJudgment.playerId) : `Player ${promptJudgment.playerId}`;
+                            if (promptJudgment.successful) {
+                                if (typeof window.showNotification === 'function') {
+                                    window.showNotification(
+                                        `${playerName} successfully completed the prompt and earned ${promptJudgment.pointsAwarded} points!`,
+                                        'Prompt Successful'
+                                    );
+                                }
+                            } else {
+                                if (typeof window.showNotification === 'function') {
+                                    window.showNotification(
+                                        `${playerName} did not successfully complete the prompt.`,
+                                        'Prompt Unsuccessful'
+                                    );
+                                }
+                            }
+                            
+                            // Update UI displays
+                            if (typeof window.updateTurnUI === 'function') {
+                                window.updateTurnUI(sessionId);
+                            }
+                            if (typeof window.updateActiveRulesDisplay === 'function') {
+                                window.updateActiveRulesDisplay();
+                            }
+                        } else {
+                            console.log('[FIREBASE_LISTENER] Skipping prompt judgment (already processed or older)');
+                        }
+                    } else {
+                        console.log('[FIREBASE_LISTENER] No prompt judgment in session data');
+                    }
                     
                     // Check for new callouts
                     if (sessionData.callouts && Array.isArray(sessionData.callouts)) {

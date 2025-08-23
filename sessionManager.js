@@ -16,6 +16,7 @@ import {
     broadcastRuleCardUpdate,
     broadcastPromptNotification,
     broadcastPromptCompletion,
+    broadcastPromptJudgment,
     getDevUID,
 } from './firebaseOperations.js';
 import {
@@ -489,6 +490,23 @@ export class SessionManager {
             console.log(`[SESSION] Prompt completion broadcast completed`);
         } catch (error) {
             console.error('[SESSION] Error broadcasting prompt completion:', error);
+        }
+    }
+
+    /**
+     * Broadcast prompt judgment completion to all players in the session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who attempted the prompt
+     * @param {boolean} successful - Whether the prompt was judged successful
+     * @param {number} pointsAwarded - Points awarded for successful prompt
+     */
+    async broadcastPromptJudgment(sessionId, playerId, successful, pointsAwarded) {
+        try {
+            console.log(`[SESSION] Broadcasting prompt judgment for player ${playerId} in session ${sessionId}: ${successful ? 'successful' : 'unsuccessful'}`);
+            await broadcastPromptJudgment(sessionId, playerId, successful, pointsAwarded);
+            console.log(`[SESSION] Prompt judgment broadcast completed`);
+        } catch (error) {
+            console.error('[SESSION] Error broadcasting prompt judgment:', error);
         }
     }
 

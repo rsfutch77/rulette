@@ -472,6 +472,40 @@ async function broadcastPromptCompletion(sessionId, playerId, promptCard) {
   }
 }
 
+/**
+ * Broadcast prompt judgment completion to all players in the session
+ * @param {string} sessionId - The session ID
+ * @param {string} playerId - The player who attempted the prompt
+ * @param {boolean} successful - Whether the prompt was judged successful
+ * @param {number} pointsAwarded - Points awarded for successful prompt
+ */
+async function broadcastPromptJudgment(sessionId, playerId, successful, pointsAwarded) {
+  try {
+    const promptJudgmentEvent = {
+      type: 'prompt_judgment',
+      sessionId,
+      playerId,
+      successful,
+      pointsAwarded,
+      timestamp: Date.now()
+    };
+
+    console.log("[FIRESTORE] Broadcasting prompt judgment completion:", promptJudgmentEvent);
+
+    // Update session document with the prompt judgment event
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, {
+      lastPromptJudgment: promptJudgmentEvent,
+      lastUpdated: new Date().toISOString()
+    });
+
+    console.log("[FIRESTORE] Prompt judgment broadcasted successfully:", promptJudgmentEvent);
+  } catch (error) {
+    console.error("[FIRESTORE] Error broadcasting prompt judgment:", error);
+    throw error;
+  }
+}
+
 async function updateFirestorePlayerPoints(playerId, points) {
   try {
     const playerRef = doc(db, 'players', playerId);
@@ -503,6 +537,7 @@ export {
   broadcastRuleCardUpdate,
   broadcastPromptNotification,
   broadcastPromptCompletion,
+  broadcastPromptJudgment,
   getDevUID,
   setupPlayerListeners,
   cleanupPlayerListeners

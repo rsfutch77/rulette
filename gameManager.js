@@ -794,6 +794,17 @@ export class GameManager {
         return this.sessionManager.triggerSessionStateChangeEvent(sessionId, stateChangeEvent);
     }
 
+    /**
+     * Broadcast prompt judgment completion to all players in the session
+     * @param {string} sessionId - The session ID
+     * @param {string} playerId - The player who attempted the prompt
+     * @param {boolean} successful - Whether the prompt was judged successful
+     * @param {number} pointsAwarded - Points awarded for successful prompt
+     */
+    async broadcastPromptJudgment(sessionId, playerId, successful, pointsAwarded) {
+        return await this.sessionManager.broadcastPromptJudgment(sessionId, playerId, successful, pointsAwarded);
+    }
+
     addSessionStateListener(sessionId, listener) {
         return this.sessionManager.addSessionStateListener(sessionId, listener);
     }
@@ -2861,6 +2872,14 @@ export class GameManager {
             } catch (error) {
                 console.error(`[GAME_MANAGER] Failed to sync player points to Firebase:`, error);
             }
+        }
+
+        // Broadcast judgment completion to all players so they can hide their prompt UI
+        try {
+            await this.broadcastPromptJudgment(sessionId, playerId, successful, pointsAwarded);
+            console.log(`[GAME_MANAGER] Prompt judgment completion broadcasted to all players`);
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Failed to broadcast prompt judgment completion:`, error);
         }
 
         console.log(`[GAME_MANAGER] Prompt judgment complete`);
