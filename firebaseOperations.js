@@ -515,6 +515,44 @@ async function broadcastPromptJudgment(sessionId, playerId, successful, pointsAw
   }
 }
 
+/**
+ * Broadcast game end event to all players in a session
+ * @param {string} sessionId - The session ID
+ * @param {object} gameEndData - Game end event data
+ */
+async function broadcastGameEnd(sessionId, gameEndData) {
+  try {
+    const gameEndEvent = {
+      type: 'game_end',
+      sessionId,
+      endCondition: gameEndData.endCondition,
+      winners: gameEndData.winners || [],
+      finalStandings: gameEndData.finalStandings || [],
+      finalReferee: gameEndData.finalReferee,
+      gameDuration: gameEndData.gameDuration,
+      totalPlayers: gameEndData.totalPlayers,
+      totalCardsPlayed: gameEndData.totalCardsPlayed,
+      totalPointsTransferred: gameEndData.totalPointsTransferred,
+      timestamp: Date.now()
+    };
+
+    console.log("[FIRESTORE] Broadcasting game end event:", gameEndEvent);
+
+    // Update session document with the game end event
+    const sessionRef = doc(db, 'gameSessions', sessionId);
+    await updateDoc(sessionRef, {
+      lastGameEnd: gameEndEvent,
+      status: 'completed',
+      lastUpdated: new Date().toISOString()
+    });
+
+    console.log("[FIRESTORE] Game end event broadcasted successfully:", gameEndEvent);
+  } catch (error) {
+    console.error("[FIRESTORE] Error broadcasting game end event:", error);
+    throw error;
+  }
+}
+
 async function updateFirestorePlayerPoints(playerId, points) {
   try {
     const playerRef = doc(db, 'players', playerId);
@@ -547,6 +585,7 @@ export {
   broadcastPromptNotification,
   broadcastPromptCompletion,
   broadcastPromptJudgment,
+  broadcastGameEnd,
   getDevUID,
   setupPlayerListeners,
   cleanupPlayerListeners

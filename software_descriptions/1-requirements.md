@@ -188,6 +188,9 @@ Roles and responsibilities:
 [ ] 6.5.3 Limit players to only edit their existing session (1 Point)
 [ ] 6.5.4 Limit session creation globally to a rate of no more than 1000 players per day or that equivalent per minute if we assume games last 15 minutes each(1 Point)
 [ ] 6.5.4 Global Database killswitch, if there are more than 10,000 read/writes in a day, disable all read/write. You can create a new collection that only the server has access to which will keep track of the quantity of transactions and the date(1 Point)
+[ ] 6.6 Additional session cleanup
+[ ] 6.6.1 Play again button correctly clears session
+[ ] 6.6.2 Session auto-deletes after period of inactivity
 
 [x] 7. Lobby and Player Join/Leave (12 Points)
 [x] 7.1 Lobby UI and Player List (3 Points)

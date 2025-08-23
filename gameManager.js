@@ -13,6 +13,7 @@ import {
     getFirestoreGameSession,
     getFirestorePlayer,
     getFirestorePlayersInSession,
+    broadcastGameEnd,
     getDevUID, // Assuming getDevUID is also useful here, if not, remove.
 } from './firebaseOperations.js';
 import { GameCard } from './cardModels.js';
@@ -2245,7 +2246,7 @@ export class GameManager {
         this.endGameEvents[sessionId] = endGameEvent;
 
         // Trigger end game UI event
-        this.triggerEndGameEvent(sessionId, endGameEvent);
+        await this.triggerEndGameEvent(sessionId, endGameEvent);
 
         // TODO: Game end: Sync with Firebase
         // await updateFirestoreGameSession(sessionId, { status: 'completed', endReason: reason, winner: winnerId });
@@ -2276,7 +2277,7 @@ export class GameManager {
      * @param {string} sessionId - The session ID
      * @param {object} endGameEvent - End game event details
      */
-    triggerEndGameEvent(sessionId, endGameEvent) {
+    async triggerEndGameEvent(sessionId, endGameEvent) {
         console.log(`[END_GAME_EVENT] Session ${sessionId}: Game end event triggered`);
         
         // DIAGNOSTIC: Check session state and structure
@@ -2312,7 +2313,15 @@ export class GameManager {
             
             console.log(`[DIAGNOSTIC] Prepared gameResults:`, gameResults);
             
-            // Call the UI function to show the end-game modal
+            // Broadcast game end event to all players via Firebase
+            try {
+                await broadcastGameEnd(sessionId, gameResults);
+                console.log(`[END_GAME_EVENT] Game end event broadcasted to all players`);
+            } catch (error) {
+                console.error(`[END_GAME_EVENT] Error broadcasting game end event:`, error);
+            }
+            
+            // Call the UI function to show the end-game modal (local display)
             if (typeof window !== 'undefined' && window.showEndGameModal) {
                 console.log(`[DIAGNOSTIC] Calling showEndGameModal with results`);
                 window.showEndGameModal(gameResults);

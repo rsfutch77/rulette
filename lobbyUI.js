@@ -1428,6 +1428,44 @@ async function setupFirebaseSessionListener() {
                     } else {
                         console.log('[FIREBASE_LISTENER] No prompt judgment in session data');
                     }
+
+                    // Check for game end events
+                    if (sessionData.lastGameEnd) {
+                        const gameEnd = sessionData.lastGameEnd;
+                        console.log('[FIREBASE_LISTENER] Game end event detected:', gameEnd);
+                        
+                        // Check if this is a new game end event
+                        const lastProcessedGameEnd = window.lastProcessedGameEnd || 0;
+                        console.log('[FIREBASE_LISTENER] Comparing game end timestamps - new:', gameEnd.timestamp, 'last processed:', lastProcessedGameEnd);
+                        
+                        if (gameEnd.timestamp > lastProcessedGameEnd) {
+                            console.log('[FIREBASE_LISTENER] Processing new game end event:', gameEnd);
+                            window.lastProcessedGameEnd = gameEnd.timestamp;
+                            
+                            // Show end-game modal for all players
+                            console.log('[FIREBASE_LISTENER] Showing end-game modal for all players');
+                            if (typeof window.showEndGameModal === 'function') {
+                                const gameResults = {
+                                    endCondition: gameEnd.endCondition,
+                                    winners: gameEnd.winners || [],
+                                    finalStandings: gameEnd.finalStandings || [],
+                                    finalReferee: gameEnd.finalReferee,
+                                    gameDuration: gameEnd.gameDuration,
+                                    totalPlayers: gameEnd.totalPlayers,
+                                    totalCardsPlayed: gameEnd.totalCardsPlayed,
+                                    totalPointsTransferred: gameEnd.totalPointsTransferred
+                                };
+                                window.showEndGameModal(gameResults);
+                                console.log('[FIREBASE_LISTENER] End-game modal displayed successfully');
+                            } else {
+                                console.warn('[FIREBASE_LISTENER] showEndGameModal function not available');
+                            }
+                        } else {
+                            console.log('[FIREBASE_LISTENER] Skipping game end event (already processed or older)');
+                        }
+                    } else {
+                        console.log('[FIREBASE_LISTENER] No game end event in session data');
+                    }
                     
                     // Check for new callouts
                     if (sessionData.callouts && Array.isArray(sessionData.callouts)) {
