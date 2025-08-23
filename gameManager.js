@@ -1853,6 +1853,18 @@ export class GameManager {
         } catch (error) {
             console.error(`[POINTS_EVENT] Error triggering UI updates:`, error);
         }
+        
+        // Check for end conditions after point change
+        console.log(`[POINTS_EVENT] Checking end conditions after point change for session ${sessionId}`);
+        this.checkEndConditions(sessionId).then(endResult => {
+            if (endResult.gameEnded) {
+                console.log(`[POINTS_EVENT] End condition detected: ${endResult.reason}`);
+            } else {
+                console.log(`[POINTS_EVENT] No end conditions met: ${endResult.reason}`);
+            }
+        }).catch(error => {
+            console.error(`[POINTS_EVENT] Error checking end conditions:`, error);
+        });
     }
 
     /**
@@ -1937,7 +1949,14 @@ export class GameManager {
             return noPlayersResult;
         }
 
-        // Check 4: Custom rule or card triggered game end
+        // Check 4: 10 turns have passed (max turns end condition)
+        const maxTurnsResult = this.checkMaxTurnsCondition(sessionId);
+        if (maxTurnsResult.gameEnded) {
+            await this.triggerGameEnd(sessionId, maxTurnsResult.reason, maxTurnsResult.winner, maxTurnsResult.finalStandings);
+            return maxTurnsResult;
+        }
+
+        // Check 5: Custom rule or card triggered game end
         const customEndResult = this.checkCustomEndCondition(sessionId);
         if (customEndResult.gameEnded) {
             await this.triggerGameEnd(sessionId, customEndResult.reason, customEndResult.winner, customEndResult.finalStandings);
@@ -2044,6 +2063,42 @@ export class GameManager {
         }
 
         return { gameEnded: false, reason: 'Active players still in session' };
+    }
+
+    /**
+     * Check if 10 turns have passed (max turns end condition)
+     * @param {string} sessionId - The session ID
+     * @returns {object} - End condition result
+     */
+    checkMaxTurnsCondition(sessionId) {
+        const session = this.gameSessions[sessionId];
+        if (!session) {
+            return { gameEnded: false, reason: 'Session not found' };
+        }
+
+        const turn = this.currentTurn[sessionId];
+        if (!turn) {
+            return { gameEnded: false, reason: 'Turn data not found' };
+        }
+
+        console.log(`[END_CONDITION] Checking max turns condition: current turn ${turn.turnNumber}/10`);
+
+        // Check if 10 turns have been completed
+        if (turn.turnNumber >= 10) {
+            const finalStandings = this.calculateFinalStandings(sessionId);
+            const winner = finalStandings.length > 0 ? finalStandings[0] : null;
+            
+            console.log(`[END_CONDITION] Max turns reached! Game ending after ${turn.turnNumber} turns`);
+            
+            return {
+                gameEnded: true,
+                reason: `Maximum turns reached (${turn.turnNumber} turns completed)`,
+                winner: winner ? winner.playerId : null,
+                finalStandings
+            };
+        }
+
+        return { gameEnded: false, reason: `Turn ${turn.turnNumber} of 10 - game continues` };
     }
 
     /**
@@ -2525,6 +2580,19 @@ export class GameManager {
         }
         
         console.log(`Advanced to next turn in session ${sessionId}: Player ${turn.currentPlayerId}, Turn ${turn.turnNumber}`);
+        
+        // Check for end conditions after turn advancement
+        console.log(`[TURN_MGMT] Checking end conditions after turn advancement for session ${sessionId}`);
+        this.checkEndConditions(sessionId).then(endResult => {
+            if (endResult.gameEnded) {
+                console.log(`[TURN_MGMT] End condition detected after turn advancement: ${endResult.reason}`);
+            } else {
+                console.log(`[TURN_MGMT] No end conditions met after turn advancement: ${endResult.reason}`);
+            }
+        }).catch(error => {
+            console.error(`[TURN_MGMT] Error checking end conditions after turn advancement:`, error);
+        });
+        
         return turn.currentPlayerId;
     }
 

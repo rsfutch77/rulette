@@ -419,6 +419,7 @@ function formatEndCondition(endCondition) {
         'zero_points': 'Player reached 0 points',
         'last_player_standing': 'Only one player remaining',
         'no_active_players': 'All players left',
+        'max_turns': '10 turns completed',
         'custom_rule': 'Custom rule triggered',
         'manual_end': 'Game ended manually'
     };
