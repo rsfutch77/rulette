@@ -22,7 +22,6 @@ function showEndGameModal(gameResults) {
         }
         
         // Populate the modal with results
-        displayFinalStandings(gameResults);
         displayGameStatistics(gameResults);
         displayWinnerAnnouncement(gameResults);
         
@@ -47,61 +46,6 @@ function showEndGameModal(gameResults) {
     }
 }
 
-/**
- * Display the final standings in the end-game modal
- * @param {Object} gameResults - The game end results
- */
-function displayFinalStandings(gameResults) {
-    const standingsList = document.getElementById('final-standings-list');
-    if (!standingsList) {
-        console.error('[END_GAME] Final standings list element not found');
-        return;
-    }
-    
-    // Clear existing content
-    standingsList.innerHTML = '';
-    
-    if (!gameResults.finalStandings || gameResults.finalStandings.length === 0) {
-        standingsList.innerHTML = '<li class="no-standings">No player data available</li>';
-        return;
-    }
-    
-    // Create standings list items
-    gameResults.finalStandings.forEach((player, index) => {
-        const listItem = document.createElement('li');
-        listItem.className = 'standing-item';
-        
-        // Determine rank display
-        let rankDisplay = `#${index + 1}`;
-        if (index === 0) rankDisplay = '🥇';
-        else if (index === 1) rankDisplay = '🥈';
-        else if (index === 2) rankDisplay = '🥉';
-        
-        // Get player status badges
-        const statusBadges = getPlayerStatusBadges(player.playerId, gameResults);
-        
-        listItem.innerHTML = `
-            <div class="rank">${rankDisplay}</div>
-            <div class="player-info">
-                <div class="player-name">${player.displayName || 'Unknown Player'}</div>
-                <div class="player-details">
-                    <span class="points">${player.points} points</span>
-                    <span class="cards">${player.cardCount || 0} cards</span>
-                    ${statusBadges}
-                </div>
-            </div>
-        `;
-        
-        // Add special styling for winners
-        if (gameResults.winners && gameResults.winners.includes(player.playerId)) {
-            listItem.classList.add('winner');
-        }
-        
-        standingsList.appendChild(listItem);
-    });
-    
-    console.log('[END_GAME] Final standings displayed');
-}
 
 /**
  * Display game statistics in the end-game modal
@@ -205,17 +149,6 @@ function setupEndGameEventListeners(gameResults) {
         restartBtn.onclick = () => handleGameRestart(gameResults);
     }
     
-    // Return to Lobby button
-    const lobbyBtn = document.getElementById('return-lobby-btn');
-    if (lobbyBtn) {
-        lobbyBtn.onclick = () => handleReturnToLobby(gameResults);
-    }
-    
-    // View History button
-    const historyBtn = document.getElementById('view-history-btn');
-    if (historyBtn) {
-        historyBtn.onclick = () => handleViewHistory(gameResults);
-    }
     
     // Close modal button (X)
     const closeBtn = document.querySelector('#end-game-modal .close-btn');
@@ -288,69 +221,6 @@ function handleGameRestart(gameResults) {
     }
 }
 
-/**
- * Handle return to lobby request
- * @param {Object} gameResults - The game end results
- */
-function handleReturnToLobby(gameResults) {
-    console.log('[END_GAME] Handling return to lobby request');
-    
-    try {
-        // Confirm lobby return with user
-        const confirmReturn = confirm('Return to lobby? You will leave the current game session.');
-        if (!confirmReturn) {
-            return;
-        }
-        
-        // Hide the end-game modal
-        hideEndGameModal();
-        
-        // Clear current session
-        window.currentSessionId = null;
-        
-        // Show lobby UI (this would depend on your lobby implementation)
-        showNotification('Returning to lobby...', 'Leaving Game');
-        
-        // Reset game UI to initial state
-        setTimeout(() => {
-            resetGameUIToLobby();
-        }, 1000);
-        
-        console.log('[END_GAME] Successfully returned to lobby');
-        
-    } catch (error) {
-        console.error('[END_GAME] Error returning to lobby:', error);
-        showNotification('Error returning to lobby. Check console for details.', 'Error');
-    }
-}
-
-/**
- * Handle view history request
- * @param {Object} gameResults - The game end results
- */
-function handleViewHistory(gameResults) {
-    console.log('[END_GAME] Handling view history request');
-    
-    try {
-        // This would open a detailed game history view
-        // For now, show a summary in a notification
-        const historyMessage = `
-Game Summary:
-• Duration: ${formatGameDuration(gameResults.gameDuration)}
-• End Condition: ${formatEndCondition(gameResults.endCondition)}
-• Winner(s): ${gameResults.winners ? gameResults.winners.length : 0}
-• Total Players: ${gameResults.totalPlayers || 'Unknown'}
-        `.trim();
-        
-        showNotification(historyMessage, 'Game History', null, 10000); // Show for 10 seconds
-        
-        console.log('[END_GAME] Game history displayed');
-        
-    } catch (error) {
-        console.error('[END_GAME] Error viewing history:', error);
-        showNotification('Error loading game history. Check console for details.', 'Error');
-    }
-}
 
 /**
  * Hide the end-game modal
