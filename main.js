@@ -23,7 +23,7 @@ import {
     updateActiveRulesDisplay
 } from './cardDraw.js';
 
-import { loadCardData } from './cardModels.js';
+import { loadCardData, GameCard } from './cardModels.js';
 import { WheelComponent } from './wheelComponent.js';
 
 // Import RuleDisplayManager
@@ -34,6 +34,9 @@ import './prompt.js';
 
 // Import and use the shared GameManager instance
 window.gameManager = gameManager;
+
+// Expose GameCard globally for use in modals
+window.GameCard = GameCard;
 
 import {
   getCurrentUser,

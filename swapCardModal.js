@@ -222,9 +222,50 @@ function createOtherPlayerSection(player) {
 function getSwappableCards(player) {
     const cards = [];
     
-    // Add rule cards
+    // Add rule cards - ensure they're properly reconstructed as GameCard instances
     if (player.ruleCards && Array.isArray(player.ruleCards)) {
-        cards.push(...player.ruleCards);
+        const processedCards = player.ruleCards.map(card => {
+            // If it's already a GameCard instance, use it as-is
+            if (card && typeof card.getCurrentText === 'function') {
+                console.log('[SWAP_MODAL] Card is already GameCard instance:', card.id);
+                return card;
+            }
+            
+            // If it's a plain object from Firebase, reconstruct as GameCard
+            if (card && card.id) {
+                console.log('[SWAP_MODAL] Reconstructing card from Firebase data:', card.id, {
+                    currentSide: card.currentSide,
+                    isFlipped: card.isFlipped,
+                    frontRule: card.frontRule,
+                    backRule: card.backRule
+                });
+                
+                // Import GameCard class and reconstruct
+                // Note: We'll use dynamic import to avoid circular dependencies
+                try {
+                    const GameCard = window.GameCard;
+                    if (GameCard) {
+                        const reconstructedCard = new GameCard(card);
+                        console.log('[SWAP_MODAL] Successfully reconstructed card:', reconstructedCard.id, {
+                            currentSide: reconstructedCard.currentSide,
+                            isFlipped: reconstructedCard.isFlipped,
+                            getCurrentText: reconstructedCard.getCurrentText()
+                        });
+                        return reconstructedCard;
+                    } else {
+                        console.warn('[SWAP_MODAL] GameCard class not available in window, using plain object');
+                        return card;
+                    }
+                } catch (error) {
+                    console.warn('[SWAP_MODAL] Error reconstructing card:', error);
+                    return card;
+                }
+            }
+            
+            return card;
+        });
+        
+        cards.push(...processedCards);
     }
     
     return cards.filter(card => card && card.id); // Filter out invalid cards
@@ -264,14 +305,27 @@ function createSwapCardElement(card, player, selectionType) {
         font-size: 0.9rem;
     `;
     
-    // Get current side's text using the same logic as clone modal
+    // Get current side's text using the same logic as rule display manager
     let displayText = '';
+    
+    // Add debugging logs to diagnose card display issues
+    console.log('[SWAP_MODAL] Creating card element - Debug info:');
+    console.log('  - Card object:', card);
+    console.log('  - card.currentSide:', card.currentSide);
+    console.log('  - card.isFlipped:', card.isFlipped);
+    console.log('  - card.frontRule:', card.frontRule);
+    console.log('  - card.backRule:', card.backRule);
+    console.log('  - card.sideA:', card.sideA);
+    console.log('  - card.sideB:', card.sideB);
+    console.log('  - card.name:', card.name);
+    console.log('  - card.getCurrentText (if available):', card.getCurrentText ? card.getCurrentText() : 'N/A');
     
     // Priority 1: Use getCurrentText() method if available (GameCard instance)
     if (card.getCurrentText && typeof card.getCurrentText === 'function') {
         const currentText = card.getCurrentText();
         if (currentText && currentText !== 'undefined' && currentText !== null) {
             displayText = currentText;
+            console.log('[SWAP_MODAL] Using getCurrentText():', displayText);
         }
     }
     
@@ -279,20 +333,26 @@ function createSwapCardElement(card, player, selectionType) {
     if (!displayText && card.currentSide) {
         if (card.currentSide === 'front') {
             displayText = card.frontRule || card.sideA;
+            console.log('[SWAP_MODAL] Using front side:', displayText);
         } else if (card.currentSide === 'back') {
             displayText = card.backRule || card.sideB;
+            console.log('[SWAP_MODAL] Using back side:', displayText);
         }
     }
     
     // Priority 3: Fallback to legacy properties
     if (!displayText) {
         displayText = card.name || card.frontRule || card.sideA || 'Unnamed Card';
+        console.log('[SWAP_MODAL] Using fallback properties:', displayText);
     }
     
     // Final fallback to prevent undefined display
     if (!displayText || displayText === 'undefined') {
         displayText = 'Unnamed Card';
+        console.log('[SWAP_MODAL] Using final fallback:', displayText);
     }
+    
+    console.log('[SWAP_MODAL] Final display text:', displayText);
     
     cardName.textContent = displayText;
     
@@ -444,22 +504,54 @@ function updateSelectionSummary() {
  * @returns {string} - Display text for the card
  */
 function getCardDisplayText(card) {
+    // Add debugging logs to diagnose card display issues in summary
+    console.log('[SWAP_MODAL] getCardDisplayText - Debug info:');
+    console.log('  - Card object:', card);
+    console.log('  - card.currentSide:', card.currentSide);
+    console.log('  - card.isFlipped:', card.isFlipped);
+    console.log('  - card.frontRule:', card.frontRule);
+    console.log('  - card.backRule:', card.backRule);
+    console.log('  - card.sideA:', card.sideA);
+    console.log('  - card.sideB:', card.sideB);
+    console.log('  - card.name:', card.name);
+    console.log('  - card.getCurrentText (if available):', card.getCurrentText ? card.getCurrentText() : 'N/A');
+    
+    let displayText = '';
+    
+    // Priority 1: Use getCurrentText() method if available (GameCard instance)
     if (card.getCurrentText && typeof card.getCurrentText === 'function') {
         const currentText = card.getCurrentText();
         if (currentText && currentText !== 'undefined' && currentText !== null) {
-            return currentText;
+            displayText = currentText;
+            console.log('[SWAP_MODAL] getCardDisplayText using getCurrentText():', displayText);
         }
     }
     
-    if (card.currentSide) {
+    // Priority 2: Explicitly check currentSide and use side-specific properties
+    if (!displayText && card.currentSide) {
         if (card.currentSide === 'front') {
-            return card.frontRule || card.sideA || 'Unnamed Card';
+            displayText = card.frontRule || card.sideA;
+            console.log('[SWAP_MODAL] getCardDisplayText using front side:', displayText);
         } else if (card.currentSide === 'back') {
-            return card.backRule || card.sideB || 'Unnamed Card';
+            displayText = card.backRule || card.sideB;
+            console.log('[SWAP_MODAL] getCardDisplayText using back side:', displayText);
         }
     }
     
-    return card.name || card.frontRule || card.sideA || 'Unnamed Card';
+    // Priority 3: Fallback to legacy properties
+    if (!displayText) {
+        displayText = card.name || card.frontRule || card.sideA || 'Unnamed Card';
+        console.log('[SWAP_MODAL] getCardDisplayText using fallback properties:', displayText);
+    }
+    
+    // Final fallback to prevent undefined display
+    if (!displayText || displayText === 'undefined') {
+        displayText = 'Unnamed Card';
+        console.log('[SWAP_MODAL] getCardDisplayText using final fallback:', displayText);
+    }
+    
+    console.log('[SWAP_MODAL] getCardDisplayText final result:', displayText);
+    return displayText;
 }
 
 /**
