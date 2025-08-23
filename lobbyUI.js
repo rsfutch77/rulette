@@ -1856,6 +1856,25 @@ export async function tryReconnectToSession() {
             console.log('[DIAGNOSIS] Verified stored session (imported):', storedSessionImported);
             console.log('[DIAGNOSIS] Verified stored session (window):', storedSessionWindow);
             
+            // CRITICAL FIX: Load existing players into gameManager.players
+            console.log('[SESSION_RESTORE_FIX] About to load existing players for session:', sessionId);
+            console.log('[SESSION_RESTORE_FIX] Session has players:', sessionData.players?.length || 0);
+            console.log('[SESSION_RESTORE_FIX] gameManager.players before loading:', Object.keys(gameManager?.players || {}));
+            
+            // Load players using the same logic as restoreSession()
+            try {
+                if (gameManager?.playerManager?.loadExistingPlayersInSession) {
+                    await gameManager.playerManager.loadExistingPlayersInSession(sessionId);
+                    console.log('[SESSION_RESTORE_FIX] Successfully loaded existing players');
+                    console.log('[SESSION_RESTORE_FIX] gameManager.players after loading:', Object.keys(gameManager?.players || {}));
+                } else {
+                    console.error('[SESSION_RESTORE_FIX] playerManager.loadExistingPlayersInSession not available');
+                }
+            } catch (error) {
+                console.error('[SESSION_RESTORE_FIX] Error loading existing players:', error);
+                // Continue with restoration even if player loading fails
+            }
+            
             // DIAGNOSIS: Check session state and determine which UI to show
             if (sessionData.status === 'lobby') {
                 console.log('[DIAGNOSIS] Session is in LOBBY state - should show lobby UI');

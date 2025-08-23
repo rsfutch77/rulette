@@ -163,10 +163,14 @@ function isDevEnvironment() {
   
   console.log("[WHEEL] Wheel component initialized and integrated");
   
+  // SESSION RESTORE COORDINATION: Prevent race conditions between restoration paths
+  window.sessionRestoreInProgress = false;
+  
   // Attempt session reconnect if session exists in localStorage
   tryReconnectToSession().then((reconnected) => {
     if (reconnected) {
-      console.log("[SESSION] Reconnected to existing session");
+      console.log("[SESSION] Reconnected to existing session via tryReconnectToSession");
+      window.sessionRestoreInProgress = true; // Mark restoration as complete via this path
     }
   }).catch((error) => {
     console.error("[SESSION] Error during session reconnection:", error);
@@ -306,6 +310,16 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeLobbyUI();
   initializeQuitGameUI();
   initDevCardOverride(); // Add dev dropdown initialization
+  
+  // SESSION RESTORE COORDINATION: Call restoreSession after a brief delay to allow other initialization
+  setTimeout(() => {
+    if (!window.sessionRestoreInProgress) {
+      console.log('[SESSION_RESTORE_DIAGNOSTIC] No session restoration in progress, calling restoreSession()');
+      restoreSession();
+    } else {
+      console.log('[SESSION_RESTORE_DIAGNOSTIC] Session restoration already in progress, skipping restoreSession()');
+    }
+  }, 100);
 });
 
 // Initialize score event handlers
@@ -2043,6 +2057,12 @@ setInterval(() => {
 
 // Session restoration on DOM load
 function restoreSession() {
+    // COORDINATION CHECK: Prevent duplicate restoration if already in progress
+    if (window.sessionRestoreInProgress) {
+        console.log('[SESSION_RESTORE] Session restoration already in progress via tryReconnectToSession, skipping restoreSession');
+        return;
+    }
+    
     const storedSessionId = localStorage.getItem('currentSessionId');
     
     // Clean up corrupted localStorage entries
@@ -2054,7 +2074,9 @@ function restoreSession() {
     
     if (storedSessionId && storedSessionId !== 'undefined' && storedSessionId !== 'null') {
         console.log('[SESSION_RESTORE] Found stored session ID:', storedSessionId);
+        console.log('[SESSION_RESTORE_DIAGNOSTIC] Starting restoration via restoreSession() path');
         window.currentSessionId = storedSessionId;
+        window.sessionRestoreInProgress = true; // Mark restoration as in progress
         
         // Set current player from localStorage
         const playerName = localStorage.getItem('rulette_player_name');
@@ -2070,6 +2092,7 @@ function restoreSession() {
                 if (sessionDoc && sessionDoc.exists()) {
                     const sessionData = sessionDoc.data();
                     console.log('[SESSION_RESTORE] Loaded session data from Firebase:', sessionData);
+                    console.log('[SESSION_RESTORE_DIAGNOSTIC] Session has players:', sessionData.players?.length || 0, sessionData.players);
                     
                     // Store session in gameManager
                     console.log('[SESSION_RESTORE] About to store session in gameManager.gameSessions');
@@ -2084,8 +2107,12 @@ function restoreSession() {
                         console.log('[SESSION_RESTORE] Session stored in gameManager');
                         
                         // Load existing players in the session to gameManager.players
+                        console.log('[SESSION_RESTORE_DIAGNOSTIC] About to load existing players into gameManager.players');
+                        console.log('[SESSION_RESTORE_DIAGNOSTIC] gameManager.players before loading:', Object.keys(gameManager.players));
+                        
                         gameManager.playerManager.loadExistingPlayersInSession(storedSessionId).then(() => {
                             console.log('[SESSION_RESTORE] Loaded existing players into gameManager');
+                            console.log('[SESSION_RESTORE_DIAGNOSTIC] gameManager.players after loading:', Object.keys(gameManager.players));
                             
                             // Hide main menu and show game page
                             const mainMenu = document.getElementById('main-menu');
