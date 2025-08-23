@@ -2042,42 +2042,40 @@ setInterval(() => {
 }, 1000);
 
 // Session restoration on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-    // Wait for other systems to initialize, then restore session
-    setTimeout(() => {
-        const storedSessionId = localStorage.getItem('currentSessionId');
+function restoreSession() {
+    const storedSessionId = localStorage.getItem('currentSessionId');
+    
+    // Clean up corrupted localStorage entries
+    if (storedSessionId === 'undefined' || storedSessionId === 'null') {
+        console.warn('[SESSION_RESTORE] Found corrupted session ID, cleaning up:', storedSessionId);
+        localStorage.removeItem('currentSessionId');
+        return;
+    }
+    
+    if (storedSessionId && storedSessionId !== 'undefined' && storedSessionId !== 'null') {
+        console.log('[SESSION_RESTORE] Found stored session ID:', storedSessionId);
+        window.currentSessionId = storedSessionId;
         
-        // Clean up corrupted localStorage entries
-        if (storedSessionId === 'undefined' || storedSessionId === 'null') {
-            console.warn('[SESSION_RESTORE] Found corrupted session ID, cleaning up:', storedSessionId);
-            localStorage.removeItem('currentSessionId');
-            return;
-        }
+        // Set current player from localStorage
+        const playerName = localStorage.getItem('rulette_player_name');
+        const playerId = localStorage.getItem('rulette_player_id');
         
-        if (storedSessionId && storedSessionId !== 'undefined' && storedSessionId !== 'null') {
-            console.log('[SESSION_RESTORE] Found stored session ID:', storedSessionId);
-            window.currentSessionId = storedSessionId;
+        if (playerName && playerId) {
+            setCurrentPlayer(playerName);
             
-            // Set current player from localStorage
-            const playerName = localStorage.getItem('rulette_player_name');
-            const playerId = localStorage.getItem('rulette_player_id');
+            console.log('[SESSION_RESTORE] Loading session data from Firebase...');
             
-            if (playerName && playerId) {
-                setCurrentPlayer(playerName);
-                
-                console.log('[SESSION_RESTORE] Loading session data from Firebase...');
-                
-                // Load session data from Firebase first
-                getFirestoreGameSession(storedSessionId).then(sessionDoc => {
-                    if (sessionDoc && sessionDoc.exists()) {
-                        const sessionData = sessionDoc.data();
-                        console.log('[SESSION_RESTORE] Loaded session data from Firebase:', sessionData);
-                        
-                        // Store session in gameManager
-                        console.log('[SESSION_RESTORE] About to store session in gameManager.gameSessions');
-                        console.log('[SESSION_RESTORE] gameManager.gameSessions before:', Object.keys(gameManager.gameSessions));
-                        console.log('[SESSION_RESTORE] storedSessionId:', storedSessionId);
-                        console.log('[SESSION_RESTORE] sessionData:', sessionData);
+            // Load session data from Firebase first
+            getFirestoreGameSession(storedSessionId).then(sessionDoc => {
+                if (sessionDoc && sessionDoc.exists()) {
+                    const sessionData = sessionDoc.data();
+                    console.log('[SESSION_RESTORE] Loaded session data from Firebase:', sessionData);
+                    
+                    // Store session in gameManager
+                    console.log('[SESSION_RESTORE] About to store session in gameManager.gameSessions');
+                    console.log('[SESSION_RESTORE] gameManager.gameSessions before:', Object.keys(gameManager.gameSessions));
+                    console.log('[SESSION_RESTORE] storedSessionId:', storedSessionId);
+                    console.log('[SESSION_RESTORE] sessionData:', sessionData);
                         
                         gameManager.gameSessions[storedSessionId] = sessionData;
                         
@@ -2155,5 +2153,4 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         
         }
-    }, 2000); // Wait longer for all systems to initialize
-});
+}

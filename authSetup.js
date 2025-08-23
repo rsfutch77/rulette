@@ -9,6 +9,14 @@ window.onload = function() {
       document.getElementById('user-info').innerHTML = `Signed in as: ${user.email}`;
       document.getElementById('login-btn').style.display = 'none';
       document.getElementById('logout-btn').style.display = 'inline-block';
+
+      // Attempt to restore session after user is signed in
+      if (typeof restoreSession === 'function') {
+        restoreSession();
+      } else {
+        console.error("restoreSession function not found. Session restoration might not occur.");
+      }
+
     } else {
       // User is signed out
       document.getElementById('login-btn').style.display = 'inline-block';

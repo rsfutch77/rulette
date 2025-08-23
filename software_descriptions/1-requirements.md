@@ -159,13 +159,13 @@ Roles and responsibilities:
 [x] 5.3 UI Updates for Points and Cards (2 Points)
 [x] 5.3.1 Display current points and held cards for all players in the UI (1 Point)
 [x] 5.3.2 Provide clear feedback when points or cards change (1 Point)
-[x] 5.4 End Condition Detection (2 Points)
-[x] 5.4.1 Detect the following end conditions:
+[ ] 5.4 End Condition Detection (2 Points)
+[ ] 5.4.1 Detect the following end conditions:
     - A player reaches 0 points (primary)
     - All but one player reaches 0 points (secondary)
     - A custom rule or card triggers game end
     - All players leave the session
-[x] 5.4.2 Trigger end-of-game flow and display results (1 Point)
+[ ] 5.4.2 Trigger end-of-game flow and display results (1 Point)
 
 ## Phase 3: Multiplayer and Lobby System
 [ ] 6. Multiplayer Session Management (16 Points)
@@ -186,10 +186,10 @@ Roles and responsibilities:
 [x] 6.4.1 Allow sessions to be ended by the host or automatically when all players leave (2 Points)
 [x] 6.4.2 Clean up session data to prevent orphaned sessions (1 Point)
 [ ] 6.5 Security and Access Control (2 Points)
-[x] 6.5.1 Prevent unauthorized access to sessions (1 Point)
-[x] 6.5.3 Limit players to only edit their existing session (1 Point)
-[x] 6.5.4 Limit session creation globally to a rate of no more than 1000 players per day or that equivalent per minute if we assume games last 15 minutes each(1 Point)
-[x] 6.5.4 Global Database killswitch, if there are more than 10,000 read/writes in a day, disable all read/write. You can create a new collection that only the server has access to which will keep track of the quantity of transactions and the date(1 Point)
+[ ] 6.5.1 Prevent unauthorized access to sessions (1 Point)
+[ ] 6.5.3 Limit players to only edit their existing session (1 Point)
+[ ] 6.5.4 Limit session creation globally to a rate of no more than 1000 players per day or that equivalent per minute if we assume games last 15 minutes each(1 Point)
+[ ] 6.5.4 Global Database killswitch, if there are more than 10,000 read/writes in a day, disable all read/write. You can create a new collection that only the server has access to which will keep track of the quantity of transactions and the date(1 Point)
 
 [x] 7. Lobby and Player Join/Leave (12 Points)
 [x] 7.1 Lobby UI and Player List (3 Points)
@@ -219,7 +219,6 @@ Roles and responsibilities:
 [ ] 13.3.1 Ensure analytics and feedback collection comply with privacy regulations (1 Point)
 [ ] 13.4 Reporting and Insights (1 Point)
 [ ] 13.4.1 Generate reports and dashboards for maintainers to review analytics and feedback (1 Point)
-
 [ ] 13.5 Unified Feedback and Notification System (5 Points)
 [ ] 13.5.1 Provide in-game UI for players to submit feedback, bug reports, or suggestions (1 Point)
 [ ] 13.5.2 Store and organize feedback for review by maintainers (1 Point)
@@ -227,7 +226,8 @@ Roles and responsibilities:
 [ ] 13.5.4 Implement notification system for important events, warnings, and errors (1 Point)
 [ ] 13.5.5 Ensure consistency in terminology and user experience for all feedback and notifications (1 Point)
 
-[ ] 14. Community Features and Moderation (11 Points)
+## Phase 6: User-Generated Content & Expansion
+[ ] 14. Community Features and Moderation (11 Points)## Phase 6: User-Generated Content & Expansion
 [ ] 14.1 Community Features (4 Points)
 [ ] 14.1.1 Implement player profiles and persistent usernames (2 Points)
 [ ] 14.1.2 Add friend lists and invite system for private games (1 Point)
@@ -242,7 +242,6 @@ Roles and responsibilities:
 [ ] 14.4.1 Display clear community guidelines within the app (1 Point)
 [ ] 14.4.2 Provide support channels for reporting issues or seeking help (1 Point)
 
-## Phase 6: User-Generated Content & Expansion
 [ ] 15. User-Generated Cards (15 Points)
 [ ] 15.1 Custom Card Editor (UI) (6 Points)
 [ ] 15.1.1 Develop a user-friendly interface for players to create custom rule, modifier, and prompt cards. (3 Points)
