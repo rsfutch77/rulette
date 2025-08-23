@@ -933,8 +933,50 @@ function showCalloutUI(calloutData) {
   document.body.appendChild(calloutContainer);
   
   // Add event listeners for referee buttons
-  document.getElementById('judge-callout-valid').addEventListener('click', () => judgeCallout(calloutData.id, calloutData.sessionId, true));
-  document.getElementById('judge-callout-invalid').addEventListener('click', () => judgeCallout(calloutData.id, calloutData.sessionId, false));
+  console.log('DEBUG: Adding event listeners for callout judgment buttons');
+  
+  const validButton = document.getElementById('judge-callout-valid');
+  const invalidButton = document.getElementById('judge-callout-invalid');
+  
+  console.log('DEBUG: Valid button element:', validButton);
+  console.log('DEBUG: Invalid button element:', invalidButton);
+  
+  if (validButton && invalidButton) {
+    console.log('DEBUG: Both buttons found, attaching event listeners');
+    
+    validButton.addEventListener('click', () => {
+      console.log('DEBUG: Valid button clicked! Calling judgeCallout with:', {
+        calloutId: calloutData.id,
+        sessionId: calloutData.sessionId,
+        isValid: true
+      });
+      try {
+        judgeCallout(calloutData.id, calloutData.sessionId, true);
+      } catch (error) {
+        console.error('ERROR: Exception in valid button click handler:', error);
+      }
+    });
+    
+    invalidButton.addEventListener('click', () => {
+      console.log('DEBUG: Invalid button clicked! Calling judgeCallout with:', {
+        calloutId: calloutData.id,
+        sessionId: calloutData.sessionId,
+        isValid: false
+      });
+      try {
+        judgeCallout(calloutData.id, calloutData.sessionId, false);
+      } catch (error) {
+        console.error('ERROR: Exception in invalid button click handler:', error);
+      }
+    });
+    
+    console.log('DEBUG: Event listeners successfully attached to both buttons');
+  } else {
+    console.error('ERROR: Could not find one or both judgment buttons!', {
+      validButton: !!validButton,
+      invalidButton: !!invalidButton
+    });
+  }
 }
 
 /**
@@ -944,27 +986,73 @@ function showCalloutUI(calloutData) {
  * @param {boolean} isValid - Whether the callout is valid
  */
 async function judgeCallout(calloutId, sessionId, isValid) {
+  console.log('DEBUG: ========== judgeCallout FUNCTION START ==========');
   console.log('DEBUG: Referee judging callout:', isValid ? 'valid' : 'invalid');
+  console.log('DEBUG: Function parameters:', { calloutId, sessionId, isValid });
   
-  const currentUser = getCurrentUser();
-  const session = gameManager.gameSessions[sessionId];
-  
-  if (!currentUser || !session || session.referee !== currentUser.uid) {
-    showNotification('Only the referee can judge callouts.', 'error');
-    return;
-  }
-  
-  // Find the callout
-  const callout = session.callouts?.find(c => c.id === calloutId);
-  if (!callout) {
-    showNotification('Callout not found.', 'error');
-    return;
-  }
-  
-  // Update callout status
-  callout.status = isValid ? 'approved' : 'rejected';
-  callout.judgedAt = new Date().toISOString();
-  callout.judgedBy = currentUser.uid;
+  try {
+    console.log('DEBUG: Getting current user...');
+    const currentUser = getCurrentUser();
+    console.log('DEBUG: Current user:', currentUser ? { uid: currentUser.uid, name: currentUser.displayName } : 'null');
+    
+    console.log('DEBUG: Getting session from gameManager...');
+    const session = gameManager.gameSessions[sessionId];
+    console.log('DEBUG: Session found:', !!session);
+    console.log('DEBUG: Session referee (legacy):', session?.referee);
+    console.log('DEBUG: Session refereeCard:', session?.refereeCard);
+    console.log('DEBUG: Session callouts count:', session?.callouts?.length || 0);
+    
+    if (!currentUser) {
+      console.error('ERROR: No current user found');
+      showNotification('Please log in to judge callouts.', 'error');
+      return;
+    }
+    
+    if (!session) {
+      console.error('ERROR: Session not found:', sessionId);
+      showNotification('Session not found.', 'error');
+      return;
+    }
+    
+    // FIXED: Check session.refereeCard instead of session.referee
+    if (session.refereeCard !== currentUser.uid) {
+      console.error('ERROR: User is not the referee', {
+        currentUserUid: currentUser.uid,
+        sessionRefereeCard: session.refereeCard,
+        sessionReferee: session.referee
+      });
+      showNotification('Only the referee can judge callouts.', 'error');
+      return;
+    }
+    
+    console.log('DEBUG: Referee validation passed! User is the referee.');
+    
+    console.log('DEBUG: User validation passed, finding callout...');
+    
+    // Find the callout
+    const callout = session.callouts?.find(c => c.id === calloutId);
+    console.log('DEBUG: Callout search result:', callout ? 'found' : 'not found');
+    console.log('DEBUG: Callout details:', callout);
+    
+    if (!callout) {
+      console.error('ERROR: Callout not found:', calloutId);
+      console.log('DEBUG: Available callouts:', session.callouts?.map(c => ({ id: c.id, status: c.status })));
+      showNotification('Callout not found.', 'error');
+      return;
+    }
+    
+    console.log('DEBUG: Proceeding with callout judgment...');
+    
+    // Update callout status
+    console.log('DEBUG: Updating callout status...');
+    callout.status = isValid ? 'approved' : 'rejected';
+    callout.judgedAt = new Date().toISOString();
+    callout.judgedBy = currentUser.uid;
+    console.log('DEBUG: Callout status updated:', {
+      status: callout.status,
+      judgedAt: callout.judgedAt,
+      judgedBy: callout.judgedBy
+    });
   
   // Update status before hiding UI to show completion
   const statusElement = document.getElementById('callout-status');
@@ -1042,7 +1130,14 @@ async function judgeCallout(calloutId, sessionId, isValid) {
         'Callout Rejected'
       );
     }
-  }, 1500);
+   }, 1500);
+   
+  } catch (error) {
+    console.error('ERROR: Exception in judgeCallout function:', error);
+    console.error('ERROR: Stack trace:', error.stack);
+    showNotification('An error occurred while judging the callout. Please try again.', 'error');
+    hideCalloutUI();
+  }
 }
 
 /**
