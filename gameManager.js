@@ -2884,6 +2884,16 @@ export class GameManager {
 
         console.log(`[GAME_MANAGER] Prompt judgment complete`);
 
+        // Advance to next turn after prompt judgment
+        try {
+            console.log(`[GAME_MANAGER] Advancing turn after prompt judgment`);
+            const nextPlayer = await this.nextTurn(sessionId);
+            console.log(`[GAME_MANAGER] Turn advanced to player: ${nextPlayer}`);
+        } catch (error) {
+            console.error(`[GAME_MANAGER] Failed to advance turn after prompt judgment:`, error);
+            // Don't fail the entire operation if turn advancement fails
+        }
+
         return {
             success: true,
             result: {
