@@ -695,17 +695,29 @@ function handleSessionStateChange(event) {
     console.log('[LOBBY] *** handleSessionStateChange CALLED ***');
     console.log('[LOBBY] Session state changed:', event.detail);
     
-    const { sessionId, stateChange } = event.detail;
+    const { sessionId, stateChange, stateChangeEvent } = event.detail;
     
-    console.log('[UI_TRANSITION] Processing state change:', stateChange);
-    console.log('[UI_TRANSITION] New state is:', stateChange.newState);
+    console.log('[UI_TRANSITION] Event detail keys:', Object.keys(event.detail));
+    console.log('[UI_TRANSITION] stateChange:', stateChange);
+    console.log('[UI_TRANSITION] stateChangeEvent:', stateChangeEvent);
+    
+    // Handle inconsistent event structure - use whichever exists
+    const actualStateChange = stateChange || stateChangeEvent;
+    console.log('[UI_TRANSITION] Using actualStateChange:', actualStateChange);
+    
+    if (!actualStateChange) {
+        console.error('[UI_TRANSITION] ERROR: No state change data found in event:', event.detail);
+        return;
+    }
+    
+    console.log('[UI_TRANSITION] New state is:', actualStateChange.newState);
     
     // Handle UI transitions based on session state
-    if (stateChange.newState === 'in-game') {
+    if (actualStateChange.newState === 'in-game') {
         console.log('[UI_TRANSITION] *** CALLING showGameBoard() ***');
         showGameBoard();
         console.log('[UI_TRANSITION] *** showGameBoard() completed ***');
-    } else if (stateChange.newState === 'lobby') {
+    } else if (actualStateChange.newState === 'lobby') {
         console.log('[UI_TRANSITION] Session returned to lobby - showing lobby');
         hideGameBoard();
     } else {

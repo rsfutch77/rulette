@@ -645,8 +645,29 @@ export class SessionManager {
             );
 
             if (result.success) {
+                // DIAGNOSTIC: Check session before game initialization
+                console.log(`[DIAGNOSTIC] Session before game initialization:`, session);
+                console.log(`[DIAGNOSTIC] Session has gameStartTime: ${!!session?.gameStartTime}`);
+                console.log(`[DIAGNOSTIC] Session has statistics: ${!!session?.statistics}`);
+                
                 // Initialize game-specific data
                 await this.gameManager.initializeTurnOrder(sessionId, session.players);
+                
+                // DIAGNOSTIC: Set gameStartTime and statistics if missing
+                const updatedSession = this.gameManager.getSession(sessionId);
+                if (!updatedSession.gameStartTime) {
+                    console.log(`[DIAGNOSTIC] Setting gameStartTime for session: ${sessionId}`);
+                    updatedSession.gameStartTime = new Date().toISOString();
+                }
+                if (!updatedSession.statistics) {
+                    console.log(`[DIAGNOSTIC] Initializing statistics for session: ${sessionId}`);
+                    updatedSession.statistics = {
+                        cardsPlayed: 0,
+                        pointsTransferred: 0,
+                        turnsCompleted: 0
+                    };
+                }
+                console.log(`[DIAGNOSTIC] Session after initialization:`, updatedSession);
                 
                 // Create and assign referee card
                 try {

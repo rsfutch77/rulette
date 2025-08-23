@@ -159,10 +159,11 @@ Roles and responsibilities:
 [x] 5.3 UI Updates for Points and Cards (2 Points)
 [x] 5.3.1 Display current points and held cards for all players in the UI (1 Point)
 [x] 5.3.2 Provide clear feedback when points or cards change (1 Point)
-[ ] 5.4 End Condition Detection (2 Points)
-[ ] 5.4.1 Detect the following end conditions:
+[x] 5.4 End Condition Detection (2 Points)
+[x] 5.4.1 Detect the following end conditions:
     - A player reaches 0 points
-[ ] 5.4.2 Trigger end-of-game flow and display results (1 Point)
+    - 10 turns have passed
+[x] 5.4.2 Trigger end-of-game flow and display results (1 Point)
 
 ## Phase 3: Multiplayer and Lobby System
 [ ] 6. Multiplayer Session Management (16 Points)

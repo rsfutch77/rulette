@@ -7,7 +7,11 @@
  */
 function showEndGameModal(gameResults) {
     console.log('[END_GAME] Showing end-game modal:', gameResults);
-    clearSession(); // Clear session storage when game ends
+    
+    // Clear session storage when game ends (inline implementation to avoid import dependency)
+    localStorage.removeItem('rulette_session_id');
+    localStorage.removeItem('rulette_player_data');
+    console.log('[END_GAME] Session storage cleared');
     
     try {
         const modal = document.getElementById('end-game-modal');

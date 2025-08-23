@@ -386,11 +386,12 @@ async function judgePrompt(sessionId, refereeId, successful) {
         
         // FALLBACK: Always try to hide the prompt UI even if there's an error
         console.log('[PROMPT_DEBUG] ERROR FALLBACK: Attempting to hide prompt UI anyway');
+        console.log('[PROMPT_DEBUG] SYNTAX_FIX: Setting 1000ms timeout (syntax error resolved)');
         setTimeout(() => {
-            console.log('[PROMPT_DEBUG] FALLBACK: Hiding prompt UI after error');
+            console.log('[PROMPT_DEBUG] FALLBACK: Hiding prompt UI after error - timeout executed successfully');
             hidePromptUI();
-        }, 1
-        000);
+        }, 1000);
+        console.log('[PROMPT_DEBUG] SYNTAX_FIX: setTimeout call completed without syntax errors');
     }
 }
 

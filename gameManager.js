@@ -2279,6 +2279,24 @@ export class GameManager {
     triggerEndGameEvent(sessionId, endGameEvent) {
         console.log(`[END_GAME_EVENT] Session ${sessionId}: Game end event triggered`);
         
+        // DIAGNOSTIC: Check session state and structure
+        const session = this.gameSessions[sessionId];
+        console.log(`[DIAGNOSTIC] Session exists: ${!!session}`);
+        if (session) {
+            console.log(`[DIAGNOSTIC] Session keys: ${Object.keys(session)}`);
+            console.log(`[DIAGNOSTIC] gameStartTime: ${session.gameStartTime}`);
+            console.log(`[DIAGNOSTIC] statistics exists: ${!!session.statistics}`);
+            if (session.statistics) {
+                console.log(`[DIAGNOSTIC] statistics keys: ${Object.keys(session.statistics)}`);
+            }
+            console.log(`[DIAGNOSTIC] Session players count: ${session.players?.length || 0}`);
+        }
+        
+        // DIAGNOSTIC: Check function availability
+        console.log(`[DIAGNOSTIC] window object exists: ${typeof window !== 'undefined'}`);
+        console.log(`[DIAGNOSTIC] showEndGameModal exists: ${typeof window?.showEndGameModal}`);
+        console.log(`[DIAGNOSTIC] window functions: ${typeof window !== 'undefined' ? Object.keys(window).filter(key => typeof window[key] === 'function').slice(0, 10) : 'N/A'}`);
+        
         try {
             // Prepare game results for UI display
             const gameResults = {
@@ -2292,11 +2310,22 @@ export class GameManager {
                 totalPointsTransferred: this.getGameStatistic(sessionId, 'pointsTransferred') || 0
             };
             
+            console.log(`[DIAGNOSTIC] Prepared gameResults:`, gameResults);
+            
             // Call the UI function to show the end-game modal
             if (typeof window !== 'undefined' && window.showEndGameModal) {
+                console.log(`[DIAGNOSTIC] Calling showEndGameModal with results`);
                 window.showEndGameModal(gameResults);
             } else {
                 console.warn('[END_GAME_EVENT] showEndGameModal function not available');
+                console.log(`[DIAGNOSTIC] Fallback: Attempting to find endGame functions in global scope`);
+                
+                // Check if endGame.js functions are available globally
+                const globalFuncs = [];
+                if (typeof showEndGameModal !== 'undefined') globalFuncs.push('showEndGameModal');
+                if (typeof displayFinalStandings !== 'undefined') globalFuncs.push('displayFinalStandings');
+                if (typeof displayGameStatistics !== 'undefined') globalFuncs.push('displayGameStatistics');
+                console.log(`[DIAGNOSTIC] Global endGame functions found: ${globalFuncs}`);
             }
             
         } catch (error) {
@@ -2325,12 +2354,110 @@ export class GameManager {
     formatStandingsForUI(standings) {
         if (!standings || !Array.isArray(standings)) return [];
         
-        return standings.map(standing => ({
-            playerId: standing.playerId,
-            displayName: standing.displayName || this.players[standing.playerId]?.displayName || 'Unknown Player',
-            points: standing.points || this.players[standing.playerId]?.points || 0,
-            cardCount: this.getPlayerOwnedCards(standing.playerId).length || 0
-        }));
+        console.log('[STANDINGS] formatStandingsForUI called with standings:', standings);
+        console.log('[STANDINGS] GameManager methods available:', Object.getOwnPropertyNames(this).filter(name => typeof this[name] === 'function'));
+        console.log('[STANDINGS] Checking if getPlayerOwnedCards exists:', typeof this.getPlayerOwnedCards);
+        
+        return standings.map(standing => {
+            console.log('[STANDINGS] Processing standing for player:', standing.playerId);
+            
+            let cardCount = 0;
+            try {
+                if (typeof this.getPlayerOwnedCards === 'function') {
+                    cardCount = this.getPlayerOwnedCards(standing.playerId).length || 0;
+                } else {
+                    console.error('[STANDINGS] ERROR: getPlayerOwnedCards method not found on GameManager');
+                    console.log('[STANDINGS] Using cardManager fallback');
+                    if (this.cardManager && typeof this.cardManager.getPlayerOwnedCards === 'function') {
+                        cardCount = this.cardManager.getPlayerOwnedCards(standing.playerId, this).length || 0;
+                    } else {
+                        console.error('[STANDINGS] ERROR: cardManager.getPlayerOwnedCards also not available');
+                        cardCount = 0;
+                    }
+                }
+            } catch (error) {
+                console.error('[STANDINGS] Error getting card count:', error);
+                cardCount = 0;
+            }
+            
+            return {
+                playerId: standing.playerId,
+                displayName: standing.displayName || this.players[standing.playerId]?.displayName || 'Unknown Player',
+                points: standing.points || this.players[standing.playerId]?.points || 0,
+                cardCount: cardCount
+            };
+        });
+    }
+
+    /**
+     * Get player owned cards - delegates to CardManager
+     * @param {string} playerId - The player ID
+     * @returns {Array} - Array of cards owned by the player
+     */
+    getPlayerOwnedCards(playerId) {
+        console.log(`[CARDS] Getting owned cards for player: ${playerId}`);
+        try {
+            if (this.cardManager && typeof this.cardManager.getPlayerOwnedCards === 'function') {
+                return this.cardManager.getPlayerOwnedCards(playerId, this);
+            } else {
+                console.error('[CARDS] CardManager not available or method missing');
+                return [];
+            }
+        } catch (error) {
+            console.error('[CARDS] Error getting player owned cards:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Calculate game duration for a session
+     * @param {string} sessionId - The session ID
+     * @returns {number} - Game duration in seconds
+     */
+    calculateGameDuration(sessionId) {
+        console.log(`[DURATION] Calculating game duration for session: ${sessionId}`);
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session || !session.gameStartTime) {
+                console.warn('[DURATION] No session or start time found, returning 0');
+                return 0;
+            }
+            
+            const startTime = new Date(session.gameStartTime);
+            const endTime = new Date();
+            const durationMs = endTime.getTime() - startTime.getTime();
+            const durationSeconds = Math.floor(durationMs / 1000);
+            
+            console.log(`[DURATION] Game duration: ${durationSeconds} seconds`);
+            return durationSeconds;
+        } catch (error) {
+            console.error('[DURATION] Error calculating game duration:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Get game statistic for a session
+     * @param {string} sessionId - The session ID
+     * @param {string} statName - The statistic name
+     * @returns {number} - The statistic value
+     */
+    getGameStatistic(sessionId, statName) {
+        console.log(`[STATS] Getting ${statName} for session: ${sessionId}`);
+        try {
+            const session = this.gameSessions[sessionId];
+            if (!session || !session.statistics) {
+                console.warn(`[STATS] No session or statistics found for ${statName}, returning 0`);
+                return 0;
+            }
+            
+            const value = session.statistics[statName] || 0;
+            console.log(`[STATS] ${statName}: ${value}`);
+            return value;
+        } catch (error) {
+            console.error(`[STATS] Error getting ${statName}:`, error);
+            return 0;
+        }
     }
 
     /**
