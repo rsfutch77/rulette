@@ -56,6 +56,8 @@ function showPromptUI(promptState) {
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             z-index: 1000;
             max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
             text-align: center;
         `;
         document.body.appendChild(promptContainer);

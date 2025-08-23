@@ -378,7 +378,6 @@ function resetGameUIToLobby() {
 window.showEndGameModal = showEndGameModal;
 window.hideEndGameModal = hideEndGameModal;
 window.handleGameRestart = handleGameRestart;
-window.handleReturnToLobby = handleReturnToLobby;
 
 console.log('[END_GAME] End-game UI system loaded and ready');
 
