@@ -3042,7 +3042,8 @@ export class GameManager {
 
         if (successful) {
             pointsAwarded = pointValue;
-            player.points = (player.points || 0) + pointsAwarded;
+            // Use addPlayerPoints to ensure UI updates and Firebase sync are triggered
+            await this.playerManager.addPlayerPoints(sessionId, playerId, pointsAwarded, 'Successful prompt judgment');
             
             // Check if player should discard a rule card (if they have 5+ rule/modifier cards)
             const ruleAndModifierCards = player.hand.filter(card =>
@@ -3068,15 +3069,8 @@ export class GameManager {
         // Clean up the active prompt
         delete this.activePrompts[sessionId];
 
-        // Sync player points to Firebase (only if points were awarded)
-        if (pointsAwarded > 0) {
-            try {
-                await updateFirestorePlayerPoints(playerId, player.points);
-                console.log(`[GAME_MANAGER] Player points synced to Firebase: ${playerId} -> ${player.points}`);
-            } catch (error) {
-                console.error(`[GAME_MANAGER] Failed to sync player points to Firebase:`, error);
-            }
-        }
+        // The points are already synced to Firebase by playerManager.addPlayerPoints
+        // No need to sync again here.
 
         // Broadcast judgment completion to all players so they can hide their prompt UI
         try {
