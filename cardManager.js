@@ -3,7 +3,6 @@
 
 import { GameCard } from './cardModels.js';
 import {
-    updateFirestorePlayerHand,
     updateFirestorePlayerRuleCards,
     updateFirestoreRefereeCard,
     getFirestorePlayersInSession
@@ -372,29 +371,6 @@ export class CardManager {
         });
     }
 
-
-    /**
-     * Assigns a hand of cards to a player and synchronizes with Firebase.
-     * @param {string} sessionId - The session ID
-     * @param {string} playerId - The player ID
-     * @param {Array} cards - Array of cards to assign
-     * @param {Object} gameManager - Reference to game manager
-     * @returns {Promise<void>}
-     */
-    async assignPlayerHand(sessionId, playerId, cards, gameManager) {
-        if (!gameManager || !gameManager.players[playerId]) {
-            console.warn(`Player ${playerId} not found locally.`);
-            return;
-        }
-
-        // Assign ownership to all cards
-        this.assignCardOwnership(playerId, cards);
-        
-        gameManager.players[playerId].hand = cards;
-        await updateFirestorePlayerHand(sessionId, playerId, cards);
-        console.log(`Player ${playerId}'s hand assigned with ${cards.length} cards and synced with Firebase.`);
-    }
-
     /**
      * Randomly assigns the referee card to one of the active players in a given session,
      * and synchronizes with Firebase. This card can be swapped later as a rule card.
@@ -667,11 +643,6 @@ export class CardManager {
                         console.error(`[DEBUG] Error updating Firebase ruleCards for player ${playerId}:`, error);
                     }
                 }
-                // Also add to hand if it's not there (for display purposes, if needed elsewhere)
-                if (!player.hand.find(c => c.id === ruleCard.id)) {
-                    player.hand.push(ruleCard);
-                    await this.assignPlayerHand(sessionId, playerId, player.hand, gameManager);
-                }
 
                 // Broadcast rule card update to all players in the session
                 try {
@@ -753,11 +724,6 @@ export class CardManager {
                     } catch (error) {
                         console.error(`[DEBUG] Error updating Firebase ruleCards for modifier card - player ${playerId}:`, error);
                     }
-                }
-                // Also add to hand if it's not there (for display purposes, if needed elsewhere)
-                if (!player.hand.find(c => c.id === modifierCard.id)) {
-                    player.hand.push(modifierCard);
-                    await this.assignPlayerHand(sessionId, playerId, player.hand, gameManager);
                 }
 
                 // Broadcast rule card update to all players in the session
@@ -1070,15 +1036,26 @@ export class CardManager {
             console.log(`[CARD_MANAGER] Successfully flipped card ${card.id} to ${card.currentSide} side`);
             console.log(`[CARD_MANAGER] New rule text: ${card.getCurrentRule()}`);
 
+            // DIAGNOSIS: Add comprehensive logging for flip database operations
+            console.log(`[FLIP_DIAGNOSIS] Card location determined as: ${cardLocation}`);
+            console.log(`[FLIP_DIAGNOSIS] Card ID: ${card.id}`);
+            console.log(`[FLIP_DIAGNOSIS] Player ${playerId} ruleCards count: ${gameManager.players[playerId].ruleCards?.length || 0}`);
+            console.log(`[FLIP_DIAGNOSIS] Player ${playerId} hand count: ${gameManager.players[playerId].hand?.length || 0}`);
+            
             // Update game state and sync to Firebase
             if (cardLocation === 'ruleCards') {
+                console.log(`[FLIP_DIAGNOSIS] Attempting Firebase sync for ruleCards flip`);
                 // Sync updated rule cards to Firebase
                 try {
                     await updateFirestorePlayerRuleCards(playerId, gameManager.players[playerId].ruleCards);
                     console.log(`[CARD_MANAGER] Synced flipped rule card to Firebase for player ${playerId}`);
+                    console.log(`[FLIP_DIAGNOSIS] SUCCESS: Firebase sync completed for ruleCards`);
                 } catch (error) {
                     console.error(`[CARD_MANAGER] Failed to sync flipped rule card to Firebase:`, error);
+                    console.error(`[FLIP_DIAGNOSIS] FAILED: Firebase sync failed for ruleCards:`, error);
                 }
+            } else {
+                console.log(`[FLIP_DIAGNOSIS] Unknown card location: ${cardLocation} - NO DATABASE SYNC PERFORMED!`);
             }
 
             return {
@@ -1181,15 +1158,6 @@ export class CardManager {
                 fromPlayerName: fromPlayer.displayName,
                 toPlayerName: toPlayer.displayName
             };
-
-            // Update Firebase
-            try {
-                await this.assignPlayerHand(sessionId, fromPlayerId, fromPlayer.hand, gameManager);
-                await this.assignPlayerHand(sessionId, toPlayerId, toPlayer.hand, gameManager);
-            } catch (firebaseError) {
-                console.error(`[CARD_MANAGER] Firebase sync error:`, firebaseError);
-                // Continue with local transfer even if Firebase fails
-            }
 
             console.log(`[CARD_MANAGER] Successfully transferred card ${transferredCard.id} from ${fromPlayer.displayName} to ${toPlayer.displayName}`);
             
@@ -1351,10 +1319,6 @@ export class CardManager {
                 receivingPlayer.hand = [];
             }
             receivingPlayer.hand.push(cardToTransfer);
-            
-            // Update Firebase
-            await updateFirestorePlayerHand(originalPlayerId, originalPlayer.hand);
-            await updateFirestorePlayerHand(receivingPlayerId, receivingPlayer.hand);
             
             if (cardLocation === 'ruleCards') {
                 await updateFirestorePlayerRuleCards(originalPlayerId, originalPlayer.ruleCards);
