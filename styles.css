@@ -1100,6 +1100,10 @@ h1 { margin-bottom: 1.5rem; }
     padding: 1.5rem;
     margin: 1rem;
   }
+
+  #prompt-notification-modal > div {
+    max-width: 98%; /* Make prompt modal wider on mobile */
+  }
   
   .swap-cards-grid {
     grid-template-columns: 1fr;
