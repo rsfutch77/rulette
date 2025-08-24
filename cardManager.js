@@ -36,7 +36,7 @@ export class CardManager {
                 const ruleKey = `${frontRule}|${backRule}`;
                 
                 if (cardRules.has(ruleKey)) {
-                    console.warn(`[CARD_MANAGER] DUPLICATE_CARD_DETECTED deck=${deckType} index=${index} front_rule="${frontRule}" back_rule="${backRule}" previous_index=${cardRules.get(ruleKey)}`);
+                    //console.warn(`[CARD_MANAGER] DUPLICATE_CARD_DETECTED deck=${deckType} index=${index} front_rule="${frontRule}" back_rule="${backRule}" previous_index=${cardRules.get(ruleKey)}`);
                 } else {
                     cardRules.set(ruleKey, index);
                 }

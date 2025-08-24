@@ -3103,8 +3103,8 @@ export class GameManager {
             result: {
                 playerId: playerId,
                 successful: successful,
-                pointsAwarded: pointsAwarded,
-                requiresCardDiscard: requiresCardDiscard,
+                pointsAwarded: successful ? 0 : -1, // 0 for success, -1 for failure
+                requiresCardDiscard: false, // No card discard for prompts
                 promptState: promptState
             }
         };
