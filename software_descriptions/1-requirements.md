@@ -186,7 +186,7 @@ Roles and responsibilities:
 [x] 6.4.1 Allow sessions to be ended by the host or automatically when all players leave (2 Points)
 [x] 6.4.2 Clean up session data to prevent orphaned sessions (1 Point)
 [ ] 6.5 Security and Access Control (2 Points)
-[ ] 6.5.4 Global Database killswitch, if there are more than 10,000 read/writes in a day, disable all read/write. You can create a new collection that only the server has access to which will keep track of the quantity of transactions and the date(1 Point)
+[x] 6.5.4 Global Database killswitch, if there are more than 10,000 read/writes in a day, disable all read/write. You can create a new collection that only the server has access to which will keep track of the quantity of transactions and the date(1 Point)
 [ ] 6.6 Additional session cleanup
 [ ] 6.6.1 Play again button correctly clears session
 [ ] 6.6.2 Session auto-deletes after period of inactivity

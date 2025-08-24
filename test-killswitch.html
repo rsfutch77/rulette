@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Killswitch Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { 
+            background-color: #6c757d; 
+            cursor: not-allowed; 
+        }
+        .counter {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .log {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Database Killswitch Test</h1>
+    
+    <div class="test-section">
+        <h2>Killswitch Status</h2>
+        <div id="killswitch-status" class="status info">Checking...</div>
+        <div class="counter">
+            Daily Transactions: <span id="transaction-count">0</span> / <span id="daily-limit">10000</span>
+        </div>
+        <button onclick="checkKillswitchStatus()">Refresh Status</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Database Operations Test</h2>
+        <p>Test database operations to see how the killswitch responds:</p>
+        
+        <button onclick="testSingleWrite()">Test Single Write</button>
+        <button onclick="testSingleRead()">Test Single Read</button>
+        <button onclick="testMultipleWrites(10)">Test 10 Writes</button>
+        <button onclick="testMultipleWrites(100)">Test 100 Writes</button>
+        <button onclick="stressTestKillswitch()">Stress Test (Trigger Killswitch)</button>
+        
+        <div id="operation-status" class="status info">Ready to test operations</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Operation Log</h2>
+        <button onclick="clearLog()">Clear Log</button>
+        <div id="operation-log" class="log">Test log will appear here...\n</div>
+    </div>
+
+    <!-- Firebase imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            serverTimestamp,
+            connectFirestoreEmulator
+        } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js";
+
+        // Initialize Firebase (you'll need to add your config)
+        const firebaseConfig = {
+            // Add your Firebase config here
+            // For testing, you might want to use the emulator
+        };
+
+        let app, db;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            
+            // Connect to emulator if running locally
+            if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+                try {
+                    connectFirestoreEmulator(db, 'localhost', 8080);
+                    log("Connected to Firestore emulator");
+                } catch (error) {
+                    log("Firestore emulator not available, using production");
+                }
+            }
+        } catch (error) {
+            log("Firebase initialization failed: " + error.message);
+        }
+
+        // Make functions globally available
+        window.db = db;
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.getDoc = getDoc;
+        window.serverTimestamp = serverTimestamp;
+        
+        // Test operation counter
+        let operationCount = 0;
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logElement = document.getElementById('operation-log');
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[KILLSWITCH-TEST] ${message}`);
+        }
+        
+        window.log = log;
+        
+        // Initialize the test
+        document.addEventListener('DOMContentLoaded', function() {
+            log("Database Killswitch Test initialized");
+            checkKillswitchStatus();
+        });
+        
+        window.checkKillswitchStatus = checkKillswitchStatus;
+        window.testSingleWrite = testSingleWrite;
+        window.testSingleRead = testSingleRead;
+        window.testMultipleWrites = testMultipleWrites;
+        window.stressTestKillswitch = stressTestKillswitch;
+        window.clearLog = clearLog;
+    </script>
+
+    <script>
+        function clearLog() {
+            document.getElementById('operation-log').textContent = 'Log cleared...\n';
+        }
+
+        async function checkKillswitchStatus() {
+            const statusElement = document.getElementById('killswitch-status');
+            const countElement = document.getElementById('transaction-count');
+            
+            try {
+                log("Checking killswitch status...");
+                
+                // Get today's date in YYYY-MM-DD format
+                const today = new Date();
+                const todayDate = today.getFullYear() + '-' + 
+                    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(today.getDate()).padStart(2, '0');
+                
+                const trackingDocRef = doc(db, 'serverTransactionTracking', todayDate);
+                const trackingDoc = await getDoc(trackingDocRef);
+                
+                if (trackingDoc.exists()) {
+                    const data = trackingDoc.data();
+                    const isActive = data.killswitchActivated || false;
+                    const totalTransactions = data.totalTransactions || 0;
+                    
+                    countElement.textContent = totalTransactions;
+                    
+                    if (isActive) {
+                        statusElement.className = 'status error';
+                        statusElement.textContent = '🚫 KILLSWITCH ACTIVE - Database operations disabled';
+                        log(`Killswitch is ACTIVE. Total transactions: ${totalTransactions}`);
+                    } else {
+                        statusElement.className = 'status success';
+                        statusElement.textContent = '✅ Killswitch inactive - Database operations allowed';
+                        log(`Killswitch is inactive. Total transactions: ${totalTransactions}`);
+                    }
+                } else {
+                    statusElement.className = 'status info';
+                    statusElement.textContent = '📊 No transaction data for today';
+                    countElement.textContent = '0';
+                    log("No transaction tracking data found for today");
+                }
+            } catch (error) {
+                statusElement.className = 'status error';
+                statusElement.textContent = '❌ Error checking killswitch status: ' + error.message;
+                log("Error checking killswitch status: " + error.message);
+            }
+        }
+
+        async function testSingleWrite() {
+            const statusElement = document.getElementById('operation-status');
+            
+            try {
+                operationCount++;
+                const testDocRef = doc(db, 'players', `test-player-${operationCount}`);
+                
+                log(`Attempting single write operation ${operationCount}...`);
+                statusElement.className = 'status warning';
+                statusElement.textContent = '🔄 Testing single write operation...';
+                
+                await setDoc(testDocRef, {
+                    name: `Test Player ${operationCount}`,
+                    points: 0,
+                    sessionId: 'test-session',
+                    createdAt: serverTimestamp(),
+                    testOperation: true
+                });
+                
+                statusElement.className = 'status success';
+                statusElement.textContent = '✅ Single write operation successful';
+                log(`Write operation ${operationCount} completed successfully`);
+                
+                // Wait a moment then check status
+                setTimeout(checkKillswitchStatus, 1000);
+                
+            } catch (error) {
+                statusElement.className = 'status error';
+                statusElement.textContent = '❌ Write operation failed: ' + error.message;
+                log(`Write operation ${operationCount} failed: ${error.message}`);
+                
+                // Check if it's a killswitch error
+                if (error.message.includes('permission-denied') || error.message.includes('killswitch')) {
+                    log("This might be due to killswitch activation");
+                    setTimeout(checkKillswitchStatus, 500);
+                }
+            }
+        }
+
+        async function testSingleRead() {
+            const statusElement = document.getElementById('operation-status');
+            
+            try {
+                log("Attempting single read operation...");
+                statusElement.className = 'status warning';
+                statusElement.textContent = '🔄 Testing single read operation...';
+                
+                const testDocRef = doc(db, 'players', 'test-player-1');
+                const docSnapshot = await getDoc(testDocRef);
+                
+                statusElement.className = 'status success';
+                statusElement.textContent = '✅ Single read operation successful';
+                log(`Read operation completed. Document exists: ${docSnapshot.exists()}`);
+                
+            } catch (error) {
+                statusElement.className = 'status error';
+                statusElement.textContent = '❌ Read operation failed: ' + error.message;
+                log(`Read operation failed: ${error.message}`);
+            }
+        }
+
+        async function testMultipleWrites(count) {
+            const statusElement = document.getElementById('operation-status');
+            
+            try {
+                log(`Starting ${count} write operations...`);
+                statusElement.className = 'status warning';
+                statusElement.textContent = `🔄 Testing ${count} write operations...`;
+                
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (let i = 0; i < count; i++) {
+                    try {
+                        operationCount++;
+                        const testDocRef = doc(db, 'gameSessions', `test-session-${operationCount}`);
+                        
+                        await setDoc(testDocRef, {
+                            sessionId: `test-session-${operationCount}`,
+                            status: 'testing',
+                            createdAt: serverTimestamp(),
+                            testBatch: true,
+                            batchNumber: i + 1
+                        });
+                        
+                        successCount++;
+                        
+                        if (i % 10 === 0) {
+                            log(`Completed ${i + 1}/${count} operations...`);
+                        }
+                        
+                        // Small delay to avoid overwhelming
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                        
+                    } catch (error) {
+                        errorCount++;
+                        log(`Operation ${i + 1} failed: ${error.message}`);
+                        
+                        // If we get permission denied, likely killswitch activated
+                        if (error.message.includes('permission-denied')) {
+                            log(`Killswitch likely activated after ${successCount} operations`);
+                            break;
+                        }
+                    }
+                }
+                
+                statusElement.className = successCount === count ? 'status success' : 'status warning';
+                statusElement.textContent = `✅ Multiple write test completed: ${successCount}/${count} successful, ${errorCount} failed`;
+                log(`Batch test completed: ${successCount} successful, ${errorCount} failed`);
+                
+                // Check killswitch status after batch
+                setTimeout(checkKillswitchStatus, 1000);
+                
+            } catch (error) {
+                statusElement.className = 'status error';
+                statusElement.textContent = '❌ Batch write test failed: ' + error.message;
+                log(`Batch write test failed: ${error.message}`);
+            }
+        }
+
+        async function stressTestKillswitch() {
+            const statusElement = document.getElementById('operation-status');
+            
+            try {
+                log("🚨 Starting stress test to trigger killswitch...");
+                statusElement.className = 'status warning';
+                statusElement.textContent = '🚨 Stress testing killswitch - attempting to trigger limit...';
+                
+                // Try to perform many operations quickly to trigger killswitch
+                await testMultipleWrites(50);
+                
+                log("Stress test completed - checking if killswitch was triggered");
+                setTimeout(checkKillswitchStatus, 2000);
+                
+            } catch (error) {
+                statusElement.className = 'status error';
+                statusElement.textContent = '❌ Stress test failed: ' + error.message;
+                log(`Stress test failed: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
