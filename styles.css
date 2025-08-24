@@ -1115,3 +1115,9 @@ h1 { margin-bottom: 1.5rem; }
     text-align: center;
   }
 }
+/* Rule Card List Overflow Fix */
+#active-rules-container {
+  max-height: 70vh; /* Adjust as needed, or use a more dynamic calculation */
+  overflow-y: auto;
+  padding-right: 10px; /* Add some padding for the scrollbar */
+}
