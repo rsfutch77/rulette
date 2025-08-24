@@ -1,7 +1,7 @@
 // swapCardModal.js
 // Enhanced swap card modal with dual selection (give/receive) and turn blocking
 
-import { updateFirestorePlayerHand, updateFirestorePlayerRuleCards } from './firebaseOperations.js';
+import { updateFirestorePlayerRuleCards } from './firebaseOperations.js';
 
 /**
  * Shows the swap card modal with dual selection interface
@@ -684,6 +684,21 @@ async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePl
         console.log('[SWAP_DEBUG] Give card:', giveCard.id, 'from player:', currentPlayer.playerId || currentPlayer.id);
         console.log('[SWAP_DEBUG] Receive card:', receiveCard.id, 'from player:', receivePlayer.playerId || receivePlayer.id);
         
+        /*
+         * Ensure we mutate the authoritative player objects stored inside
+         * gameManager.players.  Earlier helpers (e.g., getCurrentPlayer)
+         * may return shallow copies which, when mutated, do **not** update
+         * the data that updateActiveRulesDisplay() later reads.  This was
+         * leaving the old card in the local UI until a full refresh.
+         */
+        const gmPlayers = window.gameManager?.players || {};
+        const gmCurrentPlayer = gmPlayers[currentPlayer.playerId || currentPlayer.id] || currentPlayer;
+        const gmReceivePlayer = gmPlayers[receivePlayer.playerId || receivePlayer.id] || receivePlayer;
+        
+        // Re-assign so all subsequent logic operates on canonical objects
+        currentPlayer = gmCurrentPlayer;
+        receivePlayer = gmReceivePlayer;
+        
         // Log initial state
         console.log('[SWAP_DEBUG] Current player ruleCards BEFORE:', currentPlayer.ruleCards?.map(c => c.id));
         console.log('[SWAP_DEBUG] Receive player ruleCards BEFORE:', receivePlayer.ruleCards?.map(c => c.id));
@@ -752,7 +767,7 @@ async function executeDirectSwap(giveCard, receiveCard, currentPlayer, receivePl
  * Removes a card from a player's collection
  * @param {Object} player - Player object
  * @param {string} cardId - Card ID to remove
- * @returns {string|null} - Location where card was found ('hand' or 'ruleCards') or null if not found
+ * @returns {string|null} - Location where card was found ('ruleCards') or null if not found
  */
 function removeCardFromPlayer(player, cardId) {
         
@@ -772,7 +787,7 @@ function removeCardFromPlayer(player, cardId) {
  * Adds a card to a player's collection
  * @param {Object} player - Player object
  * @param {Object} card - Card to add
- * @param {string} location - Location to add card ('hand' or 'ruleCards')
+ * @param {string} location - Location to add card ('ruleCards')
  */
 function addCardToPlayer(player, card, location) {
     // Update card ownership
