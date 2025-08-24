@@ -87,7 +87,7 @@ export class GameManager {
         this.players[playerId] = newPlayer;
 
         // Initialize points using the new tracking system
-        this.playerManager.initializePlayerPoints(playerId, 20);
+        this.playerManager.initializePlayerPoints(playerId, 10);
 
         // Initialize player presence tracking
         this.playerManager.initializePlayerPresence(sessionId, playerId);
@@ -101,7 +101,7 @@ export class GameManager {
             sessionId: sessionId,
             displayName: displayName,
             isHost: isHost,
-            points: 20,
+            points: 10,
             status: 'active'
         });
         console.log(`Player ${displayName} (${playerId}) initialized with 20 points and synced with Firebase. isHost: ${isHost}`);
