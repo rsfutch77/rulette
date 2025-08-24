@@ -132,7 +132,7 @@ Roles and responsibilities:
 [x] 4.2 Referee Adjudication (4 Points)
 [x] 4.2.1 Notify the referee of a callout and present context of who called out who (2 Points)
 [x] 4.2.2 Allow the referee to decide if the callout is valid or not (2 Points)
-[ ] 4.3 Point and Card Transfer Logic (3 Points)
+[x] 4.3 Point and Card Transfer Logic (3 Points)
 [x] 4.3.1 If the callout is valid, deduct a point from the failed player (2 Points)
 [ ] 4.4 Referee Card Swapping (2 Points)
 [ ] 4.4.1 Enable the referee card to be swapped if a swap card is played (1 Point)
@@ -186,9 +186,6 @@ Roles and responsibilities:
 [x] 6.4.1 Allow sessions to be ended by the host or automatically when all players leave (2 Points)
 [x] 6.4.2 Clean up session data to prevent orphaned sessions (1 Point)
 [ ] 6.5 Security and Access Control (2 Points)
-[ ] 6.5.1 Prevent unauthorized access to sessions (1 Point)
-[ ] 6.5.3 Limit players to only edit their existing session (1 Point)
-[ ] 6.5.4 Limit session creation globally to a rate of no more than 1000 players per day or that equivalent per minute if we assume games last 15 minutes each(1 Point)
 [ ] 6.5.4 Global Database killswitch, if there are more than 10,000 read/writes in a day, disable all read/write. You can create a new collection that only the server has access to which will keep track of the quantity of transactions and the date(1 Point)
 [ ] 6.6 Additional session cleanup
 [ ] 6.6.1 Play again button correctly clears session

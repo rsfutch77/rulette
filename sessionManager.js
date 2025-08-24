@@ -3,7 +3,6 @@ import {
     createFirestoreGameSession,
     initializeFirestorePlayer,
     updateFirestorePlayerStatus,
-    updateFirestorePlayerHand,
     updateFirestorePlayerRuleCards,
     updateFirestoreRefereeCard,
     updateFirestoreSessionPlayerList,

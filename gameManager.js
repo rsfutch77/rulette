@@ -3,7 +3,6 @@
 import {
     initializeFirestorePlayer,
     updateFirestorePlayerStatus,
-    updateFirestorePlayerHand,
     updateFirestorePlayerRuleCards, // Import the new function
     updateFirestorePlayerPoints,
     updateFirestoreRefereeCard,
@@ -2248,9 +2247,6 @@ export class GameManager {
         // Trigger end game UI event
         await this.triggerEndGameEvent(sessionId, endGameEvent);
 
-        // TODO: Game end: Sync with Firebase
-        // await updateFirestoreGameSession(sessionId, { status: 'completed', endReason: reason, winner: winnerId });
-
         console.log(`[GAME_END] Game ended for session ${sessionId}. Winner: ${winnerId ? this.players[winnerId]?.displayName : 'None'}`);
     }
 
@@ -2551,20 +2547,6 @@ export class GameManager {
             console.log(`Player ${playerId} status updated to ${status} and synced with Firebase.`);
         } else {
             console.warn(`Player ${playerId} not found locally.`);
-        }
-    }
-
-    /**
-     * Assigns a hand of cards to a player and synchronizes with Firebase.
-     * @param {string} sessionId - The ID of the session.
-     * @param {string} playerId - The ID of the player.
-     * @param {Array<Object>} cards - An array of card objects to assign to the player's hand.
-     */
-    async assignPlayerHand(sessionId, playerId, cards) {
-        if (this.cardManager) {
-            return await this.cardManager.assignPlayerHand(sessionId, playerId, cards, this);
-        } else {
-            console.error('[GAME_MANAGER] CardManager not initialized');
         }
     }
 

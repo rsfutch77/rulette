@@ -71,17 +71,6 @@ async function updateFirestorePlayerStatus(playerId, status) {
   }
 }
 
-async function updateFirestorePlayerHand(playerId, hand) {
-  try {
-    const playerRef = doc(db, 'players', playerId);
-    await setDoc(playerRef, { hand }, { merge: true });
-    console.log("[FIRESTORE] Player hand updated:", playerId);
-  } catch (error) {
-    console.error("[FIRESTORE] Error updating player hand:", error);
-    throw error;
-  }
-}
-
 async function updateFirestorePlayerRuleCards(playerId, ruleCards) {
   try {
     const playerRef = doc(db, 'players', playerId);
@@ -569,7 +558,6 @@ export {
   createFirestoreGameSession,
   initializeFirestorePlayer,
   updateFirestorePlayerStatus,
-  updateFirestorePlayerHand,
   updateFirestorePlayerRuleCards,
   updateFirestorePlayerPoints,
   updateFirestoreRefereeCard,
