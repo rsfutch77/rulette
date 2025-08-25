@@ -19,7 +19,6 @@ flip_action,FLIP ONE OF YOUR OWN CARDS,,FLIP_002,Strategic Flip,Flip one of your
 flip_action,FLIP ONE OF YOUR OWN CARDS,,FLIP_003,Emergency Flip,Flip one of your own cards,Player chooses which of their own cards to flip.,0,false
 clone,CLONE ANOTHER PLAYER'S CARD,,CLONE_001,Mimic Card,Copy the effect of another player's active rule or modifier card,Select a target player and one of their active rule/modifier cards to mimic.,0,false
 clone,CLONE ANOTHER PLAYER'S CARD,,CLONE_002,Copycat Card,Duplicate the power of another player's active rule or modifier card,Select a target player and one of their active rule/modifier cards to duplicate.,0,false
-clone,CLONE ANOTHER PLAYER'S CARD,,CLONE_003,Mirror Card,Reflect the effect of another player's active rule or modifier card,Select a target player and one of their active rule/modifier cards to mirror.,0,false
 swap,SWAP CARDS WITH ANOTHER PLAYER,,SWAP_001,Trade Cards,Exchange one of your cards with another player's card,Select a player and cards to trade.,0,false
 swap,SWAP CARDS WITH ANOTHER PLAYER,,SWAP_002,Card Exchange,Swap one of your cards with another player's card,Select a player and cards to exchange.,0,false
 swap,SWAP CARDS WITH ANOTHER PLAYER,,SWAP_003,Card Switch,Switch one of your cards with another player's card,Select a player and cards to switch.,0,false

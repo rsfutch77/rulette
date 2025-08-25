@@ -185,10 +185,10 @@ Roles and responsibilities:
 [x] 6.4 Session Termination and Cleanup (3 Points)
 [x] 6.4.1 Allow sessions to be ended by the host or automatically when all players leave (2 Points)
 [x] 6.4.2 Clean up session data to prevent orphaned sessions (1 Point)
-[ ] 6.5 Security and Access Control (2 Points)
+[x] 6.5 Security and Access Control (2 Points)
 [x] 6.5.4 Global Database transaction tracking, if there are more than 10,000 read/writes in a day, use totalTransactions limit in firestore rules. Server tracks quantity of transactions and date in serverTransactionTracking collection (1 Point)
 [ ] 6.6 Additional session cleanup
-[ ] 6.6.1 Play again button correctly clears session
+[ ] 6.6.1 Play again button deletes session
 [ ] 6.6.2 Session auto-deletes after period of inactivity
 
 [x] 7. Lobby and Player Join/Leave (12 Points)

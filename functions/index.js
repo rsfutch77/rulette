@@ -1,4 +1,4 @@
-const { onDocumentWritten, onDocumentRead } = require('firebase-functions/v2/firestore');
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { https } = require('firebase-functions');
@@ -159,19 +159,9 @@ exports.trackGameSessionWrites = onDocumentWritten('gameSessions/{sessionId}', a
   await incrementTransactionCounter(operationType, 'gameSessions', event.params.sessionId);
 });
 
-// Track reads to gameSessions collection
-exports.trackGameSessionReads = onDocumentRead('gameSessions/{sessionId}', async (event) => {
-  await incrementTransactionCounter('read', 'gameSessions', event.params.sessionId);
-});
-
 // Track writes to players collection
 exports.trackPlayerWrites = onDocumentWritten('players/{playerId}', async (event) => {
   // Determine if this is a create or update operation
   const operationType = event.data.before.exists ? 'update' : 'create';
   await incrementTransactionCounter(operationType, 'players', event.params.playerId);
-});
-
-// Track reads to players collection
-exports.trackPlayerReads = onDocumentRead('players/{playerId}', async (event) => {
-  await incrementTransactionCounter('read', 'players', event.params.playerId);
 });
