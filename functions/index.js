@@ -19,7 +19,7 @@ const TRANSACTION_TRACKING_COLLECTION = 'serverTransactionTracking';
 async function incrementTransactionCounter(operationType, collection, docId) {
   try {
     const todayDate = getTodayDateString();
-    const trackingDocRef = db.collection(TRANSACTION_TRACKING_COLLECTION).doc(todayDate);
+    const trackingDocRef = db.collection(TRANSACTION_TRACKING_COLLECTION).doc('tracking');
     
     // Get current tracking document
     const trackingDoc = await trackingDocRef.get();
@@ -27,22 +27,26 @@ async function incrementTransactionCounter(operationType, collection, docId) {
     if (!trackingDoc.exists) {
       // Create new tracking document for today
       await trackingDocRef.set({
-        date: todayDate,
         totalTransactions: 1,
-        readOperations: operationType === 'read' ? 1 : 0,
-        writeOperations: operationType === 'write' ? 1 : 0,
         killswitchActivated: false,
         createdAt: FieldValue.serverTimestamp(),
         lastUpdated: FieldValue.serverTimestamp(),
-        lastOperation: {
-          type: operationType,
-          collection: collection,
-          docId: docId,
-          timestamp: FieldValue.serverTimestamp()
+        dailyStats: {
+          [todayDate]: {
+            totalTransactions: 1,
+            readOperations: operationType === 'read' ? 1 : 0,
+            writeOperations: operationType === 'write' ? 1 : 0,
+            lastOperation: {
+              type: operationType,
+              collection: collection,
+              docId: docId,
+              timestamp: FieldValue.serverTimestamp()
+            }
+          }
         }
       });
       
-      console.log(`[KILLSWITCH] Created new tracking document for ${todayDate}`);
+      console.log(`[KILLSWITCH] Created new tracking document for 'tracking' with daily stats for ${todayDate}`);
     } else {
       // Update existing tracking document
       const currentData = trackingDoc.data();
@@ -51,7 +55,8 @@ async function incrementTransactionCounter(operationType, collection, docId) {
       const updateData = {
         totalTransactions: FieldValue.increment(1),
         lastUpdated: FieldValue.serverTimestamp(),
-        lastOperation: {
+        [`dailyStats.${todayDate}.totalTransactions`]: FieldValue.increment(1),
+        [`dailyStats.${todayDate}.lastOperation`]: {
           type: operationType,
           collection: collection,
           docId: docId,
@@ -60,9 +65,9 @@ async function incrementTransactionCounter(operationType, collection, docId) {
       };
       
       if (operationType === 'read') {
-        updateData.readOperations = FieldValue.increment(1);
+        updateData[`dailyStats.${todayDate}.readOperations`] = FieldValue.increment(1);
       } else if (operationType === 'write') {
-        updateData.writeOperations = FieldValue.increment(1);
+        updateData[`dailyStats.${todayDate}.writeOperations`] = FieldValue.increment(1);
       }
       
       // Check if we've hit the limit
@@ -84,7 +89,7 @@ async function incrementTransactionCounter(operationType, collection, docId) {
     // In case of error, activate killswitch as fail-safe
     try {
       const todayDate = getTodayDateString();
-      const trackingDocRef = db.collection(TRANSACTION_TRACKING_COLLECTION).doc(todayDate);
+      const trackingDocRef = db.collection(TRANSACTION_TRACKING_COLLECTION).doc('tracking');
       await trackingDocRef.set({
         killswitchActivated: true,
         killswitchActivatedAt: FieldValue.serverTimestamp(),
