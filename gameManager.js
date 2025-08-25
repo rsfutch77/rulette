@@ -1599,10 +1599,10 @@ export class GameManager {
     /**
      * Initialize player points (called during player creation)
      * @param {string} playerId - The player ID
-     * @param {number} initialPoints - Initial points (default: 20)
+     * @param {number} initialPoints - Initial points (default: 10)
      * @returns {boolean} - Success status
      */
-    initializePlayerPoints(playerId, initialPoints = 20) {
+    initializePlayerPoints(playerId, initialPoints = 10) {
         const player = this.players[playerId];
         if (!player) {
             console.error(`[POINTS] Cannot initialize points: Player ${playerId} not found`);
@@ -3079,7 +3079,7 @@ export class GameManager {
             result: {
                 playerId: playerId,
                 successful: successful,
-                pointsAwarded: successful ? 0 : -1, // 0 for success, -1 for failure
+                pointsAwarded: successful ? 1 : 0, // 1 for success, 0 for failure
                 requiresCardDiscard: false, // No card discard for prompts
                 promptState: promptState
             }

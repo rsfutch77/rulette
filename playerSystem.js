@@ -712,7 +712,7 @@ export class PlayerManager {
      * @param {string} playerId - The player ID
      * @param {number} initialPoints - Initial points to set
      */
-    initializePlayerPoints(playerId, initialPoints = 20) {
+    initializePlayerPoints(playerId, initialPoints = 10) {
         const player = this.gameManager.players[playerId];
         if (!player) {
             console.error(`[POINTS] Cannot initialize points: Player ${playerId} not found`);
