@@ -2,102 +2,22 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // =============================================================================
-    // HELPER FUNCTIONS
-    // =============================================================================
-    
-    // Get today's date in YYYY-MM-DD format
-    function getTodayDate() {
-      let now = request.time;
-      let year = now.year();
-      let month = now.month();
-      let day = now.day();
-      return string(year) + '-' +
-             (month < 10 ? '0' + string(month) : string(month)) + '-' +
-             (day < 10 ? '0' + string(day) : string(day));
-    }
-    
-    // Check if daily transaction limit has been exceeded
-    function isKillswitchActive() {
-      let todayDate = getTodayDate();
-      let trackingDoc = get(/databases/$(database)/documents/serverTransactionTracking/$(todayDate));
-      
-      // If tracking document doesn't exist, allow operations (first day)
-      if (trackingDoc == null) {
-        return false;
-      }
-      
-      // Check if killswitch was explicitly activated
-      if (trackingDoc.data.keys().hasAll(['killswitchActivated']) && trackingDoc.data.killswitchActivated == true) {
-        return true;
-      }
-      
-      // Check if transaction count exceeds limit
-      let totalTransactions = trackingDoc.data.keys().hasAll(['totalTransactions']) ? trackingDoc.data.totalTransactions : 0;
-      return totalTransactions >= 10000;
-    }
-    
-    // Increment transaction counter and check if operation should be allowed
-    function canPerformOperation(operationType) {
-      // First check if killswitch is already active
-      if (isKillswitchActive()) {
-        return false;
-      }
-      
-      // Allow the operation - counting will be handled by the write to tracking collection
-      return true;
-    }
-    
-    // =============================================================================
-    // SERVER TRANSACTION TRACKING COLLECTION (Killswitch Data)
-    // =============================================================================
-    match /serverTransactionTracking/{date} {
-      // Allow reads for checking killswitch status
-      allow read: if true;
-      
-      // Allow writes only for transaction counting
-      // The date must match today's date in YYYY-MM-DD format
-      allow write: if date == getTodayDate() &&
-                     request.auth != null &&
-                     (
-                       // Allow creation of new tracking document
-                       (resource == null &&
-                        request.resource.data.keys().hasAll(['date', 'totalTransactions', 'readOperations', 'writeOperations']) &&
-                        request.resource.data.date == date &&
-                        request.resource.data.totalTransactions is int &&
-                        request.resource.data.readOperations is int &&
-                        request.resource.data.writeOperations is int) ||
-                       
-                       // Allow updates to existing tracking document
-                       (resource != null &&
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalTransactions', 'readOperations', 'writeOperations', 'lastUpdated', 'killswitchActivated', 'killswitchActivatedAt']) &&
-                        request.resource.data.totalTransactions >= resource.data.totalTransactions &&
-                        request.resource.data.readOperations >= resource.data.readOperations &&
-                        request.resource.data.writeOperations >= resource.data.writeOperations)
-                     );
-    }
+    // file version v0.3
 
     // =============================================================================
     // GAME SESSIONS COLLECTION
     // =============================================================================
     match /gameSessions/{sessionId} {
-      // Allow reads if killswitch is not active
-      allow read: if canPerformOperation('read');
-      
-      // Allow writes if killswitch is not active
-      allow write: if canPerformOperation('write');
+      // Allow create, read, and write if totalTransactions is less than 1000
+      allow create, read, write: if get(/databases/$(database)/documents/serverTransactionTracking/tracking).data.totalTransactions < 10000;
     }
     
     // =============================================================================
     // PLAYERS COLLECTION
     // =============================================================================
     match /players/{playerId} {
-      // Allow reads if killswitch is not active
-      allow read: if canPerformOperation('read');
-      
-      // Allow writes if killswitch is not active
-      allow write: if canPerformOperation('write');
+      // Allow create, read, and write if totalTransactions is less than 1000
+      allow create, read, write: if get(/databases/$(database)/documents/serverTransactionTracking/tracking).data.totalTransactions < 10000;
     }
 
     // =============================================================================

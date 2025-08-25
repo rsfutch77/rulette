@@ -24,6 +24,8 @@ import {
     setCurrentPlayer
 } from './playerSystem.js';
 import { showNotification } from './lobbyUI.js';
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-functions.js";
+import { app } from "./firebase-init.js"; // Assuming firebase-init.js exports the app
 
 // Session Manager Class - Handles all session-related operations
 export class SessionManager {

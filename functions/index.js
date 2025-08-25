@@ -1,6 +1,7 @@
 const { onDocumentWritten, onDocumentRead } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { https } = require('firebase-functions');
 
 initializeApp();
 const db = getFirestore();
@@ -8,17 +9,6 @@ const db = getFirestore();
 // Constants
 const DAILY_TRANSACTION_LIMIT = 10000;
 const TRANSACTION_TRACKING_COLLECTION = 'serverTransactionTracking';
-
-/**
- * Get today's date in YYYY-MM-DD format
- * @returns {string} Date string
- */
-function getTodayDateString() {
-  const today = new Date();
-  return today.getFullYear() + '-' + 
-         String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-         String(today.getDate()).padStart(2, '0');
-}
 
 /**
  * Increment transaction counter and check killswitch
@@ -115,74 +105,4 @@ exports.trackGameSessionWrites = onDocumentWritten('gameSessions/{sessionId}', a
 // Track writes to players collection
 exports.trackPlayerWrites = onDocumentWritten('players/{playerId}', async (event) => {
   await incrementTransactionCounter('write', 'players', event.params.playerId);
-});
-
-// Note: Firestore triggers don't have read triggers in the same way,
-// so we'll need to implement read tracking differently.
-// For now, we'll focus on write operations which are more critical for rate limiting.
-
-/**
- * Cloud Function to manually check and reset killswitch (for admin use)
- */
-exports.checkKillswitchStatus = require('firebase-functions').https.onCall(async (data, context) => {
-  try {
-    const todayDate = getTodayDateString();
-    const trackingDocRef = db.collection(TRANSACTION_TRACKING_COLLECTION).doc(todayDate);
-    const trackingDoc = await trackingDocRef.get();
-    
-    if (!trackingDoc.exists) {
-      return {
-        date: todayDate,
-        killswitchActive: false,
-        totalTransactions: 0,
-        message: 'No transactions recorded today'
-      };
-    }
-    
-    const data = trackingDoc.data();
-    return {
-      date: todayDate,
-      killswitchActive: data.killswitchActivated || false,
-      totalTransactions: data.totalTransactions || 0,
-      readOperations: data.readOperations || 0,
-      writeOperations: data.writeOperations || 0,
-      dailyLimit: DAILY_TRANSACTION_LIMIT,
-      remainingTransactions: Math.max(0, DAILY_TRANSACTION_LIMIT - (data.totalTransactions || 0))
-    };
-  } catch (error) {
-    console.error('[KILLSWITCH] Error checking status:', error);
-    throw new Error('Failed to check killswitch status');
-  }
-});
-
-/**
- * Admin function to reset killswitch (use with caution)
- */
-exports.resetKillswitch = require('firebase-functions').https.onCall(async (data, context) => {
-  // Add authentication check here in production
-  if (!context.auth || !context.auth.token.admin) {
-    throw new Error('Unauthorized: Admin access required');
-  }
-  
-  try {
-    const todayDate = data.date || getTodayDateString();
-    const trackingDocRef = db.collection(TRANSACTION_TRACKING_COLLECTION).doc(todayDate);
-    
-    await trackingDocRef.update({
-      killswitchActivated: false,
-      resetAt: FieldValue.serverTimestamp(),
-      resetBy: context.auth.uid
-    });
-    
-    console.log(`[KILLSWITCH] Reset by admin: ${context.auth.uid} for date: ${todayDate}`);
-    
-    return {
-      success: true,
-      message: `Killswitch reset for ${todayDate}`,
-      resetBy: context.auth.uid
-    };
-  } catch (error) {
-    console.error('[KILLSWITCH] Error resetting killswitch:', error);
-    throw new Error('Failed to reset killswitch');
-  }
 });
