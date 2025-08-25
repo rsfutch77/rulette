@@ -11,7 +11,15 @@ const DAILY_TRANSACTION_LIMIT = 10000;
 const TRANSACTION_TRACKING_COLLECTION = 'serverTransactionTracking';
 
 /**
- * Increment transaction counter and check killswitch
+ * Get today's date as a string in YYYY-MM-DD format
+ * @returns {string} Today's date string
+ */
+function getTodayDateString() {
+  return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Increment transaction counter
  * @param {string} operationType - 'read' or 'write'
  * @param {string} collection - The collection being accessed
  * @param {string} docId - The document ID
@@ -25,10 +33,9 @@ async function incrementTransactionCounter(operationType, collection, docId) {
     const trackingDoc = await trackingDocRef.get();
     
     if (!trackingDoc.exists) {
-      // Create new tracking document for today
+      // Create tracking document if it doesn't exist
       await trackingDocRef.set({
         totalTransactions: 1,
-        killswitchActivated: false,
         createdAt: FieldValue.serverTimestamp(),
         lastUpdated: FieldValue.serverTimestamp(),
         dailyStats: {
@@ -46,7 +53,7 @@ async function incrementTransactionCounter(operationType, collection, docId) {
         }
       });
       
-      console.log(`[KILLSWITCH] Created new tracking document for 'tracking' with daily stats for ${todayDate}`);
+      console.log(`[TRACKING] Created new tracking document for 'tracking' with daily stats for ${todayDate}`);
     } else {
       // Update existing tracking document
       const currentData = trackingDoc.data();
@@ -70,35 +77,13 @@ async function incrementTransactionCounter(operationType, collection, docId) {
         updateData[`dailyStats.${todayDate}.writeOperations`] = FieldValue.increment(1);
       }
       
-      // Check if we've hit the limit
-      if (newTotalTransactions >= DAILY_TRANSACTION_LIMIT) {
-        updateData.killswitchActivated = true;
-        updateData.killswitchActivatedAt = FieldValue.serverTimestamp();
-        
-        console.error(`[KILLSWITCH] ACTIVATED! Daily limit reached: ${newTotalTransactions}/${DAILY_TRANSACTION_LIMIT}`);
-        console.error(`[KILLSWITCH] Triggered by ${operationType} on ${collection}/${docId}`);
-      }
       
       await trackingDocRef.update(updateData);
       
-      console.log(`[KILLSWITCH] ${operationType} operation logged. Count: ${newTotalTransactions}/${DAILY_TRANSACTION_LIMIT} (${collection}/${docId})`);
+      console.log(`[TRACKING] ${operationType} operation logged. Count: ${newTotalTransactions}/${DAILY_TRANSACTION_LIMIT} (${collection}/${docId})`);
     }
   } catch (error) {
-    console.error('[KILLSWITCH] Error incrementing transaction counter:', error);
-    
-    // In case of error, activate killswitch as fail-safe
-    try {
-      const todayDate = getTodayDateString();
-      const trackingDocRef = db.collection(TRANSACTION_TRACKING_COLLECTION).doc('tracking');
-      await trackingDocRef.set({
-        killswitchActivated: true,
-        killswitchActivatedAt: FieldValue.serverTimestamp(),
-        errorActivated: true,
-        lastError: error.message
-      }, { merge: true });
-    } catch (failsafeError) {
-      console.error('[KILLSWITCH] Failed to activate emergency killswitch:', failsafeError);
-    }
+    console.error('[TRACKING] Error incrementing transaction counter:', error);
   }
 }
 
