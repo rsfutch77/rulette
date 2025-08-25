@@ -20,7 +20,7 @@ function getTodayDateString() {
 
 /**
  * Increment transaction counter
- * @param {string} operationType - 'read' or 'write'
+ * @param {string} operationType - 'read', 'write', 'create', or 'update'
  * @param {string} collection - The collection being accessed
  * @param {string} docId - The document ID
  */
@@ -42,7 +42,9 @@ async function incrementTransactionCounter(operationType, collection, docId) {
           [todayDate]: {
             totalTransactions: 1,
             readOperations: operationType === 'read' ? 1 : 0,
-            writeOperations: operationType === 'write' ? 1 : 0,
+            writeOperations: ['write', 'create', 'update'].includes(operationType) ? 1 : 0,
+            createOperations: operationType === 'create' ? 1 : 0,
+            updateOperations: operationType === 'update' ? 1 : 0,
             lastOperation: {
               type: operationType,
               collection: collection,
@@ -73,8 +75,14 @@ async function incrementTransactionCounter(operationType, collection, docId) {
       
       if (operationType === 'read') {
         updateData[`dailyStats.${todayDate}.readOperations`] = FieldValue.increment(1);
-      } else if (operationType === 'write') {
+      } else if (['write', 'create', 'update'].includes(operationType)) {
         updateData[`dailyStats.${todayDate}.writeOperations`] = FieldValue.increment(1);
+        
+        if (operationType === 'create') {
+          updateData[`dailyStats.${todayDate}.createOperations`] = FieldValue.increment(1);
+        } else if (operationType === 'update') {
+          updateData[`dailyStats.${todayDate}.updateOperations`] = FieldValue.increment(1);
+        }
       }
       
       
@@ -89,10 +97,24 @@ async function incrementTransactionCounter(operationType, collection, docId) {
 
 // Track writes to gameSessions collection
 exports.trackGameSessionWrites = onDocumentWritten('gameSessions/{sessionId}', async (event) => {
-  await incrementTransactionCounter('write', 'gameSessions', event.params.sessionId);
+  // Determine if this is a create or update operation
+  const operationType = event.data.before.exists ? 'update' : 'create';
+  await incrementTransactionCounter(operationType, 'gameSessions', event.params.sessionId);
+});
+
+// Track reads to gameSessions collection
+exports.trackGameSessionReads = onDocumentRead('gameSessions/{sessionId}', async (event) => {
+  await incrementTransactionCounter('read', 'gameSessions', event.params.sessionId);
 });
 
 // Track writes to players collection
 exports.trackPlayerWrites = onDocumentWritten('players/{playerId}', async (event) => {
-  await incrementTransactionCounter('write', 'players', event.params.playerId);
+  // Determine if this is a create or update operation
+  const operationType = event.data.before.exists ? 'update' : 'create';
+  await incrementTransactionCounter(operationType, 'players', event.params.playerId);
+});
+
+// Track reads to players collection
+exports.trackPlayerReads = onDocumentRead('players/{playerId}', async (event) => {
+  await incrementTransactionCounter('read', 'players', event.params.playerId);
 });
