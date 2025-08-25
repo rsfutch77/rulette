@@ -1,7 +1,7 @@
 {
   "name": "rulette-database-killswitch",
   "description": "Cloud Functions for database transaction tracking and killswitch",
-  "version": "0.1",
+  "version": "0.2",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
