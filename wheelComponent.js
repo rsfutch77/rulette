@@ -450,6 +450,9 @@ class WheelComponent {
                     return deckAvailable;
                 });
                 
+                // Check if ALL players have at least one rule card (required for prompt and clone cards)
+                const allPlayersHaveRuleCards = this.allPlayersHaveRuleCards();
+                
                 // Check if player has rule or modifier cards in both ruleCards arrays
                 const hasRulesOrModifiers = this.playerHasRulesOrModifiers(player);
                 
@@ -468,6 +471,14 @@ class WheelComponent {
                     }
                 }
                 
+                // Filter out prompt cards if not all players have rule cards
+                if (!allPlayersHaveRuleCards) {
+                    availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType2');
+                    console.log('[WHEEL] Not all players have rule cards, excluding prompt cards. Available types:', availableTypes.map(t => t.name));
+                } else {
+                    console.log('[WHEEL] All players have rule cards, prompt cards available');
+                }
+                
                 // Check if swap cards should be available
                 const canUseSwapCard = this.canPlayerUseSwapCard(playerId);
                 const swapDeckAvailable = isDeckAvailable('deckType6');
@@ -484,20 +495,22 @@ class WheelComponent {
                     console.log('[WHEEL] Swap card conditions met and deck available, swap cards available');
                 }
                 
-                // Check if clone cards should be available
-                const canUseCloneCard = this.canPlayerUseCloneCard(playerId);
+                // Check if clone cards should be available - requires all players to have rule cards
+                const canUseCloneCard = this.canPlayerUseCloneCard(playerId) && allPlayersHaveRuleCards;
                 const cloneDeckAvailable = isDeckAvailable('deckType4');
                 
                 if (!canUseCloneCard || !cloneDeckAvailable) {
                     // Filter out clone cards (deckType4)
                     availableTypes = availableTypes.filter(cardType => cardType.deckKey !== 'deckType4');
-                    if (!canUseCloneCard) {
+                    if (!this.canPlayerUseCloneCard(playerId)) {
                         console.log('[WHEEL] Clone card conditions not met, excluding clone cards. Available types:', availableTypes.map(t => t.name));
+                    } else if (!allPlayersHaveRuleCards) {
+                        console.log('[WHEEL] Not all players have rule cards, excluding clone cards. Available types:', availableTypes.map(t => t.name));
                     } else if (!cloneDeckAvailable) {
                         console.log('[WHEEL] Clone deck is empty, excluding clone cards. Available types:', availableTypes.map(t => t.name));
                     }
                 } else {
-                    console.log('[WHEEL] Clone card conditions met and deck available, clone cards available');
+                    console.log('[WHEEL] Clone card conditions met, all players have rule cards, and deck available, clone cards available');
                 }
             } else {
                 console.log('[WHEEL] No game manager or player data available, using all card types');
@@ -645,6 +658,66 @@ class WheelComponent {
         }
 
         return false;
+    }
+
+    /**
+     * Check if ALL players in the session have at least one rule card in their ruleCards list
+     * This is required for prompt and clone cards to be available
+     * @returns {boolean}
+     */
+    allPlayersHaveRuleCards() {
+        try {
+            const sessionId = window.currentSessionId;
+            if (!sessionId || !window.gameManager || !window.gameManager.gameSessions[sessionId]) {
+                console.log('[WHEEL] No session found for allPlayersHaveRuleCards check');
+                return false;
+            }
+            
+            const session = window.gameManager.gameSessions[sessionId];
+            if (!session.players || session.players.length === 0) {
+                console.log('[WHEEL] No players in session for allPlayersHaveRuleCards check');
+                return false;
+            }
+            
+            console.log('[WHEEL] Checking if all players have rule cards...');
+            
+            for (const playerId of session.players) {
+                const player = window.gameManager.players[playerId];
+                if (!player) {
+                    console.log(`[WHEEL] Player ${playerId} not found in gameManager.players`);
+                    continue;
+                }
+                
+                // Skip disconnected or left players
+                if (player.status !== 'active') {
+                    console.log(`[WHEEL] Skipping player ${playerId} (${player.displayName}) - status: ${player.status}`);
+                    continue;
+                }
+                
+                // Check if player has at least one rule card in their ruleCards array
+                const hasRuleCard = player.ruleCards && player.ruleCards.some(card =>
+                    card.type === 'rule' || card.type === 'modifier' || card.type === 'referee'
+                );
+                
+                console.log(`[WHEEL] Player ${playerId} (${player.displayName}) has rule cards:`, {
+                    hasRuleCard,
+                    ruleCardsCount: player.ruleCards ? player.ruleCards.length : 0,
+                    ruleCards: player.ruleCards ? player.ruleCards.map(c => c.type) : []
+                });
+                
+                if (!hasRuleCard) {
+                    console.log(`[WHEEL] Player ${playerId} (${player.displayName}) has no rule cards, prompt/clone cards not available`);
+                    return false;
+                }
+            }
+            
+            console.log('[WHEEL] All active players have rule cards, prompt/clone cards available');
+            return true;
+            
+        } catch (error) {
+            console.error('[WHEEL] Error in allPlayersHaveRuleCards check:', error);
+            return false;
+        }
     }
 
     /**
