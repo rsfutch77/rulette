@@ -143,10 +143,10 @@ function displayWinnerAnnouncement(gameResults) {
  * @param {Object} gameResults - The game end results
  */
 function setupEndGameEventListeners(gameResults) {
-    // Restart Game button
+    // Restart Game button (now functions as quit game)
     const restartBtn = document.getElementById('restart-game-btn');
     if (restartBtn) {
-        restartBtn.onclick = () => handleGameRestart(gameResults);
+        restartBtn.onclick = () => handleGameQuit();
     }
     
     
@@ -170,54 +170,47 @@ function setupEndGameEventListeners(gameResults) {
 }
 
 /**
- * Handle game restart request
- * @param {Object} gameResults - The game end results
+ * Handle game quit request (same functionality as quit-game-btn)
  */
-function handleGameRestart(gameResults) {
-    console.log('[END_GAME] Handling game restart request');
+async function handleGameQuit() {
+    console.log('[END_GAME] Handling game quit request');
     
     try {
-        if (!gameManager) {
-            showNotification('Game manager not available. Please refresh the page.', 'Error');
+        const sessionId = window.currentSessionId;
+        const playerId = window.getCurrentUserId ? window.getCurrentUserId() : (window.currentPlayer ? window.currentPlayer.uid : null);
+
+        if (!sessionId || !playerId) {
+            showNotification('Error: Session or player ID not found.', 'Quit Error');
             return;
         }
-        
-        if (!window.currentSessionId) {
-            showNotification('No active session found. Please create a new game.', 'Error');
+
+        // Confirm quit with user
+        const confirmQuit = confirm('Are you sure you want to quit the game?');
+        if (!confirmQuit) {
             return;
         }
+
+        showNotification('Leaving game...', 'Quitting');
         
-        // Confirm restart with user
-        const confirmRestart = confirm('Are you sure you want to restart the game? This will reset all progress.');
-        if (!confirmRestart) {
-            return;
-        }
-        
-        // Call GameManager restart method
-        const restartResult = gameManager.restartGame(window.currentSessionId);
-        
-        if (restartResult.success) {
-            console.log('[END_GAME] Game restart successful');
-            
-            // Hide the end-game modal
-            hideEndGameModal();
-            
-            // Show success notification
-            showNotification('Game restarted successfully! Starting new round...', 'Game Restarted');
-            
-            // Refresh the UI to reflect the reset state
-            setTimeout(() => {
-                refreshGameUI();
-            }, 1000);
-            
+        // Hide the end-game modal
+        hideEndGameModal();
+
+        const result = await gameManager.leaveSession(sessionId, playerId);
+        if (result.success) {
+            showNotification('You have left the game.', 'Game Left');
+            // Clear session storage
+            localStorage.removeItem('rulette_session_id');
+            localStorage.removeItem('rulette_player_data');
+            // Redirect to main menu or home page
+            document.getElementById('game-page').style.display = 'none';
+            document.getElementById('main-menu').style.display = 'block';
         } else {
-            console.error('[END_GAME] Game restart failed:', restartResult.error);
-            showNotification(`Failed to restart game: ${restartResult.error}`, 'Restart Failed');
+            showNotification(`Failed to leave game: ${result.error}`, 'Quit Error');
         }
         
     } catch (error) {
-        console.error('[END_GAME] Error during game restart:', error);
-        showNotification('Error restarting game. Check console for details.', 'Error');
+        console.error('[END_GAME] Error during game quit:', error);
+        showNotification('An unexpected error occurred while leaving the game.', 'Quit Error');
     }
 }
 
@@ -377,7 +370,7 @@ function resetGameUIToLobby() {
 // Make end-game functions available globally
 window.showEndGameModal = showEndGameModal;
 window.hideEndGameModal = hideEndGameModal;
-window.handleGameRestart = handleGameRestart;
+window.handleGameQuit = handleGameQuit;
 
 console.log('[END_GAME] End-game UI system loaded and ready');
 

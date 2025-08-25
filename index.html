@@ -827,18 +827,25 @@
     <!-- Quick Tutorial -->
     <div style="background: #f8f9fa; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; max-width: 700px; margin-left: auto; margin-right: auto;">
       <h3 style="margin: 0 0 1rem 0; color: #2c3e50; font-size: 1.2rem;">How to Play</h3>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; text-align: left;">
+      <div class="how-to-play-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; text-align: left;">
+        <style>
+          @media (max-width: 600px) {
+            .how-to-play-grid {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        </style>
         <div>
           <strong>1. Spin the Wheel</strong><br>
           <span style="color: #666; font-size: 0.9rem;">Take turns spinning to draw cards</span>
         </div>
         <div>
           <strong>2. Follow the Card</strong><br>
-          <span style="color: #666; font-size: 0.9rem;">Follow your rules at ALL times</span>
+          <span style="color: #666; font-size: 0.9rem;">Follow your rules at ALL times. If your card says "Talk like a pirate", you must do that at all times while you have that card.</span>
         </div>
         <div>
           <strong>3. Take points from other players</strong><br>
-          <span style="color: #666; font-size: 0.9rem;">Tell everyone when you suspect another player failed to follow their own rule!</span>
+          <span style="color: #666; font-size: 0.9rem;">Call out when you suspect another player failed to follow their own rule! Steal their points if the referee agrees with you.</span>
         </div>
         <div>
           <strong>4. Win!</strong><br>
@@ -874,8 +881,8 @@
     </div>
   </div>
   <!-- Game Page Section (initially hidden) -->
-  <div id="game-page" style="display:none; margin-top:2rem;">
-    <div id="game-header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem;">
+  <div id="game-page" style="display:none; padding-top:5rem;">
+    <div id="game-header" style="position:fixed; top:0; left:0; right:0; z-index:100; background:#fff; border-bottom:2px solid #dee2e6; box-shadow:0 2px 4px rgba(0,0,0,0.1); display:flex; align-items:center; justify-content:space-between; padding:1rem 2rem; margin-bottom:1.5rem;">
       <div id="game-join-code" style="font-size:1.2rem; font-weight:bold; color:#4285F4;"></div>
       <div style="display:flex; gap:1rem; align-items:center;">
         <button id="quit-game-btn" style="background:#ffc107; color:#212529; border:none; border-radius:5px; padding:0.5rem 1.2rem; font-size:1rem; cursor:pointer; font-weight:bold;" title="Leave game and return to home screen"> Quit Game</button>

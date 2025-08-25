@@ -157,7 +157,7 @@ export class PlayerManager {
         this.gameManager.players[playerId] = newPlayer;
 
         // Initialize points using the new tracking system
-        this.initializePlayerPoints(playerId, 20);
+        this.initializePlayerPoints(playerId, 10);
 
         // Initialize player presence tracking
         this.initializePlayerPresence(sessionId, playerId);
@@ -171,10 +171,10 @@ export class PlayerManager {
             sessionId: sessionId,
             displayName: displayName,
             isHost: isHost,
-            points: 20,
+            points: 10,
             status: 'active'
         });
-        console.log(`Player ${displayName} (${playerId}) initialized with 20 points and synced with Firebase. isHost: ${isHost}`);
+        console.log(`Player ${displayName} (${playerId}) initialized with 10 points and synced with Firebase. isHost: ${isHost}`);
         return newPlayer;
     }
 
@@ -213,7 +213,7 @@ export class PlayerManager {
                     this.gameManager.players[playerId] = {
                         playerId: playerId,
                         displayName: playerData.displayName || 'Unknown Player',
-                        points: playerData.points || 20,
+                        points: playerData.points || 10,
                         status: playerData.status || 'active',
                         hand: [],
                         ruleCards: playerData.ruleCards || [], // Load rule cards from Firebase
@@ -228,7 +228,7 @@ export class PlayerManager {
                         gameState: {
                             savedRole: null,
                             savedCards: [],
-                            savedPoints: playerData.points || 20,
+                            savedPoints: playerData.points || 10,
                             wasHost: playerData.isHost || false
                         }
                     };

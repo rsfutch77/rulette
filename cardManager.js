@@ -1054,6 +1054,35 @@ export class CardManager {
                     console.error(`[CARD_MANAGER] Failed to sync flipped rule card to Firebase:`, error);
                     console.error(`[FLIP_DIAGNOSIS] FAILED: Firebase sync failed for ruleCards:`, error);
                 }
+            } else if (cardLocation === 'hand') {
+                console.log(`[FLIP_DIAGNOSIS] Attempting Firebase sync for hand flip`);
+                // For cards in hand, we need to sync the entire player object or move to ruleCards
+                // Move the flipped card from hand to ruleCards since it's now an active rule
+                try {
+                    const cardIndex = gameManager.players[playerId].hand.findIndex(c => c.id === card.id);
+                    if (cardIndex !== -1) {
+                        // Remove card from hand
+                        const [flippedCard] = gameManager.players[playerId].hand.splice(cardIndex, 1);
+                        
+                        // Ensure ruleCards array exists
+                        if (!gameManager.players[playerId].ruleCards) {
+                            gameManager.players[playerId].ruleCards = [];
+                        }
+                        
+                        // Add to ruleCards
+                        gameManager.players[playerId].ruleCards.push(flippedCard);
+                        
+                        console.log(`[CARD_MANAGER] Moved flipped card from hand to ruleCards for player ${playerId}`);
+                    }
+                    
+                    // Sync updated rule cards to Firebase
+                    await updateFirestorePlayerRuleCards(playerId, gameManager.players[playerId].ruleCards);
+                    console.log(`[CARD_MANAGER] Synced flipped card from hand to Firebase for player ${playerId}`);
+                    console.log(`[FLIP_DIAGNOSIS] SUCCESS: Firebase sync completed for hand->ruleCards`);
+                } catch (error) {
+                    console.error(`[CARD_MANAGER] Failed to sync flipped card from hand to Firebase:`, error);
+                    console.error(`[FLIP_DIAGNOSIS] FAILED: Firebase sync failed for hand->ruleCards:`, error);
+                }
             } else {
                 console.log(`[FLIP_DIAGNOSIS] Unknown card location: ${cardLocation} - NO DATABASE SYNC PERFORMED!`);
             }

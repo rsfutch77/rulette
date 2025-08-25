@@ -103,7 +103,7 @@ export class GameManager {
             points: 10,
             status: 'active'
         });
-        console.log(`Player ${displayName} (${playerId}) initialized with 20 points and synced with Firebase. isHost: ${isHost}`);
+        console.log(`Player ${displayName} (${playerId}) initialized with 10 points and synced with Firebase. isHost: ${isHost}`);
         return newPlayer;
     }
 
@@ -1453,7 +1453,7 @@ export class GameManager {
                         playerStatuses[playerId] = {
                             displayName: 'Unknown Player',
                             status: 'active',
-                            points: 20,
+                            points: 10,
                             isHost: session.hostId === playerId,
                             isReferee: session.referee === playerId
                         };
@@ -1464,7 +1464,7 @@ export class GameManager {
                     playerStatuses[playerId] = {
                         displayName: 'Unknown Player',
                         status: 'active',
-                        points: 20,
+                        points: 10,
                         isHost: session.hostId === playerId,
                         isReferee: session.referee === playerId
                     };
@@ -2515,7 +2515,7 @@ export class GameManager {
         // Reset player points to initial values
         for (const playerId of session.players) {
             if (this.players[playerId]) {
-                this.playerManager.initializePlayerPoints(playerId, 20); // Reset to starting points
+                this.playerManager.initializePlayerPoints(playerId, 10); // Reset to starting points
             }
         }
 
