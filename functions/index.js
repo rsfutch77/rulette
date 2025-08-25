@@ -19,6 +19,53 @@ function getTodayDateString() {
 }
 
 /**
+ * Clean up old daily stats entries, keeping only the last 30 days
+ * @param {Object} dailyStats - Current daily stats object
+ * @param {string} currentDate - Current date string
+ * @returns {Object} Cleaned daily stats object
+ */
+function cleanupOldDailyStats(dailyStats, currentDate) {
+  if (!dailyStats) return {};
+  
+  const daysToKeep = 14;
+  const currentDateObj = new Date(currentDate);
+  const cutoffDate = new Date(currentDateObj.getTime() - (daysToKeep * 24 * 60 * 60 * 1000));
+  const cutoffDateString = cutoffDate.toISOString().split('T')[0];
+  
+  const cleanedStats = {};
+  for (const [dateKey, stats] of Object.entries(dailyStats)) {
+    if (dateKey >= cutoffDateString) {
+      cleanedStats[dateKey] = stats;
+    } else {
+      console.log(`[TRACKING] Removing old daily stats for ${dateKey}`);
+    }
+  }
+  
+  return cleanedStats;
+}
+
+/**
+ * Check if it's a new day and clean up old daily stats if needed
+ * @param {Object} currentData - Current tracking document data
+ * @param {string} todayDate - Today's date string
+ * @returns {boolean} True if cleanup was needed
+ */
+function shouldCleanupDailyStats(currentData, todayDate) {
+  if (!currentData.dailyStats) return false;
+  
+  // Check if today's date already exists in daily stats
+  const todayExists = todayDate in currentData.dailyStats;
+  
+  // If today doesn't exist, it's a new day and we should cleanup
+  if (!todayExists) {
+    console.log(`[TRACKING] New day detected (${todayDate}). Previous day data will be preserved, old data cleaned up.`);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Increment transaction counter
  * @param {string} operationType - 'read', 'write', 'create', or 'update'
  * @param {string} collection - The collection being accessed
@@ -61,6 +108,9 @@ async function incrementTransactionCounter(operationType, collection, docId) {
       const currentData = trackingDoc.data();
       const newTotalTransactions = (currentData.totalTransactions || 0) + 1;
       
+      // Check if we need to clean up old daily stats (new day detected)
+      const needsCleanup = shouldCleanupDailyStats(currentData, todayDate);
+      
       const updateData = {
         totalTransactions: FieldValue.increment(1),
         lastUpdated: FieldValue.serverTimestamp(),
@@ -72,6 +122,13 @@ async function incrementTransactionCounter(operationType, collection, docId) {
           timestamp: FieldValue.serverTimestamp()
         }
       };
+      
+      // If it's a new day, clean up old daily stats
+      if (needsCleanup) {
+        const cleanedDailyStats = cleanupOldDailyStats(currentData.dailyStats, todayDate);
+        updateData.dailyStats = cleanedDailyStats;
+        console.log(`[TRACKING] Cleaned up old daily stats`);
+      }
       
       if (operationType === 'read') {
         updateData[`dailyStats.${todayDate}.readOperations`] = FieldValue.increment(1);
