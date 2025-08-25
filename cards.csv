@@ -3,10 +3,10 @@ rule,TALK LIKE CHISTROPHER WALKEN,TALK LIKE ROBERT DENIRO,,,,,,
 rule,TALK LIKE A PIRATE,TALK LIKE A NINJA,,,,,,
 rule,MAKE A FUNNY FACE,MAKE A SERIOUS FACE,,,,,,
 rule,TALK LIKE A BABY,TALK LIKE AN OLD PERSON,,,,,,
-prompt,DO A DANCE,,PROMPT_001,Dance Challenge,Perform a dance of your choice for at least 30 seconds,Referee to judge based on effort and duration. Player must dance for 30 seconds or more.,2,true
+prompt,DO A DANCE,,PROMPT_001,Dance Challenge,Perform a dance of your choice for at least 30 seconds,Referee to judge based on effort and duration. Player must dance for 30 seconds or more.,1,true
 prompt,MAKE A JOKE,,PROMPT_002,Comedy Challenge,Tell a joke that makes at least one other player laugh,Referee to judge based on whether the joke elicited genuine laughter from other players.,1,false
-prompt,DO A CARTWHEEL,,PROMPT_003,Cartwheel Challenge,Perform a cartwheel or attempt one safely,Referee to judge based on effort and safety. Partial attempts count if done safely.,3,true
-prompt,DO A MAGIC TRICK,,PROMPT_004,Magic Challenge,Perform a magic trick or illusion for the group,Referee to judge based on creativity and presentation. Simple tricks are acceptable.,2,false
+prompt,DO A CARTWHEEL,,PROMPT_003,Cartwheel Challenge,Perform a cartwheel or attempt one safely,Referee to judge based on effort and safety. Partial attempts count if done safely.,1,true
+prompt,DO A MAGIC TRICK,,PROMPT_004,Magic Challenge,Perform a magic trick or illusion for the group,Referee to judge based on creativity and presentation. Simple tricks are acceptable.,1,false
 modifier,NICELY,RUDELY,,,,,,
 modifier,EXCITEDLY,ANGRILY,,,,,,
 modifier,QUIETLY,LOUDLY,,,,,,
@@ -30,11 +30,11 @@ rule,POINT AT SOMEONE,POINT AT SELF,,,,,,
 rule,FACE AWAY,STARE AT SOMEONE,,,,,,
 rule,CLAP BETWEEN WORDS,SNAP AFTER SENTENCES,,,,,,
 rule,SPEAK ONLY IN QUESTIONS,NO QUESTIONS,,,,,,
-prompt,SING HAPPY BIRTHDAY LIKE AN OPERA SINGER,,PROMPT_005,Opera Birthday,Sing Happy Birthday in an operatic style with dramatic gestures,Referee to judge based on vocal effort and theatrical presentation. Player must sing the full song.,3,true
-prompt,DO YOUR BEST IMPRESSION OF A CAT TRYING TO COUGH UP A HAIRBALL,,PROMPT_006,Hairball Cat,Perform a convincing impression of a cat with a hairball,Referee to judge based on accuracy and commitment to the performance.,2,false
-prompt,PRETEND TO BE A WEATHER REPORTER IN A TORNADO,,PROMPT_007,Storm Reporter,Act as a weather reporter reporting live from inside a tornado,Referee to judge based on dramatic delivery and weather reporting accuracy.,2,false
-prompt,ACT OUT MAKING A SANDWICH BUT YOU'RE ALSO A SECRET AGENT,,PROMPT_008,Secret Sandwich,Perform making a sandwich while maintaining secret agent persona,Referee to judge based on creativity in combining both activities believably.,3,true
-prompt,GIVE A MOTIVATIONAL SPEECH TO A HOUSEPLANT,,PROMPT_009,Plant Motivation,Deliver an inspiring motivational speech directed at a houseplant,Referee to judge based on sincerity and motivational content quality.,2,false
+prompt,SING HAPPY BIRTHDAY LIKE AN OPERA SINGER,,PROMPT_005,Opera Birthday,Sing Happy Birthday in an operatic style with dramatic gestures,Referee to judge based on vocal effort and theatrical presentation. Player must sing the full song.,1,true
+prompt,DO YOUR BEST IMPRESSION OF A CAT TRYING TO COUGH UP A HAIRBALL,,PROMPT_006,Hairball Cat,Perform a convincing impression of a cat with a hairball,Referee to judge based on accuracy and commitment to the performance.,1,false
+prompt,PRETEND TO BE A WEATHER REPORTER IN A TORNADO,,PROMPT_007,Storm Reporter,Act as a weather reporter reporting live from inside a tornado,Referee to judge based on dramatic delivery and weather reporting accuracy.,1,false
+prompt,ACT OUT MAKING A SANDWICH BUT YOU'RE ALSO A SECRET AGENT,,PROMPT_008,Secret Sandwich,Perform making a sandwich while maintaining secret agent persona,Referee to judge based on creativity in combining both activities believably.,1,true
+prompt,GIVE A MOTIVATIONAL SPEECH TO A HOUSEPLANT,,PROMPT_009,Plant Motivation,Deliver an inspiring motivational speech directed at a houseplant,Referee to judge based on sincerity and motivational content quality.,1,false
 modifier,YOU REALLY HAVE TO POOP,YOU FINALLY GOT TO POOP,,,,,,
 modifier,WHILE DOING JAZZ HANDS,WHILE DOING THE ROBOT,,,,,,
 modifier,LIKE YOU'RE UNDERWATER,WHILE BEING ELECTROCUTED,,,,,,
