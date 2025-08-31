@@ -113,34 +113,56 @@ async function incrementTransactionCounter(operationType, collection, docId) {
       
       const updateData = {
         totalTransactions: FieldValue.increment(1),
-        lastUpdated: FieldValue.serverTimestamp(),
-        [`dailyStats.${todayDate}.totalTransactions`]: FieldValue.increment(1),
-        [`dailyStats.${todayDate}.lastOperation`]: {
+        lastUpdated: FieldValue.serverTimestamp()
+      };
+      
+      // If it's a new day, clean up old daily stats and initialize new date
+      if (needsCleanup) {
+        const cleanedDailyStats = cleanupOldDailyStats(currentData.dailyStats, todayDate);
+        
+        // Initialize today's stats in the cleaned data
+        cleanedDailyStats[todayDate] = {
+          totalTransactions: 1,
+          readOperations: operationType === 'read' ? 1 : 0,
+          writeOperations: ['write', 'create', 'update'].includes(operationType) ? 1 : 0,
+          createOperations: operationType === 'create' ? 1 : 0,
+          updateOperations: operationType === 'update' ? 1 : 0,
+          lastOperation: {
+            type: operationType,
+            collection: collection,
+            docId: docId,
+            timestamp: FieldValue.serverTimestamp()
+          }
+        };
+        
+        updateData.dailyStats = cleanedDailyStats;
+        console.log(`[TRACKING] Cleaned up old daily stats and initialized new date: ${todayDate}`);
+      } else {
+        // Normal day - increment existing values
+        updateData[`dailyStats.${todayDate}.totalTransactions`] = FieldValue.increment(1);
+        updateData[`dailyStats.${todayDate}.lastOperation`] = {
           type: operationType,
           collection: collection,
           docId: docId,
           timestamp: FieldValue.serverTimestamp()
-        }
-      };
-      
-      // If it's a new day, clean up old daily stats
-      if (needsCleanup) {
-        const cleanedDailyStats = cleanupOldDailyStats(currentData.dailyStats, todayDate);
-        updateData.dailyStats = cleanedDailyStats;
-        console.log(`[TRACKING] Cleaned up old daily stats`);
+        };
       }
       
-      if (operationType === 'read') {
-        updateData[`dailyStats.${todayDate}.readOperations`] = FieldValue.increment(1);
-      } else if (['write', 'create', 'update'].includes(operationType)) {
-        updateData[`dailyStats.${todayDate}.writeOperations`] = FieldValue.increment(1);
-        
-        if (operationType === 'create') {
-          updateData[`dailyStats.${todayDate}.createOperations`] = FieldValue.increment(1);
-        } else if (operationType === 'update') {
-          updateData[`dailyStats.${todayDate}.updateOperations`] = FieldValue.increment(1);
+      // Only add increment operations if it's NOT a new day (cleanup wasn't needed)
+      if (!needsCleanup) {
+        if (operationType === 'read') {
+          updateData[`dailyStats.${todayDate}.readOperations`] = FieldValue.increment(1);
+        } else if (['write', 'create', 'update'].includes(operationType)) {
+          updateData[`dailyStats.${todayDate}.writeOperations`] = FieldValue.increment(1);
+          
+          if (operationType === 'create') {
+            updateData[`dailyStats.${todayDate}.createOperations`] = FieldValue.increment(1);
+          } else if (operationType === 'update') {
+            updateData[`dailyStats.${todayDate}.updateOperations`] = FieldValue.increment(1);
+          }
         }
       }
+      // If cleanup was needed, the stats were already initialized above with correct values
       
       
       await trackingDocRef.update(updateData);
